@@ -49,8 +49,8 @@ var enemy = {
 	range: 3,
 	turns: 2,
 	// seenX/Y: the last seen x y coords of the player
-	seenX: 1,
-	seenY: 1
+	seenX: player.x,
+	seenY: player.y
 };
 
 var entities = new Array();
