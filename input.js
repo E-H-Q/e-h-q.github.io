@@ -11,10 +11,7 @@ var input = {
 		if (event.keyCode === 9) {
 			action.value = (action.value === "move") ? "attack" : "move";
 			document.activeElement.blur();
-			// tricks the mouse event listener into activating when attack mode is enabled
 			update();
-			const trick = new MouseEvent('mousemove', {clientX: mouse_pos.x, clientY: mouse_pos.y});
-			input.mouse(trick);
 		}
 	},
 	mouse: function(event) {
@@ -51,13 +48,7 @@ var input = {
 				cursor.style.visibility = "visible";
 			}
 			
-			//update();
-			// If update is run, the enemies take infinite turns becuse the mouse movement during thier turn triggers update()
-			canvas.clear();
-			canvas.grid(); // draws the grid on canvas
-			canvas.walls(); // draws the walls
-			canvas.player(); // draws the player
-			canvas.enemy(); // draws the enemies
+			update();
 			canvas.los(path);
 		} else {
 			cursor.style.visibility = "visible";
@@ -104,22 +95,22 @@ var input = {
 					end: { x: targetEnemy.x, y: targetEnemy.y }
 				};
 				const check = calc.los(look);
-				const dist = calc.distance(player.x, targetEnemy.x, player.y, targetEnemy.y);
-				if (!check || check.length === 0) {
-					return;
-				}
-
+				
 				if (check) {
-					if (check.length < dist) {
-						console.log("blocked");
+					const dist = calc.distance(player.x, targetEnemy.x, player.y, targetEnemy.y);
+					
+					// Check if target is within range
+					if (dist > player.attack_range) {
+						console.log("Target out of range!");
 						return;
 					}
-
-					const lengthDiff = Math.abs(check.length - dist);	
+					
+					const lengthDiff = Math.abs(check.length - dist);
+					
 					if (lengthDiff <= 1) {
-						if (dist <= player.attack_range) {
-							turns.attack(targetEnemy, player);
-						}
+						turns.attack(targetEnemy, player);
+					} else {
+						console.log("PLAYER shoots at the wall...");
 					}
 				}
 				update();
