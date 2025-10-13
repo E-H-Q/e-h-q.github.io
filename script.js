@@ -45,19 +45,26 @@ function update() {
 
 	div_for_coords.innerHTML = "X: " + player.x + ", Y: " + player.y;
 	
-	populate.enemies();
-	populate.player();
-
 	canvas.player(); // draws the player
 	canvas.enemy(); // draws the enemies	
 
+	populate.enemies();
+	populate.player();
 	turns.check();
 	updateTurnOrder();
 }
 
 document.getElementById("content").classList.remove("hidden"); // un-hides everything on the page
 action.selectedIndex = 0; // resets the dropdown
-c.onmousemove = input.mouse; // mouse
+
+function handleMouseMove(event) {
+	if (currentEntityIndex >= 0 && entities[currentEntityIndex] !== player) {
+		return; // Ignore mouse during enemy turns
+	}
+	input.mouse(event);
+}
+
+c.onmousemove = handleMouseMove; // mouse
 cursor.addEventListener("click", input.click);
 document.addEventListener("keyup", input.keyboard);
 
