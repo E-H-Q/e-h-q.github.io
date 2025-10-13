@@ -1,156 +1,202 @@
 // TURNS.JS: HANDLES TURN ORDER AND TURN ACTIONS
+
+var currentEntityIndex = -1;
+var currentEntityTurnsRemaining = 0;
+
 var turns = {
-	check: function() { // checks which action function(s) to call, (move, attack, item, etc.)
+	check: function() {
 		if (player.hp < 1) {
-			var music = new Audio('sound.wav');
+			const music = new Audio('sound.wav');
 			music.play();
 			music.loop = false;
 			music.playbackRate = 1.5;
 			c.style = "pointer-events: none;";
+			console.log("YOU DIED\n");
+			return;
+		}
 
-			console.log("YOU DIED\n")
+		// Initialize turn system
+		if (currentEntityTurnsRemaining <= 0) {
+			currentEntityIndex++;
+			if (currentEntityIndex >= entities.length) {
+				currentEntityIndex = 0;
+			}
+			currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 		}
-		// hardcoded vars!:
-		if (turns_taken == 4) { // enemy goes every other two turns
-			turns_taken = 0;
-		}
-		if (turns_taken == 2 || turns_taken == 3) { 
-			///////////////// -=- ENEMY TURN -=- /////////////////
-			if (enemy.hp > 1) {
-				var look = { // start + end coords for LOS
-					start: {
-						x: enemy.x,
-						y: enemy.y
-					},
-					end: {
-						x: player.x,
-						y: player.y
-					}
+
+		const currentEntity = entities[currentEntityIndex];
+		
+		// Handle AI turns with delay
+		if (currentEntity !== player && currentEntityTurnsRemaining > 0) {
+			// Show enemy movement range
+			calc.move(currentEntity);
+			
+			// Only show LOS if player is within attack range
+			const dist = calc.distance(currentEntity.x, player.x, currentEntity.y, player.y);
+			if (dist <= currentEntity.attack_range) {
+				const lookAtPlayer = {
+					start: { x: currentEntity.x, y: currentEntity.y },
+					end: { x: player.x, y: player.y }
 				};
-				/*
-				if (calc.los(look)) {
-					console.log(calc.los(look));
-					turns.attack(player, enemy);
+				const pathToPlayer = calc.los(lookAtPlayer);
+				if (pathToPlayer.length > 1) {
+					canvas.los(pathToPlayer.slice(1)); // Don't draw over enemy
 				}
-				*/
-				var check = calc.los(look);
-				if (check) {
-					//console.log(check);
-					var dist = calc.distance(enemy.x, player.x, enemy.y, player.y);
-	
-					//console.log(dist);
-					// some hacky shit here vvv might cause issues down the line...
-					if (check.length == dist || check.length == dist + 1) {
-						// REMEMBER WHERE PLAYER IS
-						enemy.seenX = player.x;
-						enemy.seenY = player.y;
-						// ATTACK vvv
-						turns.attack(player, enemy); // enemy =/= enemies!
-					/*
-					} else if (check.length == dist + 1) {
-						// ATTACK vvv
-						turns.attack(player, enemy);
-					*/
-					} else {
-						//console.log(valid);
-
-						if (enemy.seenX == player.x && enemy.seenY == player.y) {	// if enemy has seen the player (WHAT IF PLAYER IS @ 1,1 ?!?!?!)
-							calc.move(enemy);
-							//var res = astar.search(graph, graph.grid[enemy.x][enemy.y], graph.grid[enemy.seenX][enemy.seenY]);
-							//console.log(res);
-							turns.move(enemy, enemy.x+1, enemy.y+1);
-						} else {
-							var direction = Math.floor(Math.random() * (9 - 1) + 1);
-							switch (direction) {
-								case 1:
-									calc.move(enemy);
-									turns.move(enemy, enemy.x-1, enemy.y+1);
-									break;
-								case 2:
-									calc.move(enemy);
-									turns.move(enemy, enemy.x, enemy.y+1);
-									break;
-								case 3:
-									calc.move(enemy);
-									turns.move(enemy, enemy.x+1, enemy.y+1);
-									break;
-								case 4:
-									calc.move(enemy);
-									turns.move(enemy, enemy.x-1, enemy.y);
-									break;
-								case 5:
-									calc.move(enemy);
-									console.log("ENEMY does nothing....");
-									turns_taken++;
-									break;
-								case 6:
-									calc.move(enemy);
-									turns.move(enemy, enemy.x+1, enemy.y);
-									break;
-								case 7:
-									calc.move(enemy);
-									turns.move(enemy, enemy.x-1, enemy.y-1);
-									break;
-								case 8:
-									calc.move(enemy);
-									turns.move(enemy, enemy.x, enemy.y-1);
-									break;
-								case 9:
-									calc.move(enemy);
-									turns.move(enemy, enemy.x+1, enemy.y-1);
-									break;
-							}
-						}
-						//turns_taken++;
-					}
-					//turns.attack(player, enemy);
-				}
+			}
+			
+			setTimeout(() => {
+				this.enemyTurn(currentEntity);
 				update();
+			}, 250);
+			return;
+		}
+
+		// Show valid moves for player
+		if (currentEntity === player && action.value === "move") {
+			calc.move(player);
+		}
+	},
+	
+	enemyTurn: function(entity) {
+		if (entity.hp < 1) {
+			currentEntityTurnsRemaining = 0;
+			return;
+		}
+		
+		const look = {
+			start: { x: entity.x, y: entity.y },
+			end: { x: player.x, y: player.y }
+		};
+		const check = calc.los(look);
+		const dist = calc.distance(entity.x, player.x, entity.y, player.y);
+		
+		if (!check || check.length === 0) {
+			this.enemyMove(entity);
+			return;
+		}
+		
+		// Check if LOS is blocked
+		if (check.length < dist) {
+			this.enemyMove(entity);
+			return;
+		}
+		
+		const lengthDiff = Math.abs(check.length - dist);
+		if (lengthDiff <= 1) {
+			// Can see player clearly
+			entity.seenX = player.x;
+			entity.seenY = player.y;
+			
+			// Check if in attack range
+			if (dist <= entity.attack_range) {
+				this.attack(player, entity);
+			} else {
+				// Out of range, move closer using pathfinding
+				this.enemyMoveToward(entity, player.x, player.y);
+			}
+		} else {
+			this.enemyMove(entity);
+		}
+	},
+	
+	enemyMove: function(entity) {
+		calc.move(entity);
+		
+		let dx = 0, dy = 0;
+		
+		// If enemy has seen the player, move toward last seen position
+		if (entity.seenX !== 0 || entity.seenY !== 0) {
+			// Use pathfinding to move toward last seen position
+			this.enemyMoveToward(entity, entity.seenX, entity.seenY);
+			return;
+		} else {
+			// Random movement if haven't seen player
+			const moves = [
+				[-1, -1], [0, -1], [1, -1],
+				[-1, 0], [0, 0], [1, 0],
+				[-1, 1], [0, 1], [1, 1]
+			];
+			const direction = Math.floor(Math.random() * 9);
+			[dx, dy] = moves[direction];
+		}
+		
+		// Move without calling update() to avoid recursion
+		if (pts[entity.x + dx] && pts[entity.x + dx][entity.y + dy] !== 0) {
+			entity.x += dx;
+			entity.y += dy;
+		}
+		currentEntityTurnsRemaining--;
+	},
+	
+	enemyMoveToward: function(entity, targetX, targetY) {
+		calc.move(entity);
+		
+		if (!graph || !pts) {
+			currentEntityTurnsRemaining--;
+			return;
+		}
+		
+		// Use A* to find path to target
+		const path = astar.search(graph, graph.grid[entity.x][entity.y], graph.grid[targetX][targetY], {
+			closest: true
+		});
+		
+		// Move up to 2 steps along the path (or entity's range if less)
+		const maxSteps = Math.min(2, entity.range, path.length);
+		if (path.length > 0 && maxSteps > 0) {
+			const targetStep = path[maxSteps - 1];
+			if (pts[targetStep.x] && pts[targetStep.x][targetStep.y] !== 0) {
+				entity.x = targetStep.x;
+				entity.y = targetStep.y;
+			}
+			
+			// Check if reached last seen position
+			if (entity.x === entity.seenX && entity.y === entity.seenY) {
+				entity.seenX = 0;
+				entity.seenY = 0;
 			}
 		}
-		switch(action.value) {
-			case "move":
-				//console.log("MOVE");
-				calc.move(player);
-				break;
-		}
+		currentEntityTurnsRemaining--;
 	},
+	
 	move: function(entity, x, y) {	
-		if (pts[x][y] != 0) {
+		if (pts[x] && pts[x][y] !== 0) {
 			entity.x = x;
 			entity.y = y;
-
-			turns_taken++;
+			currentEntityTurnsRemaining--;
+			
+			// If this was the player's last turn, force end of turn
+			if (entity === player && currentEntityTurnsRemaining <= 0) {
+				currentEntityIndex++;
+				if (currentEntityIndex >= entities.length) {
+					currentEntityIndex = 0;
+				}
+				currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+			}
+			
 			update();
 		}
 	},
+	
 	attack: function(target, entity) {
-		//console.log("ATTACK:");		
-		var roll = calc.roll(6, 1);
-		//console.log(roll);
-
-		// determine hit (w stupid-dnd rules)
-		if (roll >= 4) {
-			roll = calc.roll(6, 1); // new roll
-			target.hp = target.hp - roll;
-			console.log("\n", entity.name, "hits", target.name, "for", roll, "DMG!");
-			turns_taken++;
-			//console.log(roll, "DAMAGE!!");
+		const hitRoll = calc.roll(6, 1);
+		
+		if (hitRoll >= 4) {
+			const dmgRoll = calc.roll(6, 1);
+			target.hp -= dmgRoll;
+			console.log("\n", entity.name, "hits", target.name, "for", dmgRoll, "DMG!");
 		} else {
 			console.log("\n", entity.name, "attacks and misses", target.name, "...");
-			//console.log("\n" + "MISS...");
-			turns_taken++;
 		}
-
-		/*
-		if (target.hp < 1) { // version of this is also in canvas.enemy()
-			console.log("\n", entity.name, "kills", target.name, "with", roll, "DMG!!!");
-			//console.log("KILL!!!");
-			pts[target.x][target.y] = 1;
-			entities.pop();
-			turns_taken++;
-			update();
+		currentEntityTurnsRemaining--;
+		
+		// If this was the player's last turn, force end of turn
+		if (entity === player && currentEntityTurnsRemaining <= 0) {
+			currentEntityIndex++;
+			if (currentEntityIndex >= entities.length) {
+				currentEntityIndex = 0;
+			}
+			currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 		}
-		*/
 	}
 };
