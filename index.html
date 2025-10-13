@@ -8,40 +8,63 @@
 				background-color: #000000;
 				color: #FFFFFF;
 				margin: 0;
+				display: flex;
 			}
 			canvas {
-				border: 1px solid #FFFFFF;
-				display: block;
+border: 1px solid #FFFFFF;
+display: block;
 			}
-			.hidden {
-				display: none;
-			}
-			#pep, #enemy {
-				display: none;
-			}
-		</style>
-	</head>
-	<body>
-		<img id="pep" src="pep.png"></img>
-		<img id="enemy" src="enemy.png"></img>
-		<audio src="sound.wav"></audio>
-		<div class="hidden" id="content">
-			<div id="cursor"></div>
-			<canvas id="canvas"></canvas> <!-- the "screen" -->
-			<select id="actions" onchange="update()">
-				<option value="move">MOVE</option>
-				<option value="attack">ATTK</option>
-			</select>
-			<div id="controls">
-				EDIT MODE:<input type="checkbox" id="edit"></input>
-				<a href="" id="save_button"><button onclick="save_map()">SAVE MAP</button></a>
-				<input id="file" type="file" onchange="load_map()"/>
-				<br>
-				<button style="float: right;" onclick="KILL_ENEMY()">KILL ENEMY</button>
-			</div>
-			<div id="result"></div>
-		</div>
-		<script type="text/javascript" src="main.js"></script> <!-- needs to first -->
+.hidden {
+display: none;
+}
+#pep, #enemy {
+display: none;
+}
+#sidebar {
+width: 200px;
+padding: 20px;
+		 border-left: 1px solid #FFFFFF;
+		 margin-left: 20px;
+}
+#sidebar h3 {
+	margin-top: 0;
+}
+.turn-entity {
+padding: 10px;
+margin: 5px 0;
+border: 1px solid #FFFFFF;
+}
+.turn-entity.active {
+color: #FF0000;
+	   font-weight: bold;
+}
+</style>
+</head>
+<body>
+<img id="pep" src="pep.png"></img>
+<img id="enemy" src="enemy.png"></img>
+<audio src="sound.wav"></audio>
+<div class="hidden" id="content">
+<div id="cursor"></div>
+<canvas id="canvas"></canvas> <!-- the "screen" -->
+<select id="actions" onchange="update()">
+<option value="move">MOVE</option>
+<option value="attack">ATTK</option>
+</select>
+<div id="controls">
+EDIT MODE:<input type="checkbox" id="edit"></input>
+<a href="" id="save_button"><button onclick="save_map()">SAVE MAP</button></a>
+<input id="file" type="file" onchange="load_map()"/>
+<br>
+<button style="float: right;" onclick="KILL_ENEMY()">KILL ENEMY</button>
+</div>
+<div id="result"></div>
+</div>
+<div id="sidebar">
+<h3>TURN ORDER</h3>
+<div id="turn-order"></div>
+</div>
+<script type="text/javascript" src="main.js"></script> <!-- needs to first -->
 		<script type="text/javascript" src="io.js"></script>
 		<script type="text/javascript" src="los.js"></script>
 		<script type="text/javascript" src="astar.js"></script>
