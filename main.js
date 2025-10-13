@@ -89,7 +89,7 @@ function spawnEnemy() {
 	
 	if (spawnX !== null) {
 		const newEnemy = {
-			name: "enemy" + (allEnemies.length + 1),
+			name: "enemy" + (allEnemies.length),
 			hp: 15,
 			x: spawnX,
 			y: spawnY,
