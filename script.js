@@ -10,11 +10,32 @@ function updateTurnOrder() {
 		const entity = entities[i];
 		const isActive = (i === currentEntityIndex);
 		const turnsDisplay = isActive ? ` (${currentEntityTurnsRemaining}/${entity.turns})` : ` (${entity.turns})`;
+		
+		// Add X button for all entities except player
+		const killButton = entity !== player ? 
+			`<button onclick="killEntity(${i})" style="float: right; background: #ff0000; color: #fff; border: none; padding: 2px 6px; cursor: pointer;">X</button>` : '';
+		
 		html += '<div class="turn-entity ' + (isActive ? 'active' : '') + '">' + 
-		        entity.name.toUpperCase() + turnsDisplay + '</div>';
+		        entity.name.toUpperCase() + turnsDisplay + killButton + '</div>';
 	}
 	
 	turnOrder.innerHTML = html;
+}
+
+function killEntity(index) {
+	if (index >= 0 && index < entities.length && entities[index] !== player) {
+		entities[index].hp = 0;
+		
+		// Adjust current turn if killing an entity before current turn
+		if (index < currentEntityIndex) {
+			currentEntityIndex--;
+		} else if (index === currentEntityIndex) {
+			// If killing current entity, skip their turn
+			currentEntityTurnsRemaining = 0;
+		}
+		
+		update();
+	}
 }
 
 function update() {

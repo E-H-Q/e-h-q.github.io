@@ -52,22 +52,60 @@ var enemy = {
 	seenY: 0
 };
 
-var enemy2 = {
-	name: "enemy2",
-	hp: 15,
-	x: 4,
-	y: 2,
-	range: 3,
-	attack_range: 3,
-	turns: 2,
-	seenX: 0,
-	seenY: 0
-};
-
 // Store all enemy instances here for easy duplication
-var allEnemies = [enemy, enemy2];
+var allEnemies = [enemy];
 
 var entities = [];
+
+function spawnEnemy() {
+	// Check adjacent tiles around first enemy
+	const adjacentOffsets = [
+		[1, 0], [-1, 0], [0, 1], [0, -1],  // orthogonal
+		[1, 1], [1, -1], [-1, 1], [-1, -1]  // diagonal
+	];
+	
+	let spawnX = null;
+	let spawnY = null;
+	
+	// Find first empty adjacent tile
+	for (let offset of adjacentOffsets) {
+		const testX = enemy.x + offset[0];
+		const testY = enemy.y + offset[1];
+		
+		// Check bounds
+		if (testX < 0 || testX >= size || testY < 0 || testY >= size) continue;
+		
+		// Check if tile is empty (no wall, no entity)
+		const hasWall = walls.find(w => w.x === testX && w.y === testY);
+		const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === testX && e.y === testY);
+		const hasPlayer = (player.x === testX && player.y === testY);
+		
+		if (!hasWall && !hasEntity && !hasPlayer) {
+			spawnX = testX;
+			spawnY = testY;
+			break;
+		}
+	}
+	
+	if (spawnX !== null) {
+		const newEnemy = {
+			name: "enemy" + (allEnemies.length + 1),
+			hp: 15,
+			x: spawnX,
+			y: spawnY,
+			range: 3,
+			attack_range: 3,
+			turns: 2,
+			seenX: 0,
+			seenY: 0
+		};
+		allEnemies.push(newEnemy);
+		update();
+		console.log("Spawned", newEnemy.name, "at", spawnX, spawnY);
+	} else {
+		console.log("No valid spawn location found!");
+	}
+}
 
 var populate = {
 	enemies: function() {

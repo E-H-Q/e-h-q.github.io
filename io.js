@@ -1,12 +1,5 @@
 // IO.JS: HANDLES LOADING + SAVING MAP DATA
 
-function KILL_ENEMY() { // here temporarily, just a sloppy function passing through ;^)
-	for (var i = 0; i < allEnemies.length; i++) {
-		allEnemies[i].hp = 0;
-		update();
-	}
-}
-
 function save_map() {
 	text = JSON.stringify(walls);
 	name = "map";
