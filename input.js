@@ -11,7 +11,10 @@ var input = {
 		if (event.keyCode === 9) {
 			action.value = (action.value === "move") ? "attack" : "move";
 			document.activeElement.blur();
+			// tricks the mouse event listener into activating when attack mode is enabled, drawing the LOS line
 			update();
+			const trick = new MouseEvent('mousemove', {clientX: mouse_pos.x, clientY: mouse_pos.y});
+			input.mouse(trick);
 		}
 	},
 	mouse: function(event) {

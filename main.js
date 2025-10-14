@@ -69,25 +69,29 @@ function spawnEnemy() {
 	
 	// Find first empty adjacent tile
 	for (let offset of adjacentOffsets) {
-		const testX = enemy.x + offset[0];
-		const testY = enemy.y + offset[1];
+		for (var i = 0; i < allEnemies.length; i++) {
+			//const testX = enemy.x + offset[0];
+			//const testY = enemy.y + offset[1];
+			const testX = allEnemies[i].x + offset[0];
+			const testY = allEnemies[i].y + offset[1];
 		
-		// Check bounds
-		if (testX < 0 || testX >= size || testY < 0 || testY >= size) continue;
+			// Check bounds
+			if (testX < 0 || testX >= size || testY < 0 || testY >= size) continue;
 		
-		// Check if tile is empty (no wall, no entity)
-		const hasWall = walls.find(w => w.x === testX && w.y === testY);
-		const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === testX && e.y === testY);
-		const hasPlayer = (player.x === testX && player.y === testY);
+			// Check if tile is empty (no wall, no entity)
+			const hasWall = walls.find(w => w.x === testX && w.y === testY);
+			const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === testX && e.y === testY);
+			const hasPlayer = (player.x === testX && player.y === testY);
 		
-		if (!hasWall && !hasEntity && !hasPlayer) {
-			spawnX = testX;
-			spawnY = testY;
-			break;
+			if (!hasWall && !hasEntity && !hasPlayer) {
+				spawnX = testX;
+				spawnY = testY;
+				break;
+			}
 		}
 	}
 	
-	if (spawnX !== null) {
+	if (spawnX !== null) { 
 		const newEnemy = {
 			name: "enemy" + (allEnemies.length),
 			hp: 15,
