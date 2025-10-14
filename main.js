@@ -58,48 +58,70 @@ var allEnemies = [enemy];
 var entities = [];
 
 function spawnEnemy() {
-	// Check adjacent tiles around first enemy
-	const adjacentOffsets = [
-		[1, 0], [-1, 0], [0, 1], [0, -1],  // orthogonal
-		[1, 1], [1, -1], [-1, 1], [-1, -1]  // diagonal
-	];
+	// Get values from spawn settings form
+	const spawnName = document.getElementById('spawn_name').value || "enemy" + allEnemies.length;
+	const spawnHp = parseInt(document.getElementById('spawn_hp').value) || 15;
+	const manualX = document.getElementById('spawn_x').value;
+	const manualY = document.getElementById('spawn_y').value;
+	const spawnRange = parseInt(document.getElementById('spawn_range').value) || 3;
+	const spawnAttackRange = parseInt(document.getElementById('spawn_attack_range').value) || 3;
+	const spawnTurns = parseInt(document.getElementById('spawn_turns').value) || 2;
 	
 	let spawnX = null;
 	let spawnY = null;
 	
-	// Find first empty adjacent tile
-	for (let offset of adjacentOffsets) {
-		for (var i = 0; i < allEnemies.length; i++) {
-			//const testX = enemy.x + offset[0];
-			//const testY = enemy.y + offset[1];
-			const testX = allEnemies[i].x + offset[0];
-			const testY = allEnemies[i].y + offset[1];
+	// Use manual coordinates if provided
+	if (manualX !== "" && manualY !== "") {
+		const x = parseInt(manualX);
+		const y = parseInt(manualY);
 		
-			// Check bounds
-			if (testX < 0 || testX >= size || testY < 0 || testY >= size) continue;
-		
-			// Check if tile is empty (no wall, no entity)
-			const hasWall = walls.find(w => w.x === testX && w.y === testY);
-			const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === testX && e.y === testY);
-			const hasPlayer = (player.x === testX && player.y === testY);
-		
+		// Validate manual coordinates
+		if (x >= 0 && x < size && y >= 0 && y < size) {
+			const hasWall = walls.find(w => w.x === x && w.y === y);
+			const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === x && e.y === y);
+			const hasPlayer = (player.x === x && player.y === y);
+			
 			if (!hasWall && !hasEntity && !hasPlayer) {
-				spawnX = testX;
-				spawnY = testY;
-				break;
+				spawnX = x;
+				spawnY = y;
+			}
+		}
+	} else {
+		// Auto-find adjacent tile
+		const adjacentOffsets = [
+			[1, 0], [-1, 0], [0, 1], [0, -1],  // orthogonal
+			[1, 1], [1, -1], [-1, 1], [-1, -1]  // diagonal
+		];
+		
+		for (let offset of adjacentOffsets) {
+			for (var i = 0; i < allEnemies.length; i++) {
+				const testX = allEnemies[i].x + offset[0];
+				const testY = allEnemies[i].y + offset[1];
+			
+				if (testX < 0 || testX >= size || testY < 0 || testY >= size) continue;
+			
+				const hasWall = walls.find(w => w.x === testX && w.y === testY);
+				const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === testX && e.y === testY);
+				const hasPlayer = (player.x === testX && player.y === testY);
+			
+				if (!hasWall && !hasEntity && !hasPlayer) {
+					spawnX = testX;
+					spawnY = testY;
+					break;
+				}
 			}
 		}
 	}
 	
 	if (spawnX !== null) { 
 		const newEnemy = {
-			name: "enemy" + (allEnemies.length),
-			hp: 15,
+			name: spawnName,
+			hp: spawnHp,
 			x: spawnX,
 			y: spawnY,
-			range: 3,
-			attack_range: 3,
-			turns: 2,
+			range: spawnRange,
+			attack_range: spawnAttackRange,
+			turns: spawnTurns,
 			seenX: 0,
 			seenY: 0
 		};

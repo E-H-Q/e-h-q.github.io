@@ -63,8 +63,6 @@ function update() {
 	canvas.grid(); // draws the grid on canvas
 
 	canvas.walls(); // draws the walls
-
-	div_for_coords.innerHTML = "X: " + player.x + ", Y: " + player.y;
 	
 	canvas.player(); // draws the player
 	canvas.enemy(); // draws the enemies	
