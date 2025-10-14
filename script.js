@@ -25,6 +25,7 @@ function updateTurnOrder() {
 function killEntity(index) {
 	if (index >= 0 && index < entities.length && entities[index] !== player) {
 		entities[index].hp = 0;
+		//entities.splice(index, 1);
 		
 		// Adjust current turn if killing an entity before current turn
 		if (index < currentEntityIndex) {

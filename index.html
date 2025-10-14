@@ -8,7 +8,6 @@
 				background-color: #000000;
 				color: #FFFFFF;
 				margin: 0;
-				display: flex;
 			}
 			canvas {
 				border: 1px solid #FFFFFF;
@@ -20,11 +19,26 @@
 			#pep, #enemy {
 				display: none;
 			}
+			#main-container {
+				display: flex;
+			}
+			#left-section {
+				display: flex;
+				flex-direction: column;
+			}
+			#controls-row {
+				display: flex;
+				gap: 20px;
+				margin-top: 20px;
+			}
+			#controls {
+				display: flex;
+				gap: 20px;
+			}
 			#sidebar {
 				width: 200px;
 				padding: 20px;
 				border-left: 1px solid #FFFFFF;
-				margin-left: 20px;
 			}
 			#sidebar h3 {
 				margin-top: 0;
@@ -38,6 +52,10 @@
 				color: #FF0000;
 				font-weight: bold;
 			}
+			fieldset {
+				border: 1px solid #fff;
+				padding: 10px;
+			}
 		</style>
 	</head>
 	<body>
@@ -45,34 +63,49 @@
 		<img id="enemy" src="enemy.png"></img>
 		<audio src="sound.wav"></audio>
 		<div class="hidden" id="content">
-			<div id="cursor"></div>
-			<canvas id="canvas"></canvas> <!-- the "screen" -->
-			<select id="actions" onchange="update()">
-				<option value="move">MOVE</option>
-				<option value="attack">ATTK</option>
-			</select>
-			<div id="controls">
-				EDIT MODE:<input type="checkbox" id="edit"></input>
-				<a href="" id="save_button"><button onclick="save_map()">SAVE MAP</button></a>
-				<input id="file" type="file" onchange="load_map()"/>
-				<br>
-				<button style="float: right;" onclick="spawnEnemy()">SPAWN ENEMY</button>
-				<br><br>
-				<fieldset style="border: 1px solid #fff; padding: 10px;">
-					<legend>Enemy Settings</legend>
-					<label>Name: <input type="text" id="spawn_name" value="enemy" autocomplete="off" style="width: 80px;"></label><br>
-					<label>HP: <input type="number" id="spawn_hp" value="15" autocomplete="off" style="width: 50px;"></label><br>
-					<label>X: <input type="number" id="spawn_x" value="" placeholder="auto" autocomplete="off" style="width: 50px;"></label>
-					<label>Y: <input type="number" id="spawn_y" value="" placeholder="auto" autocomplete="off" style="width: 50px;"></label><br>
-					<label>Range: <input type="number" id="spawn_range" value="3" autocomplete="off" style="width: 50px;"></label><br>
-					<label>Attack Range: <input type="number" id="spawn_attack_range" value="3" autocomplete="off" style="width: 50px;"></label><br>
-					<label>Turns: <input type="number" id="spawn_turns" value="2" autocomplete="off" style="width: 50px;"></label>
-				</fieldset>
+			<div id="main-container">
+				<div id="left-section">
+					<div id="cursor"></div>
+					<canvas id="canvas"></canvas> <!-- the "screen" -->
+					<select id="actions" onchange="update()">
+						<option value="move">MOVE</option>
+						<option value="attack">ATTK</option>
+					</select>
+					<div style="margin-top: 10px;">
+						EDIT MODE:<input type="checkbox" id="edit"></input>
+						<a href="" id="save_button"><button onclick="save_map()">SAVE MAP</button></a>
+						<input id="file" type="file" onchange="load_map()"/>
+					</div>
+					<div id="controls-row">
+						<fieldset id="enemy-settings">
+							<legend>Enemy Settings</legend>
+							<label>Name: <input type="text" id="spawn_name" value="enemy" autocomplete="off" style="width: 80px;"></label><br>
+							<label>HP: <input type="number" id="spawn_hp" value="15" autocomplete="off" style="width: 50px;"></label><br>
+							<label>X: <input type="number" id="spawn_x" value="" placeholder="auto" autocomplete="off" style="width: 50px;"></label>
+							<label>Y: <input type="number" id="spawn_y" value="" placeholder="auto" autocomplete="off" style="width: 50px;"></label><br>
+							<label>Range: <input type="number" id="spawn_range" value="3" autocomplete="off" style="width: 50px;"></label><br>
+							<label>Attack Range: <input type="number" id="spawn_attack_range" value="3" autocomplete="off" style="width: 50px;"></label><br>
+							<label>Turns: <input type="number" id="spawn_turns" value="2" autocomplete="off" style="width: 50px;"></label><br>
+							<button onclick="spawnEnemy()" style="margin-top: 5px;">SPAWN ENEMY</button>
+						</fieldset>
+						<fieldset id="player-settings">
+							<legend>Player Settings</legend>
+							<label>Name: <input type="text" id="player_name" value="player" autocomplete="off" style="width: 80px;"></label><br>
+							<label>HP: <input type="number" id="player_hp" value="20" autocomplete="off" style="width: 50px;"></label><br>
+							<label>Range: <input type="number" id="player_range" value="3" autocomplete="off" style="width: 50px;"></label><br>
+							<label>Attack Range: <input type="number" id="player_attack_range" value="4" autocomplete="off" style="width: 50px;"></label><br>
+							<label>Turns: <input type="number" id="player_turns" value="2" autocomplete="off" style="width: 50px;"></label><br><br>
+							<button onclick="updatePlayer()" style="margin-top: 5px;">UPDATE PLAYER</button>
+						</fieldset>
+					</div>
+				<p><i>Press &lt;TAB&gt; to swap between MOVE & ATTACK modes.</i></p>
+				</div>
+				<div id="sidebar">
+					<h3>TURN ORDER</h3>
+					<div id="turn-order"></div>
+				</div>
+<div id="log"></div>
 			</div>
-		</div>
-		<div id="sidebar">
-			<h3>TURN ORDER</h3>
-			<div id="turn-order"></div>
 		</div>
 		<script type="text/javascript" src="main.js"></script> <!-- needs to first -->
 		<script type="text/javascript" src="io.js"></script>

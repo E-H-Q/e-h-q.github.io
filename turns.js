@@ -186,9 +186,9 @@ var turns = {
 			target.hp -= dmgRoll;
 			target.seenX = entity.x;// makes entity aware of what attacked them
 			target.seenY = entity.y;
-			console.log("\n", entity.name, "hits", target.name, "for", dmgRoll, "DMG!");
+			console.log(entity.name + " hits " + target.name + " for " + dmgRoll + "DMG!");
 		} else {
-			console.log("\n", entity.name, "attacks and misses", target.name, "...");
+			console.log(entity.name + " attacks and misses " + target.name + "...");
 		}
 		currentEntityTurnsRemaining--;
 		

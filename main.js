@@ -15,6 +15,21 @@ var tileSize = 32;
 var size = 15;
 var viewportSize = 15;
 
+(function () { // REDIRECTS CONSOLE.LOG TO HTML!
+    if (!console) {
+        console = {};
+    }
+    var old = console.log;
+    var logger = document.getElementById('log');
+    console.log = function (message) {
+        if (typeof message == 'object') {
+            logger.innerHTML += (JSON && JSON.stringify ? JSON.stringify(message) : String(message)) + '<br />';
+        } else {
+            logger.innerHTML += message + '<br />';
+        }
+    }
+})();
+
 function createAndFillTwoDArray({rows, columns, defaultValue}) {
 	return Array.from({ length: rows }, () => 
 		Array.from({ length: columns }, () => defaultValue)
@@ -57,6 +72,25 @@ var allEnemies = [enemy];
 
 var entities = [];
 
+function updatePlayer() {
+	// Get values from player settings form
+	const playerName = document.getElementById('player_name').value || "player";
+	const playerHp = parseInt(document.getElementById('player_hp').value) || 20;
+	const playerRange = parseInt(document.getElementById('player_range').value) || 3;
+	const playerAttackRange = parseInt(document.getElementById('player_attack_range').value) || 4;
+	const playerTurns = parseInt(document.getElementById('player_turns').value) || 2;
+	
+	// Update player stats
+	player.name = playerName;
+	player.hp = playerHp;
+	player.range = playerRange;
+	player.attack_range = playerAttackRange;
+	player.turns = playerTurns;
+	
+	console.log("Player updated");
+	update();
+}
+
 function spawnEnemy() {
 	// Get values from spawn settings form
 	const spawnName = document.getElementById('spawn_name').value || "enemy" + allEnemies.length;
@@ -86,6 +120,8 @@ function spawnEnemy() {
 				spawnY = y;
 			}
 		}
+		document.getElementById('spawn_x').value ="";
+		document.getElementById('spawn_y').value = "";
 	} else {
 		// Auto-find adjacent tile
 		const adjacentOffsets = [
@@ -127,7 +163,7 @@ function spawnEnemy() {
 		};
 		allEnemies.push(newEnemy);
 		update();
-		console.log("Spawned", newEnemy.name, "at", spawnX, spawnY);
+		console.log("Spawned " + newEnemy.name + " at " + spawnX + ", " + spawnY);
 	} else {
 		console.log("No valid spawn location found!");
 	}
