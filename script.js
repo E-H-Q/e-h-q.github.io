@@ -72,6 +72,9 @@ function update() {
 	populate.player();
 	turns.check();
 	updateTurnOrder();
+
+	var elem = document.getElementById("log");
+	elem.scrollTop = elem.scrollHeight;
 }
 
 document.getElementById("content").classList.remove("hidden"); // un-hides everything on the page
