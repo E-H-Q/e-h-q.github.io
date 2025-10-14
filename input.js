@@ -34,6 +34,7 @@ var input = {
 			const dist = calc.distance(player.x, endX, player.y, endY);
 			let path = calc.los(look);
 			
+			
 			// Limit path to player range and remove first element (player position)
 			if (path.length > player.attack_range + 1) {
 				path = path.slice(1, player.attack_range + 1);
@@ -72,13 +73,13 @@ var input = {
 		}
 
 		switch (action.value) {
-			case "move":
+			case "move": // PLAYER MOVES
 				const validClick = valid.find(v => v.x === click_pos.x && v.y === click_pos.y);
 				if (validClick) {
 					turns.move(player, click_pos.x, click_pos.y);
 				}
 				break;
-			case "attack":
+			case "attack": // PLAYER ATTACKS
 				// Find which enemy was clicked
 				let targetEnemy = null;
 				for (let i = 0; i < allEnemies.length; i++) {
@@ -95,23 +96,22 @@ var input = {
 					end: { x: targetEnemy.x, y: targetEnemy.y }
 				};
 				const check = calc.los(look);
+				const dist = calc.distance(player.x, targetEnemy.x, player.y, targetEnemy.y);
+				const lengthDiff = Math.abs(check.length - dist);
 				
-				if (check) {
-					const dist = calc.distance(player.x, targetEnemy.x, player.y, targetEnemy.y);
-					
-					// Check if target is within range
-					if (dist > player.attack_range) {
-						console.log("Target out of range!");
-						return;
-					}
-					
-					const lengthDiff = Math.abs(check.length - dist);
-					
-					if (lengthDiff <= 1) {
-						turns.attack(targetEnemy, player);
-					} else {
-						console.log("PLAYER shoots at the wall...");
-					}
+				// Check if LOS is blocked
+				if (check.length < dist) {
+					console.log("Blocked by wall");
+					return;
+				}
+				if (dist > player.attack_range) {
+					console.log("Target out of range!");
+					return;
+				}
+				if (lengthDiff <= 1) {
+					turns.attack(targetEnemy, player);
+				} else {
+					return;
 				}
 				update();
 				break;
