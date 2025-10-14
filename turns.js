@@ -141,8 +141,8 @@ var turns = {
 			closest: true
 		});
 		
-		// Move up to 2 steps along the path (or entity's range if less)
-		const maxSteps = Math.min(2, entity.range, path.length);
+		// Move up to entity's range along the path
+		const maxSteps = Math.min(entity.range, path.length);
 		if (path.length > 0 && maxSteps > 0) {
 			const targetStep = path[maxSteps - 1];
 			if (pts[targetStep.x] && pts[targetStep.x][targetStep.y] !== 0) {
@@ -184,6 +184,8 @@ var turns = {
 		if (hitRoll >= 4) {
 			const dmgRoll = calc.roll(6, 1);
 			target.hp -= dmgRoll;
+			target.seenX = entity.x;// makes entity aware of what attacked them
+			target.seenY = entity.y;
 			console.log("\n", entity.name, "hits", target.name, "for", dmgRoll, "DMG!");
 		} else {
 			console.log("\n", entity.name, "attacks and misses", target.name, "...");
