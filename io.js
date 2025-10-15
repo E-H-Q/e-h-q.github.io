@@ -24,6 +24,7 @@ function load_map() {
 
 		var lines = load.split('\n');
 		size = JSON.parse(lines[0]); // will need to be modified for sizeX and sizeY when they exist
+		resizePtsArray(); // Resize pts array to match new map size
 		var loaded_walls = lines[1]; // reads the second line (map data)
 		var loaded_enemies = lines[2]; // reads the third line (enemy/entity data)
 		var loaded_player_pos = lines[3]; // reads the fourth line (player position data)
@@ -46,9 +47,9 @@ function load_map() {
 				player.x = playerPos.x;
 				player.y = playerPos.y;
 			}
+			
 			update();
 		}
-		console.log("Loaded map file: " + '"' + file_input.files[0].name + '"');
 	};
 	reader.readAsText(load);
 }

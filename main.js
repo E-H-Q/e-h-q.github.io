@@ -36,6 +36,10 @@ function createAndFillTwoDArray({rows, columns, defaultValue}) {
 	);
 }
 
+function resizePtsArray() {
+	pts = createAndFillTwoDArray({rows: size, columns: size, defaultValue: 1});
+}
+
 var pts = createAndFillTwoDArray({rows: size, columns: size, defaultValue: 1});
 var valid = [];
 var walls = [];
@@ -76,6 +80,8 @@ function updatePlayer() {
 	// Get values from player settings form
 	const playerName = document.getElementById('player_name').value || "player";
 	const playerHp = parseInt(document.getElementById('player_hp').value) || 20;
+	const playerX = document.getElementById('player_x').value;
+	const playerY = document.getElementById('player_y').value;
 	const playerRange = parseInt(document.getElementById('player_range').value) || 3;
 	const playerAttackRange = parseInt(document.getElementById('player_attack_range').value) || 4;
 	const playerTurns = parseInt(document.getElementById('player_turns').value) || 2;
@@ -86,6 +92,20 @@ function updatePlayer() {
 	player.range = playerRange;
 	player.attack_range = playerAttackRange;
 	player.turns = playerTurns;
+	
+	// Update position if provided
+	if (playerX !== "" && playerY !== "") {
+		const x = parseInt(playerX);
+		const y = parseInt(playerY);
+		
+		if (x >= 0 && x < size && y >= 0 && y < size) {
+			player.x = x;
+			player.y = y;
+			console.log("Player moved to: " + x + ", " + y);
+		}
+		document.getElementById('player_x').value = "";
+		document.getElementById('player_y').value = "";
+	}
 	
 	console.log("Player updated");
 	update();
@@ -173,13 +193,17 @@ var populate = {
 	enemies: function() {
 		for (let i = 0; i < entities.length; i++) {
 			if (entities[i] !== player && entities[i].hp > 0) {
-				pts[entities[i].x][entities[i].y] = 0;
+				if (pts[entities[i].x] && pts[entities[i].x][entities[i].y] !== undefined) {
+					pts[entities[i].x][entities[i].y] = 0;
+				}
 			}
 		}
 	},
 	player: function() {
 		if (player.hp > 0) {
-			pts[player.x][player.y] = 0;
+			if (pts[player.x] && pts[player.x][player.y] !== undefined) {
+				pts[player.x][player.y] = 0;
+			}
 		}
 	}
 };
@@ -207,7 +231,9 @@ var calc = {
 		// Block tiles occupied by other entities
 		for (let i = 0; i < entities.length; i++) {
 			if (entities[i] !== entity && entities[i].hp > 0) {
-				pts[entities[i].x][entities[i].y] = 0;
+				if (pts[entities[i].x] && pts[entities[i].x][entities[i].y] !== undefined) {
+					pts[entities[i].x][entities[i].y] = 0;
+				}
 			}
 		}
 
