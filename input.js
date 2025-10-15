@@ -9,7 +9,6 @@ var input = {
 	},
 	keyboard: function(event) {
 		if (event.keyCode === 9) {
-			event.preventDefault();
 			action.value = (action.value === "move") ? "attack" : "move";
 			document.activeElement.blur();
 			// tricks the mouse event listener into activating when attack mode is enabled, drawing the LOS line

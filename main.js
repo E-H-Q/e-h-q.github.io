@@ -5,8 +5,8 @@ var ctx = c.getContext("2d");
 var cursor = document.getElementById("cursor");
 var action = document.getElementById("actions");
 var save_button = document.getElementById("save_button");
-var fileInput = document.getElementById("file");
-fileInput.value = "";
+var input = document.getElementById("file");
+input.value = "";
 
 var edit = document.getElementById("edit");
 edit.checked = false;
@@ -14,6 +14,21 @@ edit.checked = false;
 var tileSize = 32;
 var size = 15;
 var viewportSize = 15;
+
+(function () { // REDIRECTS CONSOLE.LOG TO HTML!
+    if (!console) {
+        console = {};
+    }
+    var old = console.log;
+    var logger = document.getElementById('log');
+    console.log = function (message) {
+        if (typeof message == 'object') {
+            logger.innerHTML += (JSON && JSON.stringify ? JSON.stringify(message) : String(message)) + '<br />';
+        } else {
+            logger.innerHTML += message + '<br />';
+        }
+    }
+})();
 
 function createAndFillTwoDArray({rows, columns, defaultValue}) {
 	return Array.from({ length: rows }, () => 
@@ -105,6 +120,8 @@ function spawnEnemy() {
 				spawnY = y;
 			}
 		}
+		document.getElementById('spawn_x').value ="";
+		document.getElementById('spawn_y').value = "";
 	} else {
 		// Auto-find adjacent tile
 		const adjacentOffsets = [
@@ -146,7 +163,7 @@ function spawnEnemy() {
 		};
 		allEnemies.push(newEnemy);
 		update();
-		console.log("Spawned", newEnemy.name, "at", spawnX, spawnY);
+		console.log("Spawned " + newEnemy.name + " at " + spawnX + ", " + spawnY);
 	} else {
 		console.log("No valid spawn location found!");
 	}

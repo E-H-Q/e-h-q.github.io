@@ -2,22 +2,6 @@
 
 input.init(); // sets up the cursor
 
-// Override console.log to display in both browser console and HTML
-var logDiv = document.getElementById("log");
-var originalLog = console.log;
-console.log = function() {
-	// Call original console.log
-	originalLog.apply(console, arguments);
-	
-	// Display in HTML
-	var message = Array.from(arguments).map(arg => 
-		typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-	).join(' ');
-	
-	logDiv.innerHTML += message + '<br>';
-	logDiv.scrollTop = logDiv.scrollHeight;
-};
-
 function updateTurnOrder() {
 	var turnOrder = document.getElementById("turn-order");
 	var html = '';
@@ -41,6 +25,7 @@ function updateTurnOrder() {
 function killEntity(index) {
 	if (index >= 0 && index < entities.length && entities[index] !== player) {
 		entities[index].hp = 0;
+		//entities.splice(index, 1);
 		
 		// Adjust current turn if killing an entity before current turn
 		if (index < currentEntityIndex) {
@@ -74,15 +59,6 @@ function update() {
 		y: player.y - Math.round((viewportSize / 2)) + 1
 	};
 	canvas.init(); // creates/updates the canvas on page
-	
-	// Rebuild pts array with walls
-	pts = createAndFillTwoDArray({rows: size, columns: size, defaultValue: 1});
-	for (let i = 0; i < walls.length; i++) {
-		if (pts[walls[i].x] && pts[walls[i].x][walls[i].y] !== undefined) {
-			pts[walls[i].x][walls[i].y] = 0;
-		}
-	}
-	
 	valid = [];
 	canvas.clear();
 	canvas.grid(); // draws the grid on canvas
@@ -96,6 +72,9 @@ function update() {
 	populate.player();
 	turns.check();
 	updateTurnOrder();
+
+	var elem = document.getElementById("log");
+	elem.scrollTop = elem.scrollHeight;
 }
 
 document.getElementById("content").classList.remove("hidden"); // un-hides everything on the page
