@@ -13,7 +13,7 @@ function updateTurnOrder() {
 		
 		// Add X button for all entities except player
 		const killButton = entity !== player ? 
-			`<button onclick="killEntity(${i})" style="float: right; background: #ff0000; color: #fff; border: none; padding: 2px 6px; cursor: pointer;">X</button>` : '';
+			`<button onclick="killEntity(${i})" style="float: right; background: #ff0000; color: #fff; border: none; margin-left: 6px; cursor: pointer; position: absolute;">X</button>` : '';
 		
 		html += '<div class="turn-entity ' + (isActive ? 'active' : '') + '">' + 
 		        entity.name.toUpperCase() + turnsDisplay + killButton + '</div>';
