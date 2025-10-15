@@ -49,7 +49,9 @@ function convert() {
 	}
 	
 	for (let i = 0; i < walls.length; i++) {
-		pts[walls[i].x][walls[i].y] = 0;
+		if (pts[walls[i].x] && pts[walls[i].x][walls[i].y] !== undefined) {
+			pts[walls[i].x][walls[i].y] = 0;
+		}
 	}
 
 	array = new Uint8Array(size * size);

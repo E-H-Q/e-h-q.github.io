@@ -1,32 +1,63 @@
-// IO.JS: HANDLES LOADING + SAVING MAP DATA
+// IO.JS: HANDLES SAVING AND LOADING MAPS
 
 function save_map() {
-	text = JSON.stringify(walls);
-	name = "map";
-	type = "text/plain";
-
-	var file = new Blob([size + "\n" + text], {type: type});
-	save_button.href = URL.createObjectURL(file);
-	save_button.download = name;
+	const map_data = {
+		size: size,
+		walls: walls,
+		allEnemies: allEnemies
+	};
+	const json = JSON.stringify(map_data);
+	const blob = new Blob([json], {type: "application/json"});
+	const url = URL.createObjectURL(blob);
+	save_button.href = url;
+	save_button.download = "map.json";
 }
 
 function load_map() {
-	file_input = document.getElementById("file");
-
-	if (file_input.files.length == 0) return false;
-	const load = file_input.files[0];
-	let reader = new FileReader();
-
-	reader.onload = (event) => {
-		const load = event.target.result;
-
-		var lines = load.split('\n');
-		size = JSON.parse(lines[0]); // will need to be modified for sizeX and sizeY when they exist
-		var loaded = lines[1]; // reads the second line (map data)
-
-		//walls = [];
-		walls = JSON.parse(loaded);
-		update();
+	const file = fileInput.files[0];
+	if (!file) return;
+	
+	const reader = new FileReader();
+	reader.onload = function(e) {
+		const content = e.target.result;
+		
+		try {
+			// Parse as JSON object format
+			const data = JSON.parse(content);
+			
+			if (data.walls && Array.isArray(data.walls)) {
+				walls = data.walls;
+				
+				if (data.allEnemies && Array.isArray(data.allEnemies)) {
+					allEnemies = data.allEnemies;
+				}
+				
+				// If size is included in the data, update it
+				if (data.size && !isNaN(data.size)) {
+					size = data.size;
+					viewportSize = data.size;
+					pts = createAndFillTwoDArray({rows: size, columns: size, defaultValue: 1});
+					
+					// Populate walls into pts array
+					for (let i = 0; i < walls.length; i++) {
+						if (pts[walls[i].x] && pts[walls[i].x][walls[i].y] !== undefined) {
+							pts[walls[i].x][walls[i].y] = 0;
+						}
+					}
+					
+					// Reset player position to center
+					player.x = Math.floor(viewportSize / 2);
+					player.y = Math.floor(viewportSize / 2);
+				}
+				
+				console.log("Loaded map file: " +'"'+ file.name+'"');
+				update();
+			}
+		} catch (error) {
+			console.error("Error loading map:", error);
+			alert("Failed to load map file. Check console for details.");
+		}
 	};
-	reader.readAsText(load);
+	
+	reader.readAsText(file);
 }
