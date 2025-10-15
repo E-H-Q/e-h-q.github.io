@@ -121,5 +121,13 @@ var input = {
 			default:
 				update();
 		}
+	},
+	right_click: function(event) {
+		event.preventDefault(); // prevent regular browser right click menu
+		const click_pos = {
+			x: camera.x + Math.ceil((mouse_pos.x - tileSize) / tileSize) || 0,
+			y: camera.y + Math.ceil((mouse_pos.y - tileSize) / tileSize) || 0
+		};
+		console.log(click_pos);
 	}
 };

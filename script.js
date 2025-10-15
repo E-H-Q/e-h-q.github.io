@@ -89,6 +89,7 @@ function handleMouseMove(event) {
 
 c.onmousemove = handleMouseMove; // mouse
 cursor.addEventListener("click", input.click);
+cursor.addEventListener("contextmenu", input.right_click);
 document.addEventListener("keyup", input.keyboard);
 
 var div_for_coords = document.createElement("div");
