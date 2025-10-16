@@ -57,16 +57,76 @@ var turns = {
 				}
 			}
 			
-			setTimeout(() => {
+			// Delay if enemy has seen player and is within viewport
+			const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
+			const enemyInViewport = this.isInViewport(currentEntity);
+			
+			if (enemyHasSeenPlayer && enemyInViewport) {
+				setTimeout(() => {
+					this.enemyTurn(currentEntity);
+					update();
+				}, 250);
+			} else {
 				this.enemyTurn(currentEntity);
 				update();
-			}, 250);
+			}
 			return;
 		}
 
 		// Show valid moves for player
 		if (currentEntity === player && action.value === "move") {
 			calc.move(player);
+		}
+		
+		// During player turn, check enemy LOS to player
+		if (currentEntity === player) {
+			this.checkEnemyLOS();
+		}
+	},
+	
+	isInViewport: function(entity) {
+		const minX = camera.x;
+		const maxX = camera.x + viewportSize - 1;
+		const minY = camera.y;
+		const maxY = camera.y + viewportSize - 1;
+		
+		return entity.x >= minX && entity.x <= maxX && entity.y >= minY && entity.y <= maxY;
+	},
+	
+	playerCanSeeEnemy: function(enemy) {
+		const dist = calc.distance(player.x, enemy.x, player.y, enemy.y);
+		const look = {
+			start: { x: player.x, y: player.y },
+			end: { x: enemy.x, y: enemy.y }
+		};
+		const check = calc.los(look);
+		const lengthDiff = Math.abs(check.length - dist);
+		
+		return (lengthDiff <= 1 && check.length >= dist);
+	},
+	
+	checkEnemyLOS: function() {
+		// Check if any enemies can see the player
+		for (let i = 0; i < allEnemies.length; i++) {
+			const enemy = allEnemies[i];
+			if (enemy.hp < 1) continue;
+			
+			// Only check enemies the player can see
+			if (!this.playerCanSeeEnemy(enemy)) continue;
+			
+			const look = {
+				start: { x: enemy.x, y: enemy.y },
+				end: { x: player.x, y: player.y }
+			};
+			const check = calc.los(look);
+			const dist = calc.distance(enemy.x, player.x, enemy.y, player.y);
+			const lengthDiff = Math.abs(check.length - dist);
+			
+			// Enemy can see player clearly
+			if (lengthDiff <= 1 && check.length >= dist) {
+				enemy.seenX = player.x;
+				enemy.seenY = player.y;
+			}
 		}
 	},
 	
