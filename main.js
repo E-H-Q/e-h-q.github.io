@@ -113,7 +113,7 @@ function updatePlayer() {
 
 function spawnEnemy() {
 	// Get values from spawn settings form
-	const spawnName = document.getElementById('spawn_name').value || "enemy" + allEnemies.length;
+	const spawnName = document.getElementById('spawn_name').value || "enemy";
 	const spawnHp = parseInt(document.getElementById('spawn_hp').value) || 15;
 	const manualX = document.getElementById('spawn_x').value;
 	const manualY = document.getElementById('spawn_y').value;
@@ -181,7 +181,23 @@ function spawnEnemy() {
 			seenX: 0,
 			seenY: 0
 		};
+		
 		allEnemies.push(newEnemy);
+		
+		// Check if enemy can see player after adding to array
+		const dist = calc.distance(newEnemy.x, player.x, newEnemy.y, player.y);
+		const look = {
+			start: { x: newEnemy.x, y: newEnemy.y },
+			end: { x: player.x, y: player.y }
+		};
+		const check = calc.los(look);
+		const lengthDiff = Math.abs(check.length - dist);
+		
+		if (lengthDiff <= 1 && check.length >= dist) {
+			newEnemy.seenX = player.x;
+			newEnemy.seenY = player.y;
+		}
+		
 		update();
 		console.log("Spawned " + newEnemy.name + " at " + spawnX + ", " + spawnY);
 	} else {

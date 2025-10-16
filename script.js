@@ -25,7 +25,7 @@ function updateTurnOrder() {
 function killEntity(index) {
 	if (index >= 0 && index < entities.length && entities[index] !== player) {
 		entities[index].hp = 0;
-		entities.splice(index, 1);
+		//entities.splice(index, 1);
 		
 		// Adjust current turn if killing an entity before current turn
 		if (index < currentEntityIndex) {
@@ -40,6 +40,9 @@ function killEntity(index) {
 }
 
 function update() {
+	// Remove dead enemies from allEnemies
+	allEnemies = allEnemies.filter(enemy => enemy.hp >= 1);
+	
 	// Populate entities array in turn order - player first, then living enemies
 	entities = [player];
 	for (let i = 0; i < allEnemies.length; i++) {
