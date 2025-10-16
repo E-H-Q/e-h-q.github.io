@@ -78,7 +78,7 @@ var turns = {
 			calc.move(player);
 		}
 		
-		// During player turn, check enemy LOS to player
+		// Always check enemy LOS during player turn
 		if (currentEntity === player) {
 			this.checkEnemyLOS();
 		}
@@ -106,13 +106,10 @@ var turns = {
 	},
 	
 	checkEnemyLOS: function() {
-		// Check if any enemies can see the player
+		// Check if any enemies can see the player and update their memory
 		for (let i = 0; i < allEnemies.length; i++) {
 			const enemy = allEnemies[i];
 			if (enemy.hp < 1) continue;
-			
-			// Only check enemies the player can see
-			if (!this.playerCanSeeEnemy(enemy)) continue;
 			
 			const look = {
 				start: { x: enemy.x, y: enemy.y },
@@ -122,7 +119,8 @@ var turns = {
 			const dist = calc.distance(enemy.x, player.x, enemy.y, player.y);
 			const lengthDiff = Math.abs(check.length - dist);
 			
-			// Enemy can see player clearly
+			// Only UPDATE seenX/seenY if enemy can currently see player
+			// Don't clear it if they can't see player
 			if (lengthDiff <= 1 && check.length >= dist) {
 				enemy.seenX = player.x;
 				enemy.seenY = player.y;
@@ -134,6 +132,12 @@ var turns = {
 		if (entity.hp < 1) {
 			currentEntityTurnsRemaining = 0;
 			return;
+		}
+		
+		// Check if reached last seen position - clear memory
+		if (entity.x === entity.seenX && entity.y === entity.seenY) {
+			entity.seenX = 0;
+			entity.seenY = 0;
 		}
 		
 		const look = {
@@ -202,26 +206,56 @@ var turns = {
 	},
 	
 	enemyMoveToward: function(entity, targetX, targetY) {
-		calc.move(entity);
-		
-		if (!graph || !pts) {
+		if (!pts) {
 			currentEntityTurnsRemaining--;
 			return;
 		}
 		
-		// Use A* to find path to target
-		const path = astar.search(graph, graph.grid[entity.x][entity.y], graph.grid[targetX][targetY], {
-			closest: true
-		});
+		// Create a diagonal graph for pathfinding
+		const diagonalGraph = new Graph(pts, { diagonal: true });
 		
-		// Move up to entity's range along the path
-		const maxSteps = Math.min(entity.range, path.length);
-		if (path.length > 0 && maxSteps > 0) {
-			const targetStep = path[maxSteps - 1];
-			if (pts[targetStep.x] && pts[targetStep.x][targetStep.y] !== 0) {
-				entity.x = targetStep.x;
-				entity.y = targetStep.y;
+		// Block tiles occupied by other entities
+		for (let i = 0; i < entities.length; i++) {
+			if (entities[i] !== entity && entities[i].hp > 0) {
+				if (diagonalGraph.grid[entities[i].x] && diagonalGraph.grid[entities[i].x][entities[i].y]) {
+					diagonalGraph.grid[entities[i].x][entities[i].y].weight = 0;
+				}
 			}
+		}
+		
+		const path = astar.search(
+			diagonalGraph, 
+			diagonalGraph.grid[entity.x][entity.y], 
+			diagonalGraph.grid[targetX][targetY], 
+			{
+				closest: true,
+				heuristic: astar.heuristics.diagonal
+			}
+		);
+		
+		// Calculate how far we can move along the path
+		let distanceMoved = 0;
+		let finalX = entity.x;
+		let finalY = entity.y;
+		
+		for (let i = 0; i < path.length; i++) {
+			const step = path[i];
+			const isDiagonal = (step.x !== finalX && step.y !== finalY);
+			const stepCost = isDiagonal ? 1.5 : 1;
+			
+			if (distanceMoved + stepCost <= entity.range) {
+				finalX = step.x;
+				finalY = step.y;
+				distanceMoved += stepCost;
+			} else {
+				break;
+			}
+		}
+		
+		// Move to the farthest valid position
+		if (finalX !== entity.x || finalY !== entity.y) {
+			entity.x = finalX;
+			entity.y = finalY;
 			
 			// Check if reached last seen position
 			if (entity.x === entity.seenX && entity.y === entity.seenY) {
@@ -229,6 +263,7 @@ var turns = {
 				entity.seenY = 0;
 			}
 		}
+		
 		currentEntityTurnsRemaining--;
 	},
 	
@@ -245,6 +280,11 @@ var turns = {
 					currentEntityIndex = 0;
 				}
 				currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+			}
+			
+			// Check enemy LOS after player moves
+			if (entity === player) {
+				this.checkEnemyLOS();
 			}
 			
 			update();
