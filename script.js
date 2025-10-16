@@ -13,7 +13,7 @@ function updateTurnOrder() {
 		
 		// Add X button for all entities except player
 		const killButton = entity !== player ? 
-			`<button onclick="killEntity(${i})" style="float: right; background: #ff0000; color: #fff; border: none; margin-left: 6px; cursor: pointer;">X</button>` : '';
+			`<button onclick="killEntity(${i})" style="float: right; background: #ff0000; color: #fff; border: none; margin-left: 6px; cursor: pointer; position: absolute;">X</button>` : '';
 		
 		html += '<div class="turn-entity ' + (isActive ? 'active' : '') + '">' + 
 		        entity.name.toUpperCase() + turnsDisplay + killButton + '</div>';
@@ -54,10 +54,13 @@ function update() {
 		currentEntityTurnsRemaining = 0;
 	}
 	
+	// Center camera on current entity
+	const currentEntity = entities[currentEntityIndex] || player;
 	camera = {
-		x: player.x - Math.round((viewportSize / 2)) + 1,
-		y: player.y - Math.round((viewportSize / 2)) + 1
+		x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
+		y: currentEntity.y - Math.round((viewportSize / 2)) + 1
 	};
+	
 	canvas.init(); // creates/updates the canvas on page
 	valid = [];
 	canvas.clear();

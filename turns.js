@@ -22,6 +22,19 @@ var turns = {
 				currentEntityIndex = 0;
 			}
 			currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+			
+			// Update camera to center on new current entity
+			const currentEntity = entities[currentEntityIndex];
+			camera = {
+				x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
+				y: currentEntity.y - Math.round((viewportSize / 2)) + 1
+			};
+			canvas.init();
+			canvas.clear();
+			canvas.grid();
+			canvas.walls();
+			canvas.player();
+			canvas.enemy();
 		}
 
 		const currentEntity = entities[currentEntityIndex];
