@@ -72,7 +72,7 @@ var enemy = {
 };
 
 // Store all enemy instances here for easy duplication
-var allEnemies = [enemy];
+var allEnemies = [];
 
 var entities = [];
 
