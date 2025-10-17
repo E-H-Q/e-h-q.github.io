@@ -256,12 +256,6 @@ var turns = {
 		if (finalX !== entity.x || finalY !== entity.y) {
 			entity.x = finalX;
 			entity.y = finalY;
-			
-			// Check if reached last seen position
-			if (entity.x === entity.seenX && entity.y === entity.seenY) {
-				entity.seenX = 0;
-				entity.seenY = 0;
-			}
 		}
 		
 		currentEntityTurnsRemaining--;

@@ -1,5 +1,7 @@
 // INPUT.JS: HANDLES USER INPUT
 
+var isZoomedOut = false;
+
 var input = {
 	init: function() {
 		cursor.style.position = "absolute";
@@ -8,7 +10,50 @@ var input = {
 		cursor.style.border = "1px solid #FF0000";
 	},
 	keyboard: function(event) {
-		if (event.keyCode === 9) {
+		// Left Shift key - zoom out on press
+		if (event.keyCode === 16 && event.type === 'keydown' && !isZoomedOut) {
+			isZoomedOut = true;
+			
+			tileSize = tileSize / 2;
+			viewportSize = viewportSize * 2;
+			
+			// Update cursor size
+			cursor.style.padding = (tileSize / 2) + "px";
+			
+			// Recenter camera on current entity
+			const currentEntity = entities[currentEntityIndex] || player;
+			camera = {
+				x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
+				y: currentEntity.y - Math.round((viewportSize / 2)) + 1
+			};
+			
+			update();
+			
+			// Re-trigger mouse position update
+			const trick = new MouseEvent('mousemove', {clientX: mouse_pos.x, clientY: mouse_pos.y});
+			input.mouse(trick);
+			
+			return;
+		}
+		if (event.keyCode === 16 && event.type === 'keyup' && isZoomedOut) {
+			isZoomedOut = false;
+			
+			tileSize = tileSize * 2;
+			viewportSize = viewportSize / 2;
+			
+			// Update cursor size
+			cursor.style.padding = (tileSize / 2) + "px";
+			
+			// Recenter camera on current entity
+			const currentEntity = entities[currentEntityIndex] || player;
+			camera = {
+				x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
+				y: currentEntity.y - Math.round((viewportSize / 2)) + 1
+			};
+			
+			update();
+		}
+		if (event.keyCode === 9 && event.type == "keydown") {
 			action.value = (action.value === "move") ? "attack" : "move";
 			document.activeElement.blur();
 			// tricks the mouse event listener into activating when attack mode is enabled, drawing the LOS line
@@ -17,6 +62,35 @@ var input = {
 			input.mouse(trick);
 		}
 	},
+/*
+	keyup: function(event) {
+		// Left Shift key - zoom in on release
+		if (event.keyCode === 16 && isZoomedOut) {
+			isZoomedOut = false;
+			
+			tileSize = tileSize * 2;
+			viewportSize = viewportSize / 2;
+			
+			// Update cursor size
+			cursor.style.padding = (tileSize / 2) + "px";
+			
+			// Recenter camera on current entity
+			const currentEntity = entities[currentEntityIndex] || player;
+			camera = {
+				x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
+				y: currentEntity.y - Math.round((viewportSize / 2)) + 1
+			};
+			
+			update();
+			
+			// Re-trigger mouse position update
+			const trick = new MouseEvent('mousemove', {clientX: mouse_pos.x, clientY: mouse_pos.y});
+			input.mouse(trick);
+		} else {
+			return;
+		}
+	},
+*/
 	mouse: function(event) {
 		mouse_pos = {
 			x: event.pageX, 

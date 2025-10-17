@@ -55,17 +55,20 @@ var canvas = {
 		const img = document.getElementById(imgId);
 		ctx.drawImage(img, screenX, screenY, tileSize, tileSize);
 		
-		ctx.fillStyle = "rgba(255, 255, 255, 1)";
-		ctx.font = '16px serif';
-		ctx.fillText(entity.hp, screenX, screenY + tileSize);
-		
-		// Draw "?" if enemy is unaware (no seenX/seenY)
-		if (entity !== player && entity.seenX === 0 && entity.seenY === 0) {
+		// Only draw text when not zoomed out
+		if (!isZoomedOut) {
 			ctx.fillStyle = "rgba(255, 255, 255, 1)";
-			ctx.font = 'bold 12px serif';
-			ctx.textAlign = 'center';
-			ctx.fillText("?", screenX + tileSize * 0.75, screenY + tileSize * 0.25);
-			ctx.textAlign = 'left'; // Reset alignment
+			ctx.font = '16px serif';
+			ctx.fillText(entity.hp, screenX, screenY + tileSize);
+			
+			// Draw "?" if enemy is unaware (seenX and seenY are both 0)
+			if (entity !== player && (entity.seenX === 0 && entity.seenY === 0)) {
+				ctx.fillStyle = "rgba(255, 255, 255, 1)";
+				ctx.font = 'bold 12px serif';
+				ctx.textAlign = 'center';
+				ctx.fillText("?", screenX + tileSize * 0.75, screenY + tileSize * 0.25);
+				ctx.textAlign = 'left'; // Reset alignment
+			}
 		}
 	},
 	player: function() {
