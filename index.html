@@ -47,11 +47,17 @@
 				width: calc(25vw);
 				padding: 20px;
 				border: 1px solid #FFFFFF;
-				overflow-y: auto;
 				height: calc(100vh - 200px);
+				display: flex;
+				flex-direction: column;
 			}
 			#sidebar h3 {
 				margin-top: 0;
+				flex-shrink: 0;
+			}
+			#turn-order {
+				overflow-y: auto;
+				flex: 1;
 			}
 			#log {
 				overflow-y: auto;
@@ -63,6 +69,7 @@
 				padding: 10px;
 				margin: 5px 0;
 				border: 1px solid #FFFFFF;
+				position: relative;
 			}
 			.turn-entity.active {
 				color: #FF0000;
