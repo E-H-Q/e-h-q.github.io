@@ -53,6 +53,8 @@ var input = {
 			};
 			
 			update();
+			const trick = new MouseEvent('mousemove', {clientX: mouse_pos.clientX, clientY: mouse_pos.clientY});
+			input.mouse(trick);
 		}
 		if (event.keyCode === 9 && event.type == "keydown") {
 			action.value = (action.value === "move") ? "attack" : "move";
