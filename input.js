@@ -8,6 +8,7 @@ var input = {
 		cursor.style.visibility = "hidden";
 		cursor.style.padding = (tileSize / 2) + "px";
 		cursor.style.border = "1px solid #FF0000";
+		cursor.style.pointerEvents = "auto"; // Make sure cursor can receive events
 	},
 	keyboard: function(event) {
 		// Left Shift key - zoom out on press
@@ -30,7 +31,7 @@ var input = {
 			update();
 			
 			// Re-trigger mouse position update
-			const trick = new MouseEvent('mousemove', {clientX: mouse_pos.x, clientY: mouse_pos.y});
+			const trick = new MouseEvent('mousemove', {clientX: mouse_pos.clientX, clientY: mouse_pos.clientY});
 			input.mouse(trick);
 			
 			return;
@@ -58,50 +59,37 @@ var input = {
 			document.activeElement.blur();
 			// tricks the mouse event listener into activating when attack mode is enabled, drawing the LOS line
 			update();
-			const trick = new MouseEvent('mousemove', {clientX: mouse_pos.x, clientY: mouse_pos.y});
+			const trick = new MouseEvent('mousemove', {clientX: mouse_pos.clientX, clientY: mouse_pos.clientY});
 			input.mouse(trick);
 		}
 	},
-/*
-	keyup: function(event) {
-		// Left Shift key - zoom in on release
-		if (event.keyCode === 16 && isZoomedOut) {
-			isZoomedOut = false;
-			
-			tileSize = tileSize * 2;
-			viewportSize = viewportSize / 2;
-			
-			// Update cursor size
-			cursor.style.padding = (tileSize / 2) + "px";
-			
-			// Recenter camera on current entity
-			const currentEntity = entities[currentEntityIndex] || player;
-			camera = {
-				x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
-				y: currentEntity.y - Math.round((viewportSize / 2)) + 1
-			};
-			
-			update();
-			
-			// Re-trigger mouse position update
-			const trick = new MouseEvent('mousemove', {clientX: mouse_pos.x, clientY: mouse_pos.y});
-			input.mouse(trick);
-		} else {
-			return;
-		}
-	},
-*/
 	mouse: function(event) {
+		// Get canvas position accounting for all transforms
+		const rect = c.getBoundingClientRect();
+		
+		// Calculate mouse position relative to canvas
+		const canvasX = event.clientX - rect.left;
+		const canvasY = event.clientY - rect.top;
+		
+		// Store both for later use
 		mouse_pos = {
-			x: event.pageX, 
-			y: event.pageY
+			canvasX: canvasX,
+			canvasY: canvasY,
+			clientX: event.clientX,
+			clientY: event.clientY
 		};
-		cursor.style.left = Math.ceil((mouse_pos.x - tileSize) / tileSize) * tileSize + "px";
-		cursor.style.top = Math.ceil((mouse_pos.y - tileSize) / tileSize) * tileSize + "px";
+		
+		// Calculate grid position
+		const gridX = Math.floor(canvasX / tileSize);
+		const gridY = Math.floor(canvasY / tileSize);
+		
+		// Position cursor using the same rect calculation
+		cursor.style.left = (rect.left + gridX * tileSize) + "px";
+		cursor.style.top = (rect.top + gridY * tileSize) + "px";
 
 		if (action.value === "attack") {	
-			const endX = Math.ceil(camera.x + mouse_pos.x / tileSize) - 1;
-			const endY = Math.ceil(camera.y + mouse_pos.y / tileSize) - 1;
+			const endX = camera.x + gridX;
+			const endY = camera.y + gridY;
 			
 			const look = {
 				start: { x: player.x, y: player.y },
@@ -110,7 +98,6 @@ var input = {
 			
 			const dist = calc.distance(player.x, endX, player.y, endY);
 			let path = calc.los(look);
-			
 			
 			// Limit path to player range and remove first element (player position)
 			if (path.length > player.attack_range + 1) {
@@ -133,9 +120,16 @@ var input = {
 		}
 	},
 	click: function() {
+		const rect = c.getBoundingClientRect();
+		const canvasX = mouse_pos.canvasX;
+		const canvasY = mouse_pos.canvasY;
+		
+		const gridX = Math.floor(canvasX / tileSize);
+		const gridY = Math.floor(canvasY / tileSize);
+		
 		const click_pos = {
-			x: camera.x + Math.ceil((mouse_pos.x - tileSize) / tileSize) || 0,
-			y: camera.y + Math.ceil((mouse_pos.y - tileSize) / tileSize) || 0
+			x: camera.x + gridX,
+			y: camera.y + gridY
 		};
 
 		if (edit.checked) {
@@ -198,9 +192,15 @@ var input = {
 	},
 	right_click: function(event) {
 		event.preventDefault(); // prevent regular browser right click menu
+		const canvasX = mouse_pos.canvasX;
+		const canvasY = mouse_pos.canvasY;
+		
+		const gridX = Math.floor(canvasX / tileSize);
+		const gridY = Math.floor(canvasY / tileSize);
+		
 		const click_pos = {
-			x: camera.x + Math.ceil((mouse_pos.x - tileSize) / tileSize) || 0,
-			y: camera.y + Math.ceil((mouse_pos.y - tileSize) / tileSize) || 0
+			x: camera.x + gridX,
+			y: camera.y + gridY
 		};
 		console.log(click_pos);
 	}

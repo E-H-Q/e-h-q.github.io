@@ -26,6 +26,14 @@
 				display: flex;
 				flex-direction: column;
 			}
+			#canvas-container {
+				position: relative;
+				display: inline-block;
+			}
+			#cursor {
+				position: absolute;
+				pointer-events: auto;
+			}
 			#controls-row {
 				display: flex;
 				gap: 20px;
@@ -73,8 +81,10 @@
 		<div class="hidden" id="content">
 			<div id="main-container">
 				<div id="left-section">
-					<div id="cursor"></div>
-					<canvas id="canvas"></canvas> <!-- the "screen" -->
+					<div id="canvas-container">
+						<canvas id="canvas"></canvas>
+						<div id="cursor"></div>
+					</div>
 					<select id="actions" onchange="update()">
 						<option value="move">MOVE</option>
 						<option value="attack">ATTK</option>
@@ -118,7 +128,7 @@
 			<div id="log"></div>
 			</div>
 		</div>
-		<script type="text/javascript" src="main.js"></script> <!-- needs to first -->
+		<script type="text/javascript" src="main.js"></script>
 		<script type="text/javascript" src="io.js"></script>
 		<script type="text/javascript" src="los.js"></script>
 		<script type="text/javascript" src="astar.js"></script>
@@ -126,6 +136,6 @@
 		<script type="text/javascript" src="input.js"></script>
 		<script type="text/javascript" src="turns.js"></script>
 		<script type="text/javascript" src="circle.js"></script>
-		<script type="text/javascript" src="script.js"></script> <!-- needs to last -->
+		<script type="text/javascript" src="script.js"></script>
 	</body>
 </html>
