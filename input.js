@@ -11,6 +11,27 @@ var input = {
 		cursor.style.pointerEvents = "auto"; // Make sure cursor can receive events
 	},
 	keyboard: function(event) {
+		// Number keys 1-9 - use items from inventory
+		if (event.type === 'keydown' && event.keyCode >= 49 && event.keyCode <= 57) {
+			const inventoryIndex = event.keyCode - 49; // 49 is keyCode for '1'
+			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
+				if (typeof useItem !== 'undefined' && useItem(player, inventoryIndex)) {
+					// Item was used successfully
+					currentEntityTurnsRemaining--;
+					
+					// If this was the player's last turn, force end of turn
+					if (currentEntityTurnsRemaining <= 0) {
+						currentEntityIndex++;
+						if (currentEntityIndex >= entities.length) {
+							currentEntityIndex = 0;
+						}
+						currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+					}
+				}
+			}
+			return;
+		}
+		
 		// Period key - pass/wait (skip one turn)
 		if (event.keyCode === 190 && event.type === 'keydown') {
 			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining > 0) {

@@ -56,7 +56,8 @@ var player = {
 	y: Math.floor(viewportSize / 2),
 	range: 3,
 	attack_range: 4,
-	turns: 2
+	turns: 2,
+	inventory: []
 };
 
 var enemy = {
@@ -68,7 +69,8 @@ var enemy = {
 	attack_range: 3,
 	turns: 2,
 	seenX: 0,
-	seenY: 0
+	seenY: 0,
+	inventory: []
 };
 
 // Store all enemy instances here for easy duplication
@@ -179,7 +181,8 @@ function spawnEnemy() {
 			attack_range: spawnAttackRange,
 			turns: spawnTurns,
 			seenX: 0,
-			seenY: 0
+			seenY: 0,
+			inventory: []
 		};
 		
 		allEnemies.push(newEnemy);

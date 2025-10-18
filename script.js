@@ -22,6 +22,24 @@ function updateTurnOrder() {
 	turnOrder.innerHTML = html;
 }
 
+function updateInventory() {
+	var inventoryDiv = document.getElementById("inventory-items");
+	var html = '';
+	
+	if (player.inventory.length === 0) {
+		html = '<p style="color: #888;">Empty</p>';
+	} else {
+		for (let i = 0; i < player.inventory.length; i++) {
+			const item = player.inventory[i];
+			const itemDef = itemTypes[item.itemType];
+			html += '<div style="padding: 5px; margin: 3px 0; border: 1px solid #fff;">' +
+			        (i + 1) + '. ' + itemDef.displayName + '</div>';
+		}
+	}
+	
+	inventoryDiv.innerHTML = html;
+}
+
 function killEntity(index) {
 	if (index >= 0 && index < entities.length && entities[index] !== player) {
 		entities[index].hp = 0;
@@ -70,6 +88,7 @@ function update() {
 	canvas.grid(); // draws the grid on canvas
 
 	canvas.walls(); // draws the walls
+	canvas.items(); // draws the items
 	
 	canvas.player(); // draws the player
 	canvas.enemy(); // draws the enemies	
@@ -78,6 +97,7 @@ function update() {
 	populate.player();
 	turns.check();
 	updateTurnOrder();
+	updateInventory();
 
 	var elem = document.getElementById("log");
 	elem.scrollTop = elem.scrollHeight;

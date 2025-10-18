@@ -33,6 +33,7 @@ var turns = {
 			canvas.clear();
 			canvas.grid();
 			canvas.walls();
+			canvas.items();
 			canvas.player();
 			canvas.enemy();
 		}
@@ -201,6 +202,11 @@ var turns = {
 		if (pts[entity.x + dx] && pts[entity.x + dx][entity.y + dy] !== 0) {
 			entity.x += dx;
 			entity.y += dy;
+			
+			// Check for item pickup
+			if (typeof pickupItem !== 'undefined') {
+				pickupItem(entity, entity.x, entity.y);
+			}
 		}
 		currentEntityTurnsRemaining--;
 	},
@@ -256,6 +262,11 @@ var turns = {
 		if (finalX !== entity.x || finalY !== entity.y) {
 			entity.x = finalX;
 			entity.y = finalY;
+			
+			// Check for item pickup
+			if (typeof pickupItem !== 'undefined') {
+				pickupItem(entity, entity.x, entity.y);
+			}
 		}
 		
 		currentEntityTurnsRemaining--;
@@ -265,6 +276,12 @@ var turns = {
 		if (pts[x] && pts[x][y] !== 0) {
 			entity.x = x;
 			entity.y = y;
+			
+			// Check for item pickup
+			if (typeof pickupItem !== 'undefined') {
+				pickupItem(entity, x, y);
+			}
+			
 			currentEntityTurnsRemaining--;
 			
 			// If this was the player's last turn, force end of turn
@@ -294,6 +311,23 @@ var turns = {
 			target.seenX = entity.x;// makes entity aware of what attacked them
 			target.seenY = entity.y;
 			console.log(entity.name + " hits " + target.name + " for " + dmgRoll + "DMG!");
+			
+			// Drop items on death
+			if (target.hp <= 0 && target.inventory.length > 0) {
+				for (let i = 0; i < target.inventory.length; i++) {
+					if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
+						const droppedItem = {
+							x: target.x,
+							y: target.y,
+							itemType: target.inventory[i].itemType,
+							id: nextItemId++
+						};
+						mapItems.push(droppedItem);
+						console.log(target.name + " dropped " + itemTypes[target.inventory[i].itemType].name);
+					}
+				}
+				target.inventory = [];
+			}
 		} else {
 			console.log(entity.name + " attacks and misses " + target.name + "...");
 		}

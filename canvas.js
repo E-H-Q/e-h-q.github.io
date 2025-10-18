@@ -27,6 +27,30 @@ var canvas = {
 			ctx.fillRect((walls[i].x - camera.x) * tileSize, (walls[i].y - camera.y) * tileSize, tileSize, tileSize);
 		}
 	},
+	items: function() {
+		if (typeof mapItems === 'undefined' || !mapItems) return;
+		
+		ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+		for (let i = 0; i < mapItems.length; i++) {
+			const screenX = (mapItems[i].x - camera.x) * tileSize;
+			const screenY = (mapItems[i].y - camera.y) * tileSize;
+			ctx.fillRect(screenX, screenY, tileSize, tileSize);
+			
+			// Draw item label if not zoomed out
+			if (!isZoomedOut) {
+				// TEMPORARY! Draws pepper on potion
+				//const img = document.getElementById("pep");
+				//ctx.drawImage(img, screenX, screenY, tileSize, tileSize);
+
+				ctx.fillStyle = "rgb(255, 0, 255)";
+				ctx.font = 'bold 12px serif';
+				ctx.textAlign = 'center';
+				ctx.fillText("HP+", screenX + tileSize / 2, screenY + tileSize / 2 + 4);
+				ctx.textAlign = 'left';
+				ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+			}
+		}
+	},
 	range: function(res, entity) {
 		if (res.length > 0 && res.length <= entity.range + 1) {
 			const coord = new calc.coordinate(res[res.length - 1].x, res[res.length - 1].y);
