@@ -11,6 +11,26 @@ var input = {
 		cursor.style.pointerEvents = "auto"; // Make sure cursor can receive events
 	},
 	keyboard: function(event) {
+		// Period key - pass/wait (skip one turn)
+		if (event.keyCode === 190 && event.type === 'keydown') {
+			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining > 0) {
+				currentEntityTurnsRemaining--;
+				console.log(player.name + " waits...");
+				
+				// If this was the player's last turn, force end of turn
+				if (currentEntityTurnsRemaining <= 0) {
+					currentEntityIndex++;
+					if (currentEntityIndex >= entities.length) {
+						currentEntityIndex = 0;
+					}
+					currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+				}
+				
+				update();
+			}
+			return;
+		}
+		
 		// Left Shift key - zoom out on press
 		if (event.keyCode === 16 && event.type === 'keydown' && !isZoomedOut) {
 			isZoomedOut = true;
@@ -53,10 +73,9 @@ var input = {
 			};
 			
 			update();
-			const trick = new MouseEvent('mousemove', {clientX: mouse_pos.clientX, clientY: mouse_pos.clientY});
-			input.mouse(trick);
 		}
 		if (event.keyCode === 9 && event.type == "keydown") {
+			event.preventDefault(); // Prevent tab from focusing HTML elements
 			action.value = (action.value === "move") ? "attack" : "move";
 			document.activeElement.blur();
 			// tricks the mouse event listener into activating when attack mode is enabled, drawing the LOS line
