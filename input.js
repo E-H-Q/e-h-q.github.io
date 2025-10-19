@@ -1,6 +1,7 @@
 // INPUT.JS: HANDLES USER INPUT
 
 var isZoomedOut = false;
+const trick = new MouseEvent('mousemove', {clientX: mouse_pos.clientX, clientY: mouse_pos.clientY});
 
 var input = {
 	init: function() {
@@ -35,6 +36,10 @@ var input = {
 		// Period key - pass/wait (skip one turn)
 		if (event.keyCode === 190 && event.type === 'keydown') {
 			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining > 0) {
+				// Check for item pickup
+				if (typeof pickupItem !== 'undefined') {
+					pickupItem(entities[currentEntityIndex],entities[currentEntityIndex].x, entities[currentEntityIndex].y);
+				}
 				currentEntityTurnsRemaining--;
 				console.log(player.name + " waits...");
 				
@@ -72,7 +77,6 @@ var input = {
 			update();
 			
 			// Re-trigger mouse position update
-			const trick = new MouseEvent('mousemove', {clientX: mouse_pos.clientX, clientY: mouse_pos.clientY});
 			input.mouse(trick);
 			
 			return;

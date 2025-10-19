@@ -22,6 +22,10 @@ var itemTypes = {
 };
 
 function spawnItem(itemType, x, y) {
+	if (!x || !y) {
+		var x = player.x;
+		var y = player.y;
+	}
 	// Use manual coordinates if provided
 	if (x !== undefined && y !== undefined) {
 		if (x >= 0 && x < size && y >= 0 && y < size) {
@@ -41,12 +45,13 @@ function spawnItem(itemType, x, y) {
 				console.log("Spawned " + itemTypes[itemType].name + " at " + x + ", " + y);
 				update();
 				return true;
+			} else {
+				console.log("Invalid spawn location for item!");
+				return false;
 			}
 		}
 	}
 	
-	console.log("Invalid spawn location for item!");
-	return false;
 }
 
 function spawnItemFromUI() {
