@@ -11,6 +11,13 @@ var itemTypes = {
 		effect: "heal",
 		value: 10,
 		displayName: "HP Potion"
+	},
+	speedPotion: {
+		name: "Speed Potion",
+		type: "consumable",
+		effect: "speed",
+		value: 2,
+		displayName: "Speed Potion"
 	}
 };
 
@@ -23,7 +30,7 @@ function spawnItem(itemType, x, y) {
 			const hasPlayer = (player.x === x && player.y === y);
 			const hasItem = mapItems.find(i => i.x === x && i.y === y);
 			
-			if (!hasWall && !hasEntity && !hasPlayer && !hasItem) {
+			if (!hasWall) {
 				const newItem = {
 					x: x,
 					y: y,
@@ -58,6 +65,10 @@ function spawnItemFromUI() {
 function pickupItem(entity, x, y) {
 	const itemIndex = mapItems.findIndex(i => i.x === x && i.y === y);
 	
+	if (!entity.inventory) {
+		return;
+	}
+
 	if (itemIndex >= 0) {
 		const item = mapItems[itemIndex];
 		entity.inventory.push({
@@ -85,9 +96,16 @@ function useItem(entity, inventoryIndex) {
 	
 	switch(itemDef.type) {
 		case "consumable":
-			if (itemDef.effect === "heal") {
-				entity.hp += itemDef.value;
-				console.log(entity.name + " used " + itemDef.name + " and healed for " + itemDef.value + " HP!");
+			switch(itemDef.effect) {
+				case "heal":
+					entity.hp += itemDef.value;
+					//console.log(entity.name + " used " + itemDef.name + " for " + itemDef.value + "HP!");
+					console.log(entity.name + " heals for " + itemDef.value + "HP!");
+					break;
+				case "speed":
+					entity.range += itemDef.value;
+					console.log(entity.name + " feels themselves moving faster!");
+					break;
 			}
 			// Remove consumable from inventory after use
 			entity.inventory.splice(inventoryIndex, 1);

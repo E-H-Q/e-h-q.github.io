@@ -200,7 +200,7 @@ function spawnEnemy() {
 			newEnemy.seenX = player.x;
 			newEnemy.seenY = player.y;
 		}
-		
+	
 		update();
 		console.log("Spawned " + newEnemy.name + " at " + spawnX + ", " + spawnY);
 	} else {

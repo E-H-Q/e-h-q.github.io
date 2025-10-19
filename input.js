@@ -108,10 +108,10 @@ var input = {
 	mouse: function(event) {
 		// Get canvas position accounting for all transforms
 		const rect = c.getBoundingClientRect();
-		
-		// Calculate mouse position relative to canvas
-		const canvasX = event.clientX - rect.left;
-		const canvasY = event.clientY - rect.top;
+
+		// Calculate mouse position within the canvas
+		const canvasX = event.clientX - rect.x;
+		const canvasY = event.clientY - rect.y;
 		
 		// Store both for later use
 		mouse_pos = {
@@ -120,7 +120,7 @@ var input = {
 			clientX: event.clientX,
 			clientY: event.clientY
 		};
-		
+
 		// Calculate grid position
 		const gridX = Math.floor(canvasX / tileSize);
 		const gridY = Math.floor(canvasY / tileSize);

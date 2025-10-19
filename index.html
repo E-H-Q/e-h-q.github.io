@@ -5,6 +5,7 @@
 		<title>Pepper vs Goblin</title>
 		<style>
 			body {
+				overflow-x: hidden;
 				background-color: #000000;
 				color: #FFFFFF;
 				margin: 0;
@@ -28,7 +29,7 @@
 				flex-direction: column;
 			}
 			#canvas-container {
-				position: relative;
+				position: block;
 				display: inline-block;
 			}
 			#cursor {
@@ -139,6 +140,7 @@
 							<label>Type: 
 								<select id="item_type" style="width: 100px;">
 									<option value="healthPotion">Health Potion</option>
+									<option value="speedPotion">Speed Potion</option>
 								</select>
 							</label><br>
 							<label>X: <input type="number" id="item_x" value="2" placeholder="X" autocomplete="off" style="width: 50px;"></label>
@@ -172,3 +174,5 @@
 		<script type="text/javascript" src="script.js"></script>
 	</body>
 </html>
+
+

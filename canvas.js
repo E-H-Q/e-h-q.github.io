@@ -38,14 +38,17 @@ var canvas = {
 			
 			// Draw item label if not zoomed out
 			if (!isZoomedOut) {
-				// TEMPORARY! Draws pepper on potion
-				//const img = document.getElementById("pep");
-				//ctx.drawImage(img, screenX, screenY, tileSize, tileSize);
-
 				ctx.fillStyle = "rgb(255, 0, 255)";
 				ctx.font = 'bold 12px serif';
 				ctx.textAlign = 'center';
-				ctx.fillText("HP+", screenX + tileSize / 2, screenY + tileSize / 2 + 4);
+				switch (mapItems[i].itemType) {
+					case "healthPotion":
+						ctx.fillText("HP+", screenX + tileSize / 2, screenY + tileSize / 2 + 4);	
+						break;
+					case "speedPotion":
+						ctx.fillText("SP+", screenX + tileSize / 2, screenY + tileSize / 2 + 4);	
+						break;
+				}
 				ctx.textAlign = 'left';
 				ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
 			}
