@@ -61,7 +61,7 @@
 				overflow-y: auto;
 				padding: 10px;
 				width: calc(50vw);
-				height: calc(100vh - 200px);
+				height: 50vh;
 			}
 			.turn-entity {
 				padding: 5px;
@@ -109,8 +109,14 @@
 							</select>
 						</div>
 						<div id="sidebar">
-							<h3>TURN ORDER</h3>
-							<div id="turn-order"></div>
+							<fieldset style="width: auto; overflow-y:auto; margin-bottom: 10px;">
+								<legend>INVENTORY</legend>
+								<div id="inventory-items" style="min-height: 100px; max-height: 150px; overflow-y: auto;"></div>
+							</fieldset>
+							<fieldset style="width: auto; overflow-y:auto;">
+								<legend>EQUIPMENT</legend>
+								<div id="equipment-items" style="min-height: 50px; max-height: 100px; overflow-y: auto;"></div>
+							</fieldset>
 						</div>
 
 					</div>
@@ -156,23 +162,19 @@
 							<button onclick="spawnItemFromUI()" style="margin-top: 5px;">SPAWN ITEM</button>
 						</fieldset>
 					</div>
+				</div>
+				<div id="right-panel" style="max-width: 25vw;">
+					<fieldset style="margin-left: 10px; width: auto; overflow-y:auto;">
+						<legend>TURN ORDER</legend>
+						<div id="turn-order" style="min-height: 50px; max-height: 150px; overflow-y: auto;"></div>
+					</fieldset>
+					<div id="log"></div>
+				</div>
+			</div>
 				<p><i>Press &lt;TAB&gt; to swap between MOVE & ATTACK modes.<br>
 				Press & hold &lt;SHIFT&gt; to zoom out.<br>
 				Press &lt;1 - 9&gt; to use items in inventory.<br>
 				Press &lt;period&gt; to pass your turn.</i></p>
-				</div>
-<div id="inventory-panel">
-						<fieldset style="margin-left: 10px; width: auto; max-width: 25vw; overflow-y:auto;">
-							<legend>INVENTORY</legend>
-							<div id="inventory-items" style="min-height: 100px; max-height: 100px; overflow-y: auto;"></div>
-						</fieldset>
-						<fieldset style="margin-left: 10px; width: auto; max-width: 25vw; overflow-y:auto; margin-top: 10px;">
-							<legend>EQUIPMENT</legend>
-							<div id="equipment-items" style="min-height: 50px; max-height: 100px; overflow-y: auto;"></div>
-						</fieldset>
-					<div id="log"></div>
-				</div>
-			</div>
 		</div>
 		<script type="text/javascript" src="main.js"></script>
 		<script type="text/javascript" src="items.js"></script>
