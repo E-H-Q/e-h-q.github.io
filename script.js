@@ -119,7 +119,7 @@ function updateEquipment() {
 			const item = player.equipment[slot];
 			const itemDef = itemTypes[item.itemType];
 			html += '<div class="equipment-item" onclick="unequipSlot(\'' + slot + '\')">' +
-			        slot.toUpperCase() + ': ' + itemDef.displayName + 
+			        slot.toUpperCase() + ': ' + itemDef.displayName + '<br>' +
 			        ' <span style="color: #0f0;">(+' + itemDef.value + ' ' + itemDef.effect.replace('_', ' ') + ')</span>' +
 			        '<br><span style="font-size: 10px; color: #888;">Click to unequip</span></div>';
 		} else {
