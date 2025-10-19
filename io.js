@@ -44,6 +44,8 @@ function load_map() {
 			// Load player position if available
 			if (loaded_player) {
 				player = JSON.parse(loaded_player);
+			} else {
+				updatePlayer();
 			}
 			
 			// Check enemy LOS after loading
