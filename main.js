@@ -57,7 +57,8 @@ var player = {
 	range: 3,
 	attack_range: 4,
 	turns: 2,
-	inventory: []
+	inventory: [],
+	equipment: {}
 };
 
 var enemy = {

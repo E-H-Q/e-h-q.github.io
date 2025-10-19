@@ -18,6 +18,14 @@ var itemTypes = {
 		effect: "speed",
 		value: 2,
 		displayName: "Speed Potion"
+	},
+	scope: {
+		name: "Scope",
+		type: "equipment",
+		slot: "accessory",
+		effect: "attack_range",
+		value: 4,
+		displayName: "Scope"
 	}
 };
 
@@ -89,6 +97,62 @@ function pickupItem(entity, x, y) {
 	return false;
 }
 
+function unequipItem(entity, slot) {
+	if (!entity.equipment || !entity.equipment[slot]) {
+		return false;
+	}
+	
+	const equippedItem = entity.equipment[slot];
+	const itemDef = itemTypes[equippedItem.itemType];
+	
+	// Remove stat bonuses
+	if (itemDef.effect === "attack_range") {
+		entity.attack_range -= itemDef.value;
+	}
+	
+	// Move back to inventory
+	entity.inventory.push(equippedItem);
+	entity.equipment[slot] = null;
+	
+	console.log(entity.name + " unequipped " + itemDef.name);
+	return true;
+}
+
+function equipItem(entity, inventoryIndex) {
+	if (inventoryIndex < 0 || inventoryIndex >= entity.inventory.length) {
+		return false;
+	}
+	
+	const item = entity.inventory[inventoryIndex];
+	const itemDef = itemTypes[item.itemType];
+	
+	if (!itemDef || itemDef.type !== "equipment") {
+		return false;
+	}
+	
+	// Initialize equipment object if it doesn't exist
+	if (!entity.equipment) {
+		entity.equipment = {};
+	}
+	
+	// Unequip any item in the same slot first
+	if (entity.equipment[itemDef.slot]) {
+		unequipItem(entity, itemDef.slot);
+	}
+	
+	// Remove from inventory and equip
+	entity.inventory.splice(inventoryIndex, 1);
+	entity.equipment[itemDef.slot] = item;
+	
+	// Apply stat bonuses
+	if (itemDef.effect === "attack_range") {
+		entity.attack_range += itemDef.value;
+	}
+	
+	console.log(entity.name + " equipped " + itemDef.name);
+	return true;
+}
+
 function useItem(entity, inventoryIndex) {
 	if (inventoryIndex < 0 || inventoryIndex >= entity.inventory.length) {
 		return false;
@@ -104,7 +168,6 @@ function useItem(entity, inventoryIndex) {
 			switch(itemDef.effect) {
 				case "heal":
 					entity.hp += itemDef.value;
-					//console.log(entity.name + " used " + itemDef.name + " for " + itemDef.value + "HP!");
 					console.log(entity.name + " heals for " + itemDef.value + "HP!");
 					break;
 				case "speed":
@@ -114,6 +177,10 @@ function useItem(entity, inventoryIndex) {
 			}
 			// Remove consumable from inventory after use
 			entity.inventory.splice(inventoryIndex, 1);
+			break;
+		case "equipment":
+			// Equip the item instead of consuming it
+			equipItem(entity, inventoryIndex);
 			break;
 	}
 	

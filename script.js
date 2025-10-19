@@ -8,6 +8,17 @@ function updateTurnOrder() {
 	
 	for (let i = 0; i < entities.length; i++) {
 		const entity = entities[i];
+		
+		// Skip enemies not in active combat (haven't seen player or player can't see them)
+		if (entity !== player) {
+			const hasSeenPlayer = (entity.seenX !== 0 || entity.seenY !== 0);
+			const playerCanSeeEnemy = turns.playerCanSeeEnemy(entity);
+			
+			if (!hasSeenPlayer && !playerCanSeeEnemy) {
+				continue; // Skip this enemy from turn order display
+			}
+		}
+		
 		const isActive = (i === currentEntityIndex);
 		const turnsDisplay = isActive ? ` (${currentEntityTurnsRemaining}/${entity.turns})` : ` (${entity.turns})`;
 		
@@ -32,18 +43,110 @@ function updateInventory() {
 		for (let i = 0; i < player.inventory.length; i++) {
 			const item = player.inventory[i];
 			const itemDef = itemTypes[item.itemType];
-			html += '<div style="padding: 5px; margin: 3px 0; border: 1px solid #fff;">' +
-			        (i + 1) + '. ' + itemDef.displayName + '</div>';
+			const itemTypeLabel = itemDef.type === "equipment" ? " [equip]" : "";
+			html += '<div style="padding: 5px; margin: 3px 0; border: 1px solid #fff; cursor: pointer;" ' +
+			        'onclick="useInventoryItem(' + i + ')" ' +
+			        'oncontextmenu="dropInventoryItem(event, ' + i + ')" ' +
+			        'onmouseover="this.style.backgroundColor=\'#333\'" ' +
+			        'onmouseout="this.style.backgroundColor=\'transparent\'">' +
+			        (i + 1) + '. ' + itemDef.displayName + itemTypeLabel + '</div>';
 		}
 	}
 	
 	inventoryDiv.innerHTML = html;
 }
 
+function useInventoryItem(inventoryIndex) {
+	if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
+		if (typeof useItem !== 'undefined' && useItem(player, inventoryIndex)) {
+			// Item was used successfully
+			currentEntityTurnsRemaining--;
+			
+			// If this was the player's last turn, force end of turn
+			if (currentEntityTurnsRemaining <= 0) {
+				currentEntityIndex++;
+				if (currentEntityIndex >= entities.length) {
+					currentEntityIndex = 0;
+				}
+				currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+			}
+			update();
+		}
+	}
+}
+
+function dropInventoryItem(event, inventoryIndex) {
+	event.preventDefault(); // Prevent context menu
+	
+	if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
+		if (inventoryIndex >= 0 && inventoryIndex < player.inventory.length) {
+			const item = player.inventory[inventoryIndex];
+			const itemDef = itemTypes[item.itemType];
+			
+			// Drop item at player's current position
+			if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
+				const droppedItem = {
+					x: player.x,
+					y: player.y,
+					itemType: item.itemType,
+					id: nextItemId++
+				};
+				mapItems.push(droppedItem);
+				console.log(player.name + " dropped " + itemDef.name);
+			}
+			
+			// Remove from inventory
+			player.inventory.splice(inventoryIndex, 1);
+			update();
+		}
+	}
+}
+
+function updateEquipment() {
+	var equipmentDiv = document.getElementById("equipment-items");
+	var html = '';
+	
+	if (!player.equipment) {
+		player.equipment = {};
+	}
+	
+	const slots = ["accessory"]; // Can add more slots like "weapon", "armor", etc.
+	let hasEquipment = false;
+	
+	for (let slot of slots) {
+		if (player.equipment[slot]) {
+			hasEquipment = true;
+			const item = player.equipment[slot];
+			const itemDef = itemTypes[item.itemType];
+			html += '<div class="equipment-item" onclick="unequipSlot(\'' + slot + '\')">' +
+			        slot.toUpperCase() + ': ' + itemDef.displayName + 
+			        ' <span style="color: #0f0;">(+' + itemDef.value + ' ' + itemDef.effect.replace('_', ' ') + ')</span>' +
+			        '<br><span style="font-size: 10px; color: #888;">Click to unequip</span></div>';
+		} else {
+			html += '<div style="padding: 5px; margin: 3px 0; color: #888;">' +
+			        slot.toUpperCase() + ': Empty</div>';
+		}
+	}
+	
+	if (!hasEquipment && slots.length === 0) {
+		html = '<p style="color: #888;">No equipment slots</p>';
+	}
+	
+	equipmentDiv.innerHTML = html;
+}
+
+function unequipSlot(slot) {
+	if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
+		if (typeof unequipItem !== 'undefined') {
+			unequipItem(player, slot);
+			update();
+		}
+	}
+}
+
 function killEntity(index) {
 	if (index >= 0 && index < entities.length && entities[index] !== player) {
 		entities[index].hp = 0;
-		//entities.splice(index, 1);
 		
 		// Adjust current turn if killing an entity before current turn
 		if (index < currentEntityIndex) {
@@ -98,6 +201,7 @@ function update() {
 	turns.check();
 	updateTurnOrder();
 	updateInventory();
+	updateEquipment();
 
 	var elem = document.getElementById("log");
 	elem.scrollTop = elem.scrollHeight;

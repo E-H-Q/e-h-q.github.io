@@ -110,12 +110,12 @@ var input = {
 		}
 	},
 	mouse: function(event) {
-		// Get canvas position accounting for all transforms
+		// Get canvas position accounting for all transforms and scroll
 		const rect = c.getBoundingClientRect();
 
 		// Calculate mouse position within the canvas
-		const canvasX = event.clientX - rect.x;
-		const canvasY = event.clientY - rect.y;
+		const canvasX = event.clientX - rect.left;
+		const canvasY = event.clientY - rect.top;
 		
 		// Store both for later use
 		mouse_pos = {
@@ -251,3 +251,4 @@ var input = {
 		console.log(click_pos);
 	}
 };
+

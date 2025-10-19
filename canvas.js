@@ -30,15 +30,20 @@ var canvas = {
 	items: function() {
 		if (typeof mapItems === 'undefined' || !mapItems) return;
 		
-		ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
 		for (let i = 0; i < mapItems.length; i++) {
+			const itemDef = itemTypes[mapItems[i].itemType];
+			const isEquipment = itemDef && itemDef.type === "equipment";
+			
+			// Different colors for equipment vs consumables
+			ctx.fillStyle = isEquipment ? "rgba(255, 165, 0, 0.8)" : "rgba(255, 255, 255, 0.8)";
+			
 			const screenX = (mapItems[i].x - camera.x) * tileSize;
 			const screenY = (mapItems[i].y - camera.y) * tileSize;
 			ctx.fillRect(screenX, screenY, tileSize, tileSize);
 			
 			// Draw item label if not zoomed out
 			if (!isZoomedOut) {
-				ctx.fillStyle = "rgb(255, 0, 255)";
+				ctx.fillStyle = isEquipment ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)";
 				ctx.font = 'bold 12px serif';
 				ctx.textAlign = 'center';
 				switch (mapItems[i].itemType) {
@@ -48,9 +53,11 @@ var canvas = {
 					case "speedPotion":
 						ctx.fillText("SP+", screenX + tileSize / 2, screenY + tileSize / 2 + 4);	
 						break;
+					case "scope":
+						ctx.fillText("Scp", screenX + tileSize / 2, screenY + tileSize / 2 + 4);	
+						break;
 				}
 				ctx.textAlign = 'left';
-				ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
 			}
 		}
 	},

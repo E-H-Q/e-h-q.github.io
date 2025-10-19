@@ -78,6 +78,16 @@
 				padding: 5px;
 				margin: 0;
 			}
+			.equipment-item {
+				padding: 5px;
+				margin: 3px 0;
+				border: 1px solid #0f0;
+				background-color: #002200;
+				cursor: pointer;
+			}
+			.equipment-item:hover {
+				background-color: #003300;
+			}
 		</style>
 	</head>
 	<body>
@@ -138,6 +148,7 @@
 								<select id="item_type" style="width: auto;">
 									<option value="healthPotion">Health Potion</option>
 									<option value="speedPotion">Speed Potion</option>
+									<option value="scope">Scope</option>
 								</select>
 							</label><br>
 							<label>X: <input type="number" id="item_x" value="" placeholder="X" autocomplete="off" style="width: 50px;"></label>
@@ -154,7 +165,11 @@
 						<fieldset style="margin-left: 10px; width: auto; max-width: 25vw; overflow-y:auto;">
 							<legend>INVENTORY</legend>
 							<div id="inventory-items" style="min-height: 100px; max-height: 100px; overflow-y: auto;"></div>
-						</fieldset>		
+						</fieldset>
+						<fieldset style="margin-left: 10px; width: auto; max-width: 25vw; overflow-y:auto; margin-top: 10px;">
+							<legend>EQUIPMENT</legend>
+							<div id="equipment-items" style="min-height: 50px; max-height: 100px; overflow-y: auto;"></div>
+						</fieldset>
 					<div id="log"></div>
 				</div>
 			</div>
