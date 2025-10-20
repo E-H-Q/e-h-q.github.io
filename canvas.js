@@ -56,6 +56,9 @@ var canvas = {
 					case "scope":
 						ctx.fillText("Scp", screenX + tileSize / 2, screenY + tileSize / 2 + 4);	
 						break;
+					case "rifle":
+						ctx.fillText("Gun", screenX + tileSize / 2, screenY + tileSize / 2 + 4);	
+						break;
 				}
 				ctx.textAlign = 'left';
 			}

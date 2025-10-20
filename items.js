@@ -26,6 +26,14 @@ var itemTypes = {
 		effect: "attack_range",
 		value: 4,
 		displayName: "Scope"
+	},
+	rifle: {
+		name: "Rifle",
+		type: "equipment",
+		slot: "weapon",
+		effect: "damage",
+		value: 3,
+		displayName: "+3 Rifle"
 	}
 };
 
@@ -75,22 +83,49 @@ function spawnItemFromUI() {
 	document.getElementById('item_y').value = "";
 }
 
-function pickupItem(entity, x, y) {
-	const itemIndex = mapItems.findIndex(i => i.x === x && i.y === y);
+function updateItemDropdown() {
+	const category = document.getElementById('item_category').value;
+	const itemDropdown = document.getElementById('item_type');
 	
+	// Clear existing options
+	itemDropdown.innerHTML = '';
+	
+	// Add items matching the selected category
+	for (let key in itemTypes) {
+		if (itemTypes[key].type === category) {
+			const option = document.createElement('option');
+			option.value = key;
+			option.textContent = itemTypes[key].name;
+			itemDropdown.appendChild(option);
+		}
+	}
+}
+
+function pickupItem(entity, x, y) {
 	if (!entity.inventory) {
 		return;
 	}
 
-	if (itemIndex >= 0) {
-		const item = mapItems[itemIndex];
+	// Find all items at this location
+	const itemsAtLocation = [];
+	for (let i = 0; i < mapItems.length; i++) {
+		if (mapItems[i].x === x && mapItems[i].y === y) {
+			itemsAtLocation.push({index: i, item: mapItems[i]});
+		}
+	}
+	
+	if (itemsAtLocation.length > 0) {
+		// Pick up the most recently added item (last in the array)
+		const mostRecent = itemsAtLocation[itemsAtLocation.length - 1];
+		const item = mostRecent.item;
+		
 		entity.inventory.push({
 			itemType: item.itemType,
 			id: item.id
 		});
 		
 		console.log(entity.name + " picked up " + itemTypes[item.itemType].name);
-		mapItems.splice(itemIndex, 1);
+		mapItems.splice(mostRecent.index, 1);
 		return true;
 	}
 	

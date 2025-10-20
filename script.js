@@ -110,7 +110,7 @@ function updateEquipment() {
 		player.equipment = {};
 	}
 	
-	const slots = ["accessory"]; // Can add more slots like "weapon", "armor", etc.
+	const slots = ["weapon", "accessory"]; // Added weapon slot
 	let hasEquipment = false;
 	
 	for (let slot of slots) {
@@ -209,6 +209,10 @@ function update() {
 
 document.getElementById("content").classList.remove("hidden"); // un-hides everything on the page
 action.selectedIndex = 0; // resets the dropdown
+
+// Reset Type dropdown to "Consumable" on page load
+document.getElementById('item_category').value = 'consumable';
+updateItemDropdown(); // Initialize item dropdown with consumables
 
 function handleMouseMove(event) {
 	if (currentEntityIndex >= 0 && entities[currentEntityIndex] !== player) {

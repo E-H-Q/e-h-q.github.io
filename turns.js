@@ -306,7 +306,18 @@ var turns = {
 		const hitRoll = calc.roll(6, 1);
 		
 		if (hitRoll >= 4) {
-			const dmgRoll = calc.roll(6, 1);
+			let dmgRoll = calc.roll(6, 1);
+			
+			// Check for weapon damage bonus
+			if (entity.equipment && entity.equipment.weapon) {
+				const weaponItem = entity.equipment.weapon;
+				const weaponDef = itemTypes[weaponItem.itemType];
+				
+				if (weaponDef && weaponDef.effect === "damage") {
+					dmgRoll += weaponDef.value;
+				}
+			}
+			
 			target.hp -= dmgRoll;
 			target.seenX = entity.x;// makes entity aware of what attacked them
 			target.seenY = entity.y;

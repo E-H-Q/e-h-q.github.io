@@ -51,7 +51,9 @@
 				padding: 10px;
 				border: 1px solid #FFFFFF;
 				overflow-y: auto;
-				height: auto;
+				height: 480px;
+				display: flex;
+				flex-direction: column;
 			}
 			#sidebar h3 {
 				margin-top: 0;
@@ -109,13 +111,13 @@
 							</select>
 						</div>
 						<div id="sidebar">
-							<fieldset style="width: auto; overflow-y:auto; margin-bottom: 10px;">
+							<fieldset style="width: auto; overflow-y:auto; margin-bottom: 10px; flex: 1;">
 								<legend>INVENTORY</legend>
-								<div id="inventory-items" style="min-height: 100px; max-height: 200px; overflow-y: auto;"></div>
+								<div id="inventory-items" style="height: 100%; overflow-y: auto;"></div>
 							</fieldset>
-							<fieldset style="width: auto; overflow-y:auto;">
+							<fieldset style="width: auto; overflow-y:auto; flex: 1;">
 								<legend>EQUIPMENT</legend>
-								<div id="equipment-items" style="min-height: 50px; max-height: 100px;overflow-y: auto;"></div>
+								<div id="equipment-items" style="height: 100%; overflow-y: auto;"></div>
 							</fieldset>
 						</div>
 
@@ -151,10 +153,15 @@
 						<fieldset id="item-settings" style="width: auto;">
 							<legend>Item Settings</legend>
 							<label>Type: 
+								<select id="item_category" onchange="updateItemDropdown()" style="width: auto;">
+									<option value="consumable">Consumable</option>
+									<option value="equipment">Equipment</option>
+								</select>
+							</label><br>
+							<label>Item: 
 								<select id="item_type" style="width: auto;">
 									<option value="healthPotion">Health Potion</option>
 									<option value="speedPotion">Speed Potion</option>
-									<option value="scope">Scope</option>
 								</select>
 							</label><br>
 							<label>X: <input type="number" id="item_x" value="" placeholder="X" autocomplete="off" style="width: 50px;"></label>
