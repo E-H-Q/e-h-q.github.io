@@ -110,10 +110,11 @@ var input = {
 		}
 	},
 	mouse: function(event) {
-		// Get canvas position accounting for all transforms and scroll
+		// Get canvas position relative to the viewport (accounts for scrolling)
 		const rect = c.getBoundingClientRect();
 
 		// Calculate mouse position within the canvas
+		// clientX/clientY are already viewport-relative, so this works correctly
 		const canvasX = event.clientX - rect.left;
 		const canvasY = event.clientY - rect.top;
 		
@@ -129,9 +130,9 @@ var input = {
 		const gridX = Math.floor(canvasX / tileSize);
 		const gridY = Math.floor(canvasY / tileSize);
 		
-		// Position cursor using the same rect calculation
-		cursor.style.left = (rect.left + gridX * tileSize) + "px";
-		cursor.style.top = (rect.top + gridY * tileSize) + "px";
+		// Position cursor - add window scroll offset to convert viewport coords to page coords
+		cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
+		cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
 
 		if (action.value === "attack") {	
 			const endX = camera.x + gridX;
@@ -251,4 +252,3 @@ var input = {
 		console.log(click_pos);
 	}
 };
-
