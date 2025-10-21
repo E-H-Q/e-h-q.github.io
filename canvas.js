@@ -12,7 +12,7 @@ var canvas = {
 		ctx.lineWidth = 0.1;
 		ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
 
-		for(let i = 0; i <= size; i++) {
+		for(let i = 0; i <= viewportSize; i++) {
 			const pos = i * tileSize;
 			ctx.moveTo(pos, 0);
 			ctx.lineTo(pos, c.height);

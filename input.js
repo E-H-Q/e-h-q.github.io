@@ -257,6 +257,11 @@ var input = {
 		};
 
 		if (edit.checked) {
+			// Prevent negative coordinates
+			if (click_pos.x < 0 || click_pos.y < 0 || click_pos.x >= size || click_pos.y >= size) {
+				return;
+			}
+			
 			const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
 			if (dup < 0) {
 				walls.push(new calc.coordinate(click_pos.x, click_pos.y));

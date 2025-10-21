@@ -70,6 +70,46 @@ function spawnItem(itemType, x, y) {
 	
 }
 
+function giveItem(entity, itemType) {
+	if (!entity.inventory) {
+		entity.inventory = [];
+	}
+	
+	const newItem = {
+		itemType: itemType,
+		id: nextItemId++
+	};
+	
+	entity.inventory.push(newItem);
+	console.log(entity.name + " received " + itemTypes[itemType].name);
+	
+	// Auto-equip equipment for enemies if they spawn with it
+	const itemDef = itemTypes[itemType];
+	if (entity !== player && itemDef && itemDef.type === "equipment") {
+		// Remove from inventory since we're about to equip it
+		entity.inventory.pop();
+		equipItem(entity, 0); // This won't work, we need to equip directly
+		
+		// Initialize equipment object if it doesn't exist
+		if (!entity.equipment) {
+			entity.equipment = {};
+		}
+		
+		// Equip directly without going through inventory
+		entity.equipment[itemDef.slot] = newItem;
+		
+		// Apply stat bonuses
+		if (itemDef.effect === "attack_range") {
+			entity.attack_range += itemDef.value;
+		}
+		
+		console.log(entity.name + " equipped " + itemDef.name);
+	}
+	
+	update();
+	return true;
+}
+
 function spawnItemFromUI() {
 	const itemType = document.getElementById('item_type').value;
 	const itemX = document.getElementById('item_x').value;

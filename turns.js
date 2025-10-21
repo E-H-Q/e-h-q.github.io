@@ -198,10 +198,19 @@ var turns = {
 			[dx, dy] = moves[direction];
 		}
 		
+		// Check for negative coordinates and out of bounds
+		const newX = entity.x + dx;
+		const newY = entity.y + dy;
+		
+		if (newX < 0 || newY < 0 || newX >= size || newY >= size) {
+			currentEntityTurnsRemaining--;
+			return;
+		}
+		
 		// Move without calling update() to avoid recursion
-		if (pts[entity.x + dx] && pts[entity.x + dx][entity.y + dy] !== 0) {
-			entity.x += dx;
-			entity.y += dy;
+		if (pts[newX] && pts[newX][newY] !== 0) {
+			entity.x = newX;
+			entity.y = newY;
 			
 			// Check for item pickup
 			if (typeof pickupItem !== 'undefined') {
