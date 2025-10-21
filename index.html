@@ -90,6 +90,10 @@
 			.equipment-item:hover {
 				background-color: #003300;
 			}
+			#size-input-container {
+				display: none;
+				margin-right: 10px;
+			}
 		</style>
 	</head>
 	<body>
@@ -123,6 +127,9 @@
 
 					</div>
 					<div style="margin-top: 10px;">
+						<span id="size-input-container">
+							<label>SIZE: <input type="number" id="map-size" min="5" max="100" style="width: 60px;" onchange="updateMapSize()" onkeydown="if(event.keyCode === 13) updateMapSize()"></label>
+						</span>
 						EDIT MODE:<input type="checkbox" id="edit"></input>
 						<a href="" id="save_button"><button onclick="save_map()">SAVE MAP</button></a>
 						<input id="file" type="file" onchange="load_map()"/>
@@ -180,6 +187,8 @@
 			</div>
 				<p><i>Press &lt;TAB&gt; to swap between MOVE & ATTACK modes.<br>
 				Press & hold &lt;SHIFT&gt; to zoom out.<br>
+				Press &lt;SHIFT+E&gt; to toggle EDIT mode.<br>
+				Press &lt;ESC&gt; to exit EDIT mode.<br>
 				Press &lt;1 - 9&gt; to use items in inventory.<br>
 				Press &lt;period&gt; to pass your turn.</i></p>
 		</div>

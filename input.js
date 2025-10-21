@@ -12,6 +12,65 @@ var input = {
 		cursor.style.pointerEvents = "auto"; // Make sure cursor can receive events
 	},
 	keyboard: function(event) {
+		// Shift+E - Toggle Edit Mode
+		if (event.shiftKey && event.keyCode === 69 && event.type === 'keydown') {
+			edit.checked = !edit.checked;
+			
+			// If entering edit mode and not zoomed out, zoom out
+			if (edit.checked && !isZoomedOut) {
+				isZoomedOut = true;
+				tileSize = tileSize / 2;
+				viewportSize = viewportSize * 2;
+				cursor.style.padding = (tileSize / 2) + "px";
+				
+				const currentEntity = entities[currentEntityIndex] || player;
+				camera = {
+					x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
+					y: currentEntity.y - Math.round((viewportSize / 2)) + 1
+				};
+				
+				update();
+				input.mouse(trick);
+			}
+			
+			// Toggle size input visibility
+			const sizeInput = document.getElementById('size-input-container');
+			if (sizeInput) {
+				sizeInput.style.display = edit.checked ? 'inline-block' : 'none';
+			}
+			
+			return;
+		}
+		
+		// Escape - Exit Edit Mode
+		if (event.keyCode === 27 && event.type === 'keydown' && edit.checked) {
+			edit.checked = false;
+			
+			// Zoom back in if zoomed out
+			if (isZoomedOut) {
+				isZoomedOut = false;
+				tileSize = tileSize * 2;
+				viewportSize = viewportSize / 2;
+				cursor.style.padding = (tileSize / 2) + "px";
+				
+				const currentEntity = entities[currentEntityIndex] || player;
+				camera = {
+					x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
+					y: currentEntity.y - Math.round((viewportSize / 2)) + 1
+				};
+				
+				update();
+			}
+			
+			// Hide size input
+			const sizeInput = document.getElementById('size-input-container');
+			if (sizeInput) {
+				sizeInput.style.display = 'none';
+			}
+			
+			return;
+		}
+		
 		// Number keys 1-9 - use items from inventory
 		if (event.type === 'keydown' && event.keyCode >= 49 && event.keyCode <= 57) {
 			const inventoryIndex = event.keyCode - 49; // 49 is keyCode for '1'
@@ -57,40 +116,58 @@ var input = {
 			return;
 		}
 		
-		// Left Shift key - zoom out on press
-		if (event.keyCode === 16 && event.type === 'keydown' && !isZoomedOut) {
-			isZoomedOut = true;
-			
-			tileSize = tileSize / 2;
-			viewportSize = viewportSize * 2;
-			
-			// Update cursor size
-			cursor.style.padding = (tileSize / 2) + "px";
-			
-			// Recenter camera on current entity
-			const currentEntity = entities[currentEntityIndex] || player;
-			camera = {
-				x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
-				y: currentEntity.y - Math.round((viewportSize / 2)) + 1
-			};
-			
-			update();
-			
-			// Re-trigger mouse position update
-			input.mouse(trick);
+		// Left Shift key - toggle zoom (only works as toggle in edit mode, hold otherwise)
+		if (event.keyCode === 16 && event.type === 'keydown') {
+			if (edit.checked) {
+				// In edit mode: toggle zoom on each press
+				isZoomedOut = !isZoomedOut;
+				
+				if (isZoomedOut) {
+					tileSize = tileSize / 2;
+					viewportSize = viewportSize * 2;
+				} else {
+					tileSize = tileSize * 2;
+					viewportSize = viewportSize / 2;
+				}
+				
+				cursor.style.padding = (tileSize / 2) + "px";
+				
+				const currentEntity = entities[currentEntityIndex] || player;
+				camera = {
+					x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
+					y: currentEntity.y - Math.round((viewportSize / 2)) + 1
+				};
+				
+				update();
+				input.mouse(trick);
+			} else if (!isZoomedOut) {
+				// Not in edit mode: zoom out while holding
+				isZoomedOut = true;
+				
+				tileSize = tileSize / 2;
+				viewportSize = viewportSize * 2;
+				cursor.style.padding = (tileSize / 2) + "px";
+				
+				const currentEntity = entities[currentEntityIndex] || player;
+				camera = {
+					x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
+					y: currentEntity.y - Math.round((viewportSize / 2)) + 1
+				};
+				
+				update();
+				input.mouse(trick);
+			}
 			
 			return;
 		}
-		if (event.keyCode === 16 && event.type === 'keyup' && isZoomedOut) {
+		if (event.keyCode === 16 && event.type === 'keyup' && isZoomedOut && !edit.checked) {
+			// Only zoom back in on release if NOT in edit mode
 			isZoomedOut = false;
 			
 			tileSize = tileSize * 2;
 			viewportSize = viewportSize / 2;
-			
-			// Update cursor size
 			cursor.style.padding = (tileSize / 2) + "px";
 			
-			// Recenter camera on current entity
 			const currentEntity = entities[currentEntityIndex] || player;
 			camera = {
 				x: currentEntity.x - Math.round((viewportSize / 2)) + 1,

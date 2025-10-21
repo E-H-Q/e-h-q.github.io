@@ -2,6 +2,19 @@
 
 input.init(); // sets up the cursor
 
+function updateMapSize() {
+	const newSize = parseInt(document.getElementById('map-size').value);
+	if (newSize >= 5 && newSize <= 100) {
+		size = newSize;
+		resizePtsArray();
+		console.log("Map size changed to " + size);
+		update();
+	} else {
+		console.log("Invalid map size. Must be between 5 and 100.");
+		document.getElementById('map-size').value = size;
+	}
+}
+
 function updateTurnOrder() {
 	var turnOrder = document.getElementById("turn-order");
 	var html = '';
@@ -229,5 +242,8 @@ document.addEventListener("keyup", input.keyboard);
 
 var div_for_coords = document.createElement("div");
 document.body.appendChild(div_for_coords);
+
+// Initialize map size input with current value
+document.getElementById('map-size').value = size;
 
 update();
