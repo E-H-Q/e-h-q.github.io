@@ -12,8 +12,9 @@ var edit = document.getElementById("edit");
 edit.checked = false;
 
 var tileSize = 32;
-var size = 15;
-var viewportSize = 15;
+var size = 50; // Map size can be larger
+// Calculate viewport size based on 50vw
+var viewportSize = Math.floor((window.innerWidth * 0.5) / tileSize);
 
 (function () { // REDIRECTS CONSOLE.LOG TO HTML!
     if (!console) {

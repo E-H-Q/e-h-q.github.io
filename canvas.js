@@ -20,6 +20,31 @@ var canvas = {
 			ctx.lineTo(c.width, pos);
 		}
 		ctx.stroke();
+		
+		// Draw X on out of bounds tiles
+		ctx.strokeStyle = "rgba(255, 0, 0, 0.2)";
+		ctx.lineWidth = 1;
+		
+		for(let i = 0; i < viewportSize; i++) {
+			for(let j = 0; j < viewportSize; j++) {
+				const worldX = camera.x + i;
+				const worldY = camera.y + j;
+				
+				// Check if tile is out of bounds
+				if (worldX < 0 || worldY < 0 || worldX >= size || worldY >= size) {
+					const screenX = i * tileSize;
+					const screenY = j * tileSize;
+					
+					// Draw X
+					ctx.beginPath();
+					ctx.moveTo(screenX, screenY);
+					ctx.lineTo(screenX + tileSize, screenY + tileSize);
+					ctx.moveTo(screenX + tileSize, screenY);
+					ctx.lineTo(screenX, screenY + tileSize);
+					ctx.stroke();
+				}
+			}
+		}
 	},
 	walls: function() {
 		ctx.fillStyle = "rgba(255, 0, 0, 0.5)";

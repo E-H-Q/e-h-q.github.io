@@ -5,15 +5,21 @@
 		<title>Pepper vs Goblin</title>
 		<style>
 			body {
-				overflow-x: hidden;
 				background-color: #000000;
 				color: #FFFFFF;
 				margin: 0;
 				padding: 0;
+				overflow: auto;
+				scrollbar-width: none; /* Firefox */
+				-ms-overflow-style: none; /* IE and Edge */
+			}
+			body::-webkit-scrollbar {
+				display: none; /* Chrome, Safari, Opera */
 			}
 			canvas {
 				border: 1px solid #FFFFFF;
 				display: block;
+				image-rendering: pixelated;
 			}
 			.hidden {
 				display: none;
@@ -46,12 +52,11 @@
 				gap: 10px;
 			}
 			#sidebar {
-				width: auto;
+				width: calc(20vw);
 				min-width: 15vw;
 				padding: 10px;
 				border: 1px solid #FFFFFF;
 				overflow-y: auto;
-				height: 480px;
 				display: flex;
 				flex-direction: column;
 			}
@@ -62,8 +67,8 @@
 				overflow-x: auto;
 				overflow-y: auto;
 				padding: 10px;
-				width: calc(50vw);
-				height: 50vh;
+				width: calc(25vw);
+				max-height: calc(50vh - 200px);
 			}
 			.turn-entity {
 				padding: 5px;
@@ -109,7 +114,7 @@
 								<canvas id="canvas"></canvas>
 								<div id="cursor"></div>
 							</div>
-							<select id="actions" onchange="update()" style="display: block; width: 480px; margin-top: 5px;">
+							<select id="actions" onchange="update()" style="display: block; width: 100%; margin-top: 5px;">
 								<option value="move">MOVE</option>
 								<option value="attack">ATTK</option>
 							</select>
@@ -177,7 +182,7 @@
 						</fieldset>
 					</div>
 				</div>
-				<div id="right-panel" style="max-width: 25vw;">
+				<div id="right-panel" style="max-width: 25vw; min-width: 25vw;">
 					<fieldset style="margin-left: 10px; width: auto; overflow-y:auto;">
 						<legend>TURN ORDER</legend>
 						<div id="turn-order" style="min-height: 50px; max-height: 150px; overflow-y: auto;"></div>

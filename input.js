@@ -1,6 +1,8 @@
 // INPUT.JS: HANDLES USER INPUT
 
 var isZoomedOut = false;
+var isMouseDown = false;
+var lastTile = null;
 const trick = new MouseEvent('mousemove', {clientX: mouse_pos.clientX, clientY: mouse_pos.clientY});
 
 var input = {
@@ -211,6 +213,33 @@ var input = {
 		cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
 		cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
 
+		// Handle drawing in edit mode while mouse is down
+		if (edit.checked && isMouseDown) {
+			const click_pos = {
+				x: camera.x + gridX,
+				y: camera.y + gridY
+			};
+			
+			// Prevent negative coordinates
+			if (click_pos.x < 0 || click_pos.y < 0 || click_pos.x >= size || click_pos.y >= size) {
+				return;
+			}
+			
+			// Only process if we moved to a different tile
+			if (!lastTile || lastTile.x !== click_pos.x || lastTile.y !== click_pos.y) {
+				lastTile = {x: click_pos.x, y: click_pos.y};
+				
+				const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
+				if (dup < 0) {
+					walls.push(new calc.coordinate(click_pos.x, click_pos.y));
+				} else {
+					walls.splice(dup, 1);
+				}
+				update();
+			}
+			return;
+		}
+
 		if (action.value === "attack") {	
 			const endX = camera.x + gridX;
 			const endY = camera.y + gridY;
@@ -244,6 +273,8 @@ var input = {
 		}
 	},
 	click: function() {
+		if (edit.checked) return; // Don't handle click in edit mode, use mousedown/up instead
+		
 		const rect = c.getBoundingClientRect();
 		const canvasX = mouse_pos.canvasX;
 		const canvasY = mouse_pos.canvasY;
@@ -255,22 +286,6 @@ var input = {
 			x: camera.x + gridX,
 			y: camera.y + gridY
 		};
-
-		if (edit.checked) {
-			// Prevent negative coordinates
-			if (click_pos.x < 0 || click_pos.y < 0 || click_pos.x >= size || click_pos.y >= size) {
-				return;
-			}
-			
-			const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
-			if (dup < 0) {
-				walls.push(new calc.coordinate(click_pos.x, click_pos.y));
-			} else {
-				walls.splice(dup, 1);
-			}
-			update();
-			return;
-		}
 
 		switch (action.value) {
 			case "move": // PLAYER MOVES
@@ -332,5 +347,44 @@ var input = {
 			y: camera.y + gridY
 		};
 		console.log(click_pos);
+	},
+	mousedown: function(event) {
+		if (event.button === 0) { // Left click
+			isMouseDown = true;
+			
+			// Toggle wall on initial click
+			if (edit.checked) {
+				const rect = c.getBoundingClientRect();
+				const canvasX = event.clientX - rect.left;
+				const canvasY = event.clientY - rect.top;
+				
+				const gridX = Math.floor(canvasX / tileSize);
+				const gridY = Math.floor(canvasY / tileSize);
+				
+				const click_pos = {
+					x: camera.x + gridX,
+					y: camera.y + gridY
+				};
+				
+				// Prevent negative coordinates
+				if (click_pos.x >= 0 && click_pos.y >= 0 && click_pos.x < size && click_pos.y < size) {
+					lastTile = {x: click_pos.x, y: click_pos.y};
+					
+					const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
+					if (dup < 0) {
+						walls.push(new calc.coordinate(click_pos.x, click_pos.y));
+					} else {
+						walls.splice(dup, 1);
+					}
+					update();
+				}
+			}
+		}
+	},
+	mouseup: function(event) {
+		if (event.button === 0) { // Left click
+			isMouseDown = false;
+			lastTile = null;
+		}
 	}
 };

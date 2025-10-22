@@ -236,7 +236,9 @@ function handleMouseMove(event) {
 
 c.onmousemove = handleMouseMove; // mouse
 cursor.addEventListener("click", input.click);
+cursor.addEventListener("mousedown", input.mousedown);
 cursor.addEventListener("contextmenu", input.right_click);
+document.addEventListener("mouseup", input.mouseup);
 document.addEventListener("keydown", input.keyboard);
 document.addEventListener("keyup", input.keyboard);
 
