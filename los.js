@@ -27,3 +27,40 @@ function line(p0, p1) {
 	}
 	return points;
 }
+
+// Permissive LOS: checks rays to multiple points on target tile
+function hasPermissiveLOS(startX, startY, endX, endY) {
+	// Sample points on the target tile (corners + center)
+	const offsets = [
+		{x: 0.5, y: 0.5},   // center
+		{x: 0.2, y: 0.2},   // near corners
+		{x: 0.8, y: 0.2},
+		{x: 0.2, y: 0.8},
+		{x: 0.8, y: 0.8}
+	];
+	
+	const start = {x: startX, y: startY};
+	
+	// Try each sample point
+	for (let offset of offsets) {
+		const end = {x: endX + offset.x - 0.5, y: endY + offset.y - 0.5};
+		const path = line(start, end);
+		
+		// Check if this ray is clear
+		let blocked = false;
+		for (let i = 1; i < path.length - 1; i++) { // Skip start and end
+			const point = path[i];
+			if (walls.find(w => w.x === point.x && w.y === point.y)) {
+				blocked = true;
+				break;
+			}
+		}
+		
+		// If any ray succeeds, we have LOS
+		if (!blocked) {
+			return true;
+		}
+	}
+	
+	return false;
+}

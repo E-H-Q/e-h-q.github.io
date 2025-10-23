@@ -259,8 +259,11 @@ var input = {
 				path = path.slice(1);
 			}
 			
-			// Hide red box if out of range
-			if (dist > player.attack_range) {
+			// Use permissive LOS check for visibility
+			const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY);
+			
+			// Hide red box if out of range or no LOS
+			if (dist > player.attack_range || !hasLOS) {
 				cursor.style.visibility = "hidden";
 			} else {
 				cursor.style.visibility = "visible";
@@ -306,16 +309,13 @@ var input = {
 				
 				if (!targetEnemy) return;
 				
-				const look = {
-					start: { x: player.x, y: player.y },
-					end: { x: targetEnemy.x, y: targetEnemy.y }
-				};
-				const check = calc.los(look);
 				const dist = calc.distance(player.x, targetEnemy.x, player.y, targetEnemy.y);
-				const lengthDiff = Math.abs(check.length - dist);
+				
+				// Use permissive LOS check
+				const hasLOS = hasPermissiveLOS(player.x, player.y, targetEnemy.x, targetEnemy.y);
 				
 				// Check if LOS is blocked
-				if (check.length < dist) {
+				if (!hasLOS) {
 					console.log("Blocked by wall");
 					return;
 				}
@@ -323,11 +323,8 @@ var input = {
 					console.log("Target out of range!");
 					return;
 				}
-				if (lengthDiff <= 1) {
-					turns.attack(targetEnemy, player);
-				} else {
-					return;
-				}
+				
+				turns.attack(targetEnemy, player);
 				update();
 				break;
 			default:

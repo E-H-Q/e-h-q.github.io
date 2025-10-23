@@ -95,15 +95,7 @@ var turns = {
 	},
 	
 	playerCanSeeEnemy: function(enemy) {
-		const dist = calc.distance(player.x, enemy.x, player.y, enemy.y);
-		const look = {
-			start: { x: player.x, y: player.y },
-			end: { x: enemy.x, y: enemy.y }
-		};
-		const check = calc.los(look);
-		const lengthDiff = Math.abs(check.length - dist);
-		
-		return (lengthDiff <= 1 && check.length >= dist);
+		return hasPermissiveLOS(player.x, player.y, enemy.x, enemy.y);
 	},
 	
 	checkEnemyLOS: function() {
@@ -112,17 +104,8 @@ var turns = {
 			const enemy = allEnemies[i];
 			if (enemy.hp < 1) continue;
 			
-			const look = {
-				start: { x: enemy.x, y: enemy.y },
-				end: { x: player.x, y: player.y }
-			};
-			const check = calc.los(look);
-			const dist = calc.distance(enemy.x, player.x, enemy.y, player.y);
-			const lengthDiff = Math.abs(check.length - dist);
-			
-			// Only UPDATE seenX/seenY if enemy can currently see player
-			// Don't clear it if they can't see player
-			if (lengthDiff <= 1 && check.length >= dist) {
+			// Use permissive LOS check
+			if (hasPermissiveLOS(enemy.x, enemy.y, player.x, player.y)) {
 				enemy.seenX = player.x;
 				enemy.seenY = player.y;
 			}
@@ -141,26 +124,10 @@ var turns = {
 			entity.seenY = 0;
 		}
 		
-		const look = {
-			start: { x: entity.x, y: entity.y },
-			end: { x: player.x, y: player.y }
-		};
-		const check = calc.los(look);
 		const dist = calc.distance(entity.x, player.x, entity.y, player.y);
+		const canSeePlayer = hasPermissiveLOS(entity.x, entity.y, player.x, player.y);
 		
-		if (!check || check.length === 0) {
-			this.enemyMove(entity);
-			return;
-		}
-		
-		// Check if LOS is blocked
-		if (check.length < dist) {
-			this.enemyMove(entity);
-			return;
-		}
-		
-		const lengthDiff = Math.abs(check.length - dist);
-		if (lengthDiff <= 1) {
+		if (canSeePlayer) {
 			// Can see player clearly
 			entity.seenX = player.x;
 			entity.seenY = player.y;
