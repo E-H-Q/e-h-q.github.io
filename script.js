@@ -123,7 +123,7 @@ function updateEquipment() {
 		player.equipment = {};
 	}
 	
-	const slots = ["weapon", "accessory"]; // Added weapon slot
+	const slots = ["weapon", "accessory"];
 	let hasEquipment = false;
 	
 	for (let slot of slots) {
@@ -131,9 +131,19 @@ function updateEquipment() {
 			hasEquipment = true;
 			const item = player.equipment[slot];
 			const itemDef = itemTypes[item.itemType];
+			
+			// Build effects string
+			let effectsStr = '';
+			if (itemDef.effects) {
+				for (let i = 0; i < itemDef.effects.length; i++) {
+					if (i > 0) effectsStr += ', ';
+					effectsStr += '+' + itemDef.effects[i].value + ' ' + itemDef.effects[i].stat.replace('_', ' ');
+				}
+			}
+			
 			html += '<div class="equipment-item" onclick="unequipSlot(\'' + slot + '\')">' +
 			        slot.toUpperCase() + ': ' + itemDef.displayName + '<br>' +
-			        ' <span style="color: #0f0;">(+' + itemDef.value + ' ' + itemDef.effect.replace('_', ' ') + ')</span>' +
+			        ' <span style="color: #0f0;">(' + effectsStr + ')</span>' +
 			        '<br><span style="font-size: 10px; color: #888;">Click to unequip</span></div>';
 		} else {
 			html += '<div style="padding: 5px; margin: 3px 0; color: #888;">' +

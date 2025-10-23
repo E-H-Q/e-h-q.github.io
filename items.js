@@ -23,16 +23,19 @@ var itemTypes = {
 		name: "Scope",
 		type: "equipment",
 		slot: "accessory",
-		effect: "attack_range",
-		value: 4,
+		effects: [
+			{stat: "attack_range", value: 4}
+		],
 		displayName: "Scope"
 	},
 	rifle: {
 		name: "Rifle",
 		type: "equipment",
 		slot: "weapon",
-		effect: "damage",
-		value: 3,
+		effects: [
+			{stat: "damage", value: 3},
+			{stat: "attack_range", value: 4}
+		],
 		displayName: "+3 Rifle"
 	}
 };
@@ -88,7 +91,6 @@ function giveItem(entity, itemType) {
 	if (entity !== player && itemDef && itemDef.type === "equipment") {
 		// Remove from inventory since we're about to equip it
 		entity.inventory.pop();
-		equipItem(entity, 0); // This won't work, we need to equip directly
 		
 		// Initialize equipment object if it doesn't exist
 		if (!entity.equipment) {
@@ -99,8 +101,17 @@ function giveItem(entity, itemType) {
 		entity.equipment[itemDef.slot] = newItem;
 		
 		// Apply stat bonuses
-		if (itemDef.effect === "attack_range") {
-			entity.attack_range += itemDef.value;
+		if (itemDef.effects) {
+			for (let effect of itemDef.effects) {
+				if (effect.stat === "attack_range") {
+					entity.attack_range += effect.value;
+				} else if (effect.stat === "damage") {
+					if (!entity.damage) {
+						entity.damage = 0;
+					}
+					entity.damage += effect.value;
+				}
+			}
 		}
 		
 		console.log(entity.name + " equipped " + itemDef.name);
@@ -181,8 +192,16 @@ function unequipItem(entity, slot) {
 	const itemDef = itemTypes[equippedItem.itemType];
 	
 	// Remove stat bonuses
-	if (itemDef.effect === "attack_range") {
-		entity.attack_range -= itemDef.value;
+	if (itemDef.effects) {
+		for (let effect of itemDef.effects) {
+			if (effect.stat === "attack_range") {
+				entity.attack_range -= effect.value;
+			} else if (effect.stat === "damage") {
+				if (entity.damage) {
+					entity.damage -= effect.value;
+				}
+			}
+		}
 	}
 	
 	// Move back to inventory
@@ -220,8 +239,17 @@ function equipItem(entity, inventoryIndex) {
 	entity.equipment[itemDef.slot] = item;
 	
 	// Apply stat bonuses
-	if (itemDef.effect === "attack_range") {
-		entity.attack_range += itemDef.value;
+	if (itemDef.effects) {
+		for (let effect of itemDef.effects) {
+			if (effect.stat === "attack_range") {
+				entity.attack_range += effect.value;
+			} else if (effect.stat === "damage") {
+				if (!entity.damage) {
+					entity.damage = 0;
+				}
+				entity.damage += effect.value;
+			}
+		}
 	}
 	
 	console.log(entity.name + " equipped " + itemDef.name);

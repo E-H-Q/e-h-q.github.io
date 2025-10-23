@@ -72,7 +72,7 @@ var input = {
 			
 			return;
 		}
-	/*	
+		
 		// Number keys 1-9 - use items from inventory
 		if (event.type === 'keydown' && event.keyCode >= 49 && event.keyCode <= 57) {
 			const inventoryIndex = event.keyCode - 49; // 49 is keyCode for '1'
@@ -93,7 +93,7 @@ var input = {
 			}
 			return;
 		}
-	*/	
+		
 		// Period key - pass/wait (skip one turn)
 		if (event.keyCode === 190 && event.type === 'keydown') {
 			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining > 0) {

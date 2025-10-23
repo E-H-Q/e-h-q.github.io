@@ -318,13 +318,8 @@ var turns = {
 			let dmgRoll = calc.roll(6, 1);
 			
 			// Check for weapon damage bonus
-			if (entity.equipment && entity.equipment.weapon) {
-				const weaponItem = entity.equipment.weapon;
-				const weaponDef = itemTypes[weaponItem.itemType];
-				
-				if (weaponDef && weaponDef.effect === "damage") {
-					dmgRoll += weaponDef.value;
-				}
+			if (entity.damage) {
+				dmgRoll += entity.damage;
 			}
 			
 			target.hp -= dmgRoll;
@@ -332,21 +327,43 @@ var turns = {
 			target.seenY = entity.y;
 			console.log(entity.name + " hits " + target.name + " for " + dmgRoll + "DMG!");
 			
-			// Drop items on death
-			if (target.hp <= 0 && target.inventory.length > 0) {
-				for (let i = 0; i < target.inventory.length; i++) {
-					if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
-						const droppedItem = {
-							x: target.x,
-							y: target.y,
-							itemType: target.inventory[i].itemType,
-							id: nextItemId++
-						};
-						mapItems.push(droppedItem);
-						console.log(target.name + " dropped " + itemTypes[target.inventory[i].itemType].name);
+			// Drop items and equipment on death
+			if (target.hp <= 0) {
+				// Drop inventory items
+				if (target.inventory && target.inventory.length > 0) {
+					for (let i = 0; i < target.inventory.length; i++) {
+						if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
+							const droppedItem = {
+								x: target.x,
+								y: target.y,
+								itemType: target.inventory[i].itemType,
+								id: nextItemId++
+							};
+							mapItems.push(droppedItem);
+							console.log(target.name + " dropped " + itemTypes[target.inventory[i].itemType].name);
+						}
 					}
+					target.inventory = [];
 				}
-				target.inventory = [];
+				
+				// Drop equipped items
+				if (target.equipment) {
+					for (let slot in target.equipment) {
+						if (target.equipment[slot]) {
+							if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
+								const droppedItem = {
+									x: target.x,
+									y: target.y,
+									itemType: target.equipment[slot].itemType,
+									id: nextItemId++
+								};
+								mapItems.push(droppedItem);
+								console.log(target.name + " dropped " + itemTypes[target.equipment[slot].itemType].name);
+							}
+						}
+					}
+					target.equipment = {};
+				}
 			}
 		} else {
 			console.log(entity.name + " attacks and misses " + target.name + "...");
