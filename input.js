@@ -222,16 +222,18 @@ var input = {
 					return;
 				}
 				
-				turns.attack(targetEnemy, player);
-				
+				// Handle peek mode attack
 				if (isPeekMode && peekStep === 2) {
+					// Attack using turns.attack (uses 1 turn)
+					turns.attack(targetEnemy, player);
+					// Return to start position (no turn cost)
 					player.x = peekStartX;
 					player.y = peekStartY;
-					console.log(player.name + " returns to starting position.");
-					exitPeekMode();
+					exitPeekMode(); // This calls update()
+				} else {
+					turns.attack(targetEnemy, player);
+					update();
 				}
-				
-				update();
 				break;
 				
 			default:
@@ -290,17 +292,3 @@ var input = {
 		}
 	}
 };
-
-function exitPeekMode() {
-	if (!isPeekMode) return;
-	
-	if (peekStep === 1) player.range = savedPlayerRange;
-	
-	isPeekMode = false;
-	peekStep = 0;
-	action.disabled = false;
-	action.value = "move";
-	
-	console.log("Exited peek mode.");
-	update();
-}

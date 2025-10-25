@@ -15,6 +15,17 @@ function updateMapSize() {
 	}
 }
 
+function endPlayerTurn() {
+	currentEntityTurnsRemaining--;
+	if (currentEntityTurnsRemaining <= 0) {
+		currentEntityIndex++;
+		if (currentEntityIndex >= entities.length) {
+			currentEntityIndex = 0;
+		}
+		currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+	}
+}
+
 function updatePeekButton() {
 	const peekButton = document.getElementById('peek-button');
 	const isPlayerTurn = currentEntityIndex >= 0 && entities[currentEntityIndex] === player;
@@ -30,24 +41,32 @@ function updatePeekButton() {
 }
 
 function activatePeekMode() {
-	// Check if player has 2 turns available
 	if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining >= 2) {
 		isPeekMode = true;
 		peekStep = 1;
 		peekStartX = player.x;
 		peekStartY = player.y;
 		savedPlayerRange = player.range;
-		
-		// Set range to 1 for peek movement
-		player.range = 2;
-		
-		// Switch to move mode
+		player.range = 1;
 		action.value = "move";
 		action.disabled = false;
 		
-		console.log("Press ESC to exit peek mode.");
 		update();
 	}
+}
+
+function exitPeekMode() {
+	if (!isPeekMode) return;
+	
+	if (peekStep === 1) player.range = savedPlayerRange;
+	
+	isPeekMode = false;
+	peekStep = 0;
+	action.disabled = false;
+	action.value = "move";
+	
+	console.log("Exited peek mode.");
+	update();
 }
 
 function updateTurnOrder() {
@@ -57,20 +76,17 @@ function updateTurnOrder() {
 	for (let i = 0; i < entities.length; i++) {
 		const entity = entities[i];
 		
-		// Skip enemies not in active combat (haven't seen player or player can't see them)
 		if (entity !== player) {
 			const hasSeenPlayer = (entity.seenX !== 0 || entity.seenY !== 0);
 			const playerCanSeeEnemy = turns.playerCanSeeEnemy(entity);
 			
 			if (!hasSeenPlayer && !playerCanSeeEnemy) {
-				continue; // Skip this enemy from turn order display
+				continue;
 			}
 		}
 		
 		const isActive = (i === currentEntityIndex);
 		const turnsDisplay = isActive ? ` (${currentEntityTurnsRemaining}/${entity.turns})` : ` (${entity.turns})`;
-		
-		// Add X button for all entities except player
 		const killButton = entity !== player ? 
 			`<button onclick="killEntity(${i})" style="float: right; background: #ff0000; color: #fff; border: none; margin-left: 6px; cursor: pointer; position: absolute;">X</button>` : '';
 		
@@ -107,31 +123,26 @@ function updateInventory() {
 function useInventoryItem(inventoryIndex) {
 	if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
 		if (typeof useItem !== 'undefined' && useItem(player, inventoryIndex)) {
-			// Item was used successfully
-			currentEntityTurnsRemaining--;
+			endPlayerTurn();
 			
-			// If this was the player's last turn, force end of turn
-			if (currentEntityTurnsRemaining <= 0) {
-				currentEntityIndex++;
-				if (currentEntityIndex >= entities.length) {
-					currentEntityIndex = 0;
-				}
-				currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+			// Exit peek mode if active
+			if (isPeekMode) {
+				exitPeekMode();
 			}
+			
 			update();
 		}
 	}
 }
 
 function dropInventoryItem(event, inventoryIndex) {
-	event.preventDefault(); // Prevent context menu
+	event.preventDefault();
 	
 	if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
 		if (inventoryIndex >= 0 && inventoryIndex < player.inventory.length) {
 			const item = player.inventory[inventoryIndex];
 			const itemDef = itemTypes[item.itemType];
 			
-			// Drop item at player's current position
 			if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
 				const droppedItem = {
 					x: player.x,
@@ -143,7 +154,6 @@ function dropInventoryItem(event, inventoryIndex) {
 				console.log(player.name + " dropped " + itemDef.name);
 			}
 			
-			// Remove from inventory
 			player.inventory.splice(inventoryIndex, 1);
 			update();
 		}
@@ -167,7 +177,6 @@ function updateEquipment() {
 			const item = player.equipment[slot];
 			const itemDef = itemTypes[item.itemType];
 			
-			// Build effects string
 			let effectsStr = '';
 			if (itemDef.effects) {
 				for (let i = 0; i < itemDef.effects.length; i++) {
@@ -206,11 +215,9 @@ function killEntity(index) {
 	if (index >= 0 && index < entities.length && entities[index] !== player) {
 		entities[index].hp = 0;
 		
-		// Adjust current turn if killing an entity before current turn
 		if (index < currentEntityIndex) {
 			currentEntityIndex--;
 		} else if (index === currentEntityIndex) {
-			// If killing current entity, skip their turn
 			currentEntityTurnsRemaining = 0;
 		}
 		
@@ -219,10 +226,8 @@ function killEntity(index) {
 }
 
 function update() {
-	// Remove dead enemies from allEnemies
 	allEnemies = allEnemies.filter(enemy => enemy.hp >= 1);
 	
-	// Populate entities array in turn order - player first, then living enemies
 	entities = [player];
 	for (let i = 0; i < allEnemies.length; i++) {
 		if (allEnemies[i].hp >= 1) {
@@ -230,33 +235,28 @@ function update() {
 		}
 	}
 	
-	// Reset turn index if player was removed/re-added
 	if (currentEntityIndex >= entities.length) {
 		currentEntityIndex = 0;
 		currentEntityTurnsRemaining = 0;
 	}
 	
-	// Center camera on current entity
 	const currentEntity = entities[currentEntityIndex] || player;
 	camera = {
 		x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
 		y: currentEntity.y - Math.round((viewportSize / 2)) + 1
 	};
 	
-	canvas.init(); // creates/updates the canvas on page
+	canvas.init();
 	valid = [];
 	canvas.clear();
-	canvas.grid(); // draws the grid on canvas
-
-	canvas.walls(); // draws the walls
-	canvas.items(); // draws the items
-	
-	// Draw onionskin before player
+	canvas.grid();
+	canvas.walls();
+	canvas.items();
 	canvas.drawOnionskin();
-	
-	canvas.player(); // draws the player
-	canvas.enemy(); // draws the enemies	
+	canvas.player();
+	canvas.enemy();
 
+	populate.reset();
 	populate.enemies();
 	populate.player();
 	turns.check();
@@ -269,21 +269,20 @@ function update() {
 	elem.scrollTop = elem.scrollHeight;
 }
 
-document.getElementById("content").classList.remove("hidden"); // un-hides everything on the page
-action.selectedIndex = 0; // resets the dropdown
+document.getElementById("content").classList.remove("hidden");
+action.selectedIndex = 0;
 
-// Reset Type dropdown to "Consumable" on page load
 document.getElementById('item_category').value = 'consumable';
-updateItemDropdown(); // Initialize item dropdown with consumables
+updateItemDropdown();
 
 function handleMouseMove(event) {
 	if (currentEntityIndex >= 0 && entities[currentEntityIndex] !== player) {
-		return; // Ignore mouse during enemy turns
+		return;
 	}
 	input.mouse(event);
 }
 
-c.onmousemove = handleMouseMove; // mouse
+c.onmousemove = handleMouseMove;
 cursor.addEventListener("click", input.click);
 cursor.addEventListener("mousedown", input.mousedown);
 cursor.addEventListener("contextmenu", input.right_click);
@@ -294,7 +293,6 @@ document.addEventListener("keyup", input.keyboard);
 var div_for_coords = document.createElement("div");
 document.body.appendChild(div_for_coords);
 
-// Initialize map size input with current value
 document.getElementById('map-size').value = size;
 
 update();

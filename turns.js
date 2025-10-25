@@ -103,7 +103,8 @@ var turns = {
 			const path = calc.los(look);
 			const dist = calc.distance(enemy.x, player.x, enemy.y, player.y);
 			
-			if (Math.abs(path.length - dist) <= 1 && path.length >= dist) {
+			// Path must reach the player (path length > distance means it got there)
+			if (path.length > dist) {
 				enemy.seenX = player.x;
 				enemy.seenY = player.y;
 			}
@@ -143,7 +144,7 @@ var turns = {
 			end: { x: player.x, y: player.y }
 		};
 		const path = calc.los(look);
-		const canSeePlayer = (Math.abs(path.length - dist) <= 1 && path.length >= dist);
+		const canSeePlayer = path.length > dist;
 		
 		if (canSeePlayer) {
 			entity.seenX = player.x;
@@ -332,6 +333,7 @@ var turns = {
 		} else {
 			console.log(entity.name + " attacks and misses " + target.name + "...");
 		}
+		
 		currentEntityTurnsRemaining--;
 		
 		if (entity === player && currentEntityTurnsRemaining <= 0) {
