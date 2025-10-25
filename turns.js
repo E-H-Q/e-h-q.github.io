@@ -15,7 +15,6 @@ var turns = {
 			return;
 		}
 
-		// Initialize turn system
 		if (currentEntityTurnsRemaining <= 0) {
 			currentEntityIndex++;
 			if (currentEntityIndex >= entities.length) {
@@ -23,7 +22,6 @@ var turns = {
 			}
 			currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 			
-			// Update camera to center on new current entity
 			const currentEntity = entities[currentEntityIndex];
 			camera = {
 				x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
@@ -40,12 +38,9 @@ var turns = {
 
 		const currentEntity = entities[currentEntityIndex];
 		
-		// Handle AI turns with delay
 		if (currentEntity !== player && currentEntityTurnsRemaining > 0) {
-			// Show enemy movement range
 			calc.move(currentEntity);
 			
-			// Only show LOS if player is within attack range
 			const dist = calc.distance(currentEntity.x, player.x, currentEntity.y, player.y);
 			if (dist <= currentEntity.attack_range) {
 				const lookAtPlayer = {
@@ -54,11 +49,10 @@ var turns = {
 				};
 				const pathToPlayer = calc.los(lookAtPlayer);
 				if (pathToPlayer.length > 1) {
-					canvas.los(pathToPlayer.slice(1)); // Don't draw over enemy
+					canvas.los(pathToPlayer.slice(1));
 				}
 			}
 			
-			// Delay if enemy has seen player and is within viewport
 			const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
 			const enemyInViewport = this.isInViewport(currentEntity);
 			
@@ -74,12 +68,10 @@ var turns = {
 			return;
 		}
 
-		// Show valid moves for player
 		if (currentEntity === player && action.value === "move") {
 			calc.move(player);
 		}
 		
-		// Always check enemy LOS during player turn
 		if (currentEntity === player) {
 			this.checkEnemyLOS();
 		}
@@ -99,17 +91,37 @@ var turns = {
 	},
 	
 	checkEnemyLOS: function() {
-		// Check if any enemies can see the player and update their memory
 		for (let i = 0; i < allEnemies.length; i++) {
 			const enemy = allEnemies[i];
 			if (enemy.hp < 1) continue;
 			
-			// Use permissive LOS check
-			if (hasPermissiveLOS(enemy.x, enemy.y, player.x, player.y)) {
+			// Use strict LOS for vision
+			const look = {
+				start: { x: enemy.x, y: enemy.y },
+				end: { x: player.x, y: player.y }
+			};
+			const path = calc.los(look);
+			const dist = calc.distance(enemy.x, player.x, enemy.y, player.y);
+			
+			if (Math.abs(path.length - dist) <= 1 && path.length >= dist) {
 				enemy.seenX = player.x;
 				enemy.seenY = player.y;
 			}
 		}
+	},
+	
+	hasValidAttackLOS: function(fromX, fromY, toX, toY) {
+		// Use the strict LOS calculation that respects walls
+		const look = {
+			start: { x: fromX, y: fromY },
+			end: { x: toX, y: toY }
+		};
+		const path = calc.los(look);
+		const dist = calc.distance(fromX, toX, fromY, toY);
+		
+		// Path length should be equal to distance + 1 (includes start point)
+		// If a wall blocks, path gets truncated
+		return path.length > dist;
 	},
 	
 	enemyTurn: function(entity) {
@@ -118,54 +130,48 @@ var turns = {
 			return;
 		}
 		
-		// Check if reached last seen position - clear memory
 		if (entity.x === entity.seenX && entity.y === entity.seenY) {
 			entity.seenX = 0;
 			entity.seenY = 0;
 		}
 		
 		const dist = calc.distance(entity.x, player.x, entity.y, player.y);
-		const canSeePlayer = hasPermissiveLOS(entity.x, entity.y, player.x, player.y);
+		
+		// Use strict LOS for vision
+		const look = {
+			start: { x: entity.x, y: entity.y },
+			end: { x: player.x, y: player.y }
+		};
+		const path = calc.los(look);
+		const canSeePlayer = (Math.abs(path.length - dist) <= 1 && path.length >= dist);
 		
 		if (canSeePlayer) {
-			// Can see player clearly
 			entity.seenX = player.x;
 			entity.seenY = player.y;
 			
-			// Check if in attack range
-			if (dist <= entity.attack_range) {
+			if (dist <= entity.attack_range && this.hasValidAttackLOS(entity.x, entity.y, player.x, player.y)) {
 				this.attack(player, entity);
 			} else {
-				// Out of range, move closer using pathfinding
 				this.enemyMoveToward(entity, player.x, player.y);
 			}
+		} else if (entity.seenX !== 0 || entity.seenY !== 0) {
+			// Move toward last seen position using pathfinding
+			this.enemyMoveToward(entity, entity.seenX, entity.seenY);
 		} else {
-			this.enemyMove(entity);
+			// Random movement
+			this.enemyRandomMove(entity);
 		}
 	},
 	
-	enemyMove: function(entity) {
-		calc.move(entity);
+	enemyRandomMove: function(entity) {
+		const moves = [
+			[-1, -1], [0, -1], [1, -1],
+			[-1, 0], [0, 0], [1, 0],
+			[-1, 1], [0, 1], [1, 1]
+		];
+		const direction = Math.floor(Math.random() * 9);
+		const [dx, dy] = moves[direction];
 		
-		let dx = 0, dy = 0;
-		
-		// If enemy has seen the player, move toward last seen position
-		if (entity.seenX !== 0 || entity.seenY !== 0) {
-			// Use pathfinding to move toward last seen position
-			this.enemyMoveToward(entity, entity.seenX, entity.seenY);
-			return;
-		} else {
-			// Random movement if haven't seen player
-			const moves = [
-				[-1, -1], [0, -1], [1, -1],
-				[-1, 0], [0, 0], [1, 0],
-				[-1, 1], [0, 1], [1, 1]
-			];
-			const direction = Math.floor(Math.random() * 9);
-			[dx, dy] = moves[direction];
-		}
-		
-		// Check for negative coordinates and out of bounds
 		const newX = entity.x + dx;
 		const newY = entity.y + dy;
 		
@@ -174,17 +180,20 @@ var turns = {
 			return;
 		}
 		
-		// Move without calling update() to avoid recursion
 		if (pts[newX] && pts[newX][newY] !== 0) {
 			entity.x = newX;
 			entity.y = newY;
 			
-			// Check for item pickup
 			if (typeof pickupItem !== 'undefined') {
 				pickupItem(entity, entity.x, entity.y);
 			}
 		}
 		currentEntityTurnsRemaining--;
+	},
+	
+	enemyMove: function(entity) {
+		// This function is now just an alias for backwards compatibility
+		this.enemyRandomMove(entity);
 	},
 	
 	enemyMoveToward: function(entity, targetX, targetY) {
@@ -193,10 +202,8 @@ var turns = {
 			return;
 		}
 		
-		// Create a diagonal graph for pathfinding
 		const diagonalGraph = new Graph(pts, { diagonal: true });
 		
-		// Block tiles occupied by other entities
 		for (let i = 0; i < entities.length; i++) {
 			if (entities[i] !== entity && entities[i].hp > 0) {
 				if (diagonalGraph.grid[entities[i].x] && diagonalGraph.grid[entities[i].x][entities[i].y]) {
@@ -215,7 +222,6 @@ var turns = {
 			}
 		);
 		
-		// Calculate how far we can move along the path
 		let distanceMoved = 0;
 		let finalX = entity.x;
 		let finalY = entity.y;
@@ -234,12 +240,10 @@ var turns = {
 			}
 		}
 		
-		// Move to the farthest valid position
 		if (finalX !== entity.x || finalY !== entity.y) {
 			entity.x = finalX;
 			entity.y = finalY;
 			
-			// Check for item pickup
 			if (typeof pickupItem !== 'undefined') {
 				pickupItem(entity, entity.x, entity.y);
 			}
@@ -253,14 +257,12 @@ var turns = {
 			entity.x = x;
 			entity.y = y;
 			
-			// Check for item pickup
 			if (typeof pickupItem !== 'undefined') {
 				pickupItem(entity, x, y);
 			}
 			
 			currentEntityTurnsRemaining--;
 			
-			// If this was the player's last turn, force end of turn
 			if (entity === player && currentEntityTurnsRemaining <= 0) {
 				currentEntityIndex++;
 				if (currentEntityIndex >= entities.length) {
@@ -269,7 +271,6 @@ var turns = {
 				currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 			}
 			
-			// Check enemy LOS after player moves
 			if (entity === player) {
 				this.checkEnemyLOS();
 			}
@@ -284,19 +285,16 @@ var turns = {
 		if (hitRoll >= 4) {
 			let dmgRoll = calc.roll(6, 1);
 			
-			// Check for weapon damage bonus
 			if (entity.damage) {
 				dmgRoll += entity.damage;
 			}
 			
 			target.hp -= dmgRoll;
-			target.seenX = entity.x;// makes entity aware of what attacked them
+			target.seenX = entity.x;
 			target.seenY = entity.y;
 			console.log(entity.name + " hits " + target.name + " for " + dmgRoll + "DMG!");
 			
-			// Drop items and equipment on death
 			if (target.hp <= 0) {
-				// Drop inventory items
 				if (target.inventory && target.inventory.length > 0) {
 					for (let i = 0; i < target.inventory.length; i++) {
 						if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
@@ -313,7 +311,6 @@ var turns = {
 					target.inventory = [];
 				}
 				
-				// Drop equipped items
 				if (target.equipment) {
 					for (let slot in target.equipment) {
 						if (target.equipment[slot]) {
@@ -337,7 +334,6 @@ var turns = {
 		}
 		currentEntityTurnsRemaining--;
 		
-		// If this was the player's last turn, force end of turn
 		if (entity === player && currentEntityTurnsRemaining <= 0) {
 			currentEntityIndex++;
 			if (currentEntityIndex >= entities.length) {

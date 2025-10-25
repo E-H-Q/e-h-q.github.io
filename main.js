@@ -12,11 +12,17 @@ var edit = document.getElementById("edit");
 edit.checked = false;
 
 var tileSize = 32;
-var size = 50; // Map size can be larger
-// Calculate viewport size based on 50vw
+var size = 50;
 var viewportSize = Math.floor((window.innerWidth * 0.5) / tileSize);
 
-(function () { // REDIRECTS CONSOLE.LOG TO HTML!
+// Peek mode variables
+var isPeekMode = false;
+var peekStep = 0;
+var peekStartX = 0;
+var peekStartY = 0;
+var savedPlayerRange = 0;
+
+(function () {
     if (!console) {
         console = {};
     }
@@ -47,8 +53,8 @@ var walls = [];
 var turns_taken = 0;
 var camera = { x: 0, y: 0 };
 var mouse_pos = { x: 0, y: 0 };
-var array; // Used by circle.js
-var graph; // Used by calc.move()
+var array;
+var graph;
 
 var player = {
 	name: "player",
@@ -75,13 +81,10 @@ var enemy = {
 	inventory: []
 };
 
-// Store all enemy instances here for easy duplication
 var allEnemies = [];
-
 var entities = [];
 
 function updatePlayer() {
-	// Get values from player settings form
 	const playerName = document.getElementById('player_name').value || "player";
 	const playerHp = parseInt(document.getElementById('player_hp').value) || 20;
 	const playerX = document.getElementById('player_x').value;
@@ -90,14 +93,12 @@ function updatePlayer() {
 	const playerAttackRange = parseInt(document.getElementById('player_attack_range').value) || 4;
 	const playerTurns = parseInt(document.getElementById('player_turns').value) || 2;
 	
-	// Update player stats
 	player.name = playerName;
 	player.hp = playerHp;
 	player.range = playerRange;
 	player.attack_range = playerAttackRange;
 	player.turns = playerTurns;
 	
-	// Update position if provided
 	if (playerX !== "" && playerY !== "") {
 		const x = parseInt(playerX);
 		const y = parseInt(playerY);
@@ -116,7 +117,6 @@ function updatePlayer() {
 }
 
 function spawnEnemy() {
-	// Get values from spawn settings form
 	const spawnName = document.getElementById('spawn_name').value || "enemy";
 	const spawnHp = parseInt(document.getElementById('spawn_hp').value) || 15;
 	const manualX = document.getElementById('spawn_x').value;
@@ -128,18 +128,12 @@ function spawnEnemy() {
 	let spawnX = null;
 	let spawnY = null;
 	
-	// Use manual coordinates if provided
 	if (manualX !== "" && manualY !== "") {
 		const x = parseInt(manualX);
 		const y = parseInt(manualY);
 		
-		// Validate manual coordinates
 		if (x >= 0 && x < size && y >= 0 && y < size) {
-			const hasWall = walls.find(w => w.x === x && w.y === y);
-			const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === x && e.y === y);
-			const hasPlayer = (player.x === x && player.y === y);
-			
-			if (!hasWall && !hasEntity && !hasPlayer) {
+			if (!helper.tileBlocked(x, y)) {
 				spawnX = x;
 				spawnY = y;
 			}
@@ -147,10 +141,9 @@ function spawnEnemy() {
 		document.getElementById('spawn_x').value ="";
 		document.getElementById('spawn_y').value = "";
 	} else {
-		// Auto-find adjacent tile
 		const adjacentOffsets = [
-			[1, 0], [-1, 0], [0, 1], [0, -1],  // orthogonal
-			[1, 1], [1, -1], [-1, 1], [-1, -1]  // diagonal
+			[1, 0], [-1, 0], [0, 1], [0, -1],
+			[1, 1], [1, -1], [-1, 1], [-1, -1]
 		];
 		
 		for (let offset of adjacentOffsets) {
@@ -159,12 +152,7 @@ function spawnEnemy() {
 				const testY = allEnemies[i].y + offset[1];
 			
 				if (testX < 0 || testX >= size || testY < 0 || testY >= size) continue;
-			
-				const hasWall = walls.find(w => w.x === testX && w.y === testY);
-				const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === testX && e.y === testY);
-				const hasPlayer = (player.x === testX && player.y === testY);
-			
-				if (!hasWall && !hasEntity && !hasPlayer) {
+				if (!helper.tileBlocked(testX, testY)) {
 					spawnX = testX;
 					spawnY = testY;
 					break;
@@ -189,7 +177,6 @@ function spawnEnemy() {
 		
 		allEnemies.push(newEnemy);
 		
-		// Check if enemy can see player after adding to array
 		const dist = calc.distance(newEnemy.x, player.x, newEnemy.y, player.y);
 		const look = {
 			start: { x: newEnemy.x, y: newEnemy.y },
@@ -211,6 +198,9 @@ function spawnEnemy() {
 }
 
 var populate = {
+	reset: function() {
+		resizePtsArray(); // Reset pts to all 1s
+	},
 	enemies: function() {
 		for (let i = 0; i < entities.length; i++) {
 			if (entities[i] !== player && entities[i].hp > 0) {
@@ -229,6 +219,35 @@ var populate = {
 	}
 };
 
+var helper = {
+	tileBlocked: function(x, y) {
+		const hasWall = walls.find(w => w.x === x && w.y === y);
+		const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === x && e.y === y);
+		const hasPlayer = (player.x === x && player.y === y);
+		return hasWall || hasEntity || hasPlayer;
+	},
+	
+	getAdjacentTiles: function(x, y, includeDiagonal = true) {
+		const tiles = [];
+		const offsets = includeDiagonal ? [
+			[-1, -1], [0, -1], [1, -1],
+			[-1, 0], [1, 0],
+			[-1, 1], [0, 1], [1, 1]
+		] : [
+			[0, -1], [-1, 0], [1, 0], [0, 1]
+		];
+		
+		for (let [dx, dy] of offsets) {
+			const newX = x + dx;
+			const newY = y + dy;
+			if (newX >= 0 && newX < size && newY >= 0 && newY < size) {
+				tiles.push({x: newX, y: newY});
+			}
+		}
+		return tiles;
+	}
+};
+
 var calc = {
 	random: function(n) {
 		return Math.floor(Math.random() * n) + 1;
@@ -238,18 +257,31 @@ var calc = {
 		this.y = y;
 	},
 	distance: function(x1, x2, y1, y2) {
-		// Use Chebyshev distance (diagonal = 1 tile) for attack range
 		return Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
 	},
 	move: function(entity) {
+		// Special case for peek mode - show adjacent tiles only
+		if (entity === player && isPeekMode && peekStep === 1) {
+			const adjacentTiles = helper.getAdjacentTiles(entity.x, entity.y, true);
+			
+			for (let tile of adjacentTiles) {
+				if (!helper.tileBlocked(tile.x, tile.y)) {
+					if (!valid.find(item => item.x === tile.x && item.y === tile.y)) {
+						valid.push(new calc.coordinate(tile.x, tile.y));
+					}
+					ctx.fillStyle = "rgba(0, 255, 0, 0.5)";
+					ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
+				}
+			}
+			return;
+		}
+		
 		circle(entity.y, entity.x, entity.range);
 		convert();
 		if(!pts) return false;
 
-		graph = new Graph(pts);	
-		graph.diagonal = false;
+		graph = new Graph(pts, {diagonal: true});
 
-		// Block tiles occupied by other entities
 		for (let i = 0; i < entities.length; i++) {
 			if (entities[i] !== entity && entities[i].hp > 0) {
 				if (pts[entities[i].x] && pts[entities[i].x][entities[i].y] !== undefined) {
@@ -262,7 +294,25 @@ var calc = {
 			for (let j = 0; j < pts.length; j++) {
 				if (pts[i][j] === 1) {
 					var res = astar.search(graph, graph.grid[entity.x][entity.y], graph.grid[i][j]);
-					canvas.range(res, entity);
+					
+					// Check if path length (with diagonal cost) is within range
+					if (res.length > 0) {
+						let pathCost = 0;
+						for (let k = 0; k < res.length; k++) {
+							if (k === 0) {
+								pathCost += 1;
+							} else {
+								const prev = res[k - 1];
+								const curr = res[k];
+								const isDiagonal = (prev.x !== curr.x && prev.y !== curr.y);
+								pathCost += isDiagonal ? 1.41421 : 1;
+							}
+						}
+						
+						if (pathCost <= entity.range) {
+							canvas.range(res, entity);
+						}
+					}
 				}
 			}
 		}

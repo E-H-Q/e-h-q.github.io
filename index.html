@@ -99,6 +99,22 @@
 				display: none;
 				margin-right: 10px;
 			}
+			.peek-button {
+				background-color: #444;
+				color: #888;
+				border: 1px solid #666;
+				padding: 5px 10px;
+				cursor: not-allowed;
+			}
+			.peek-button.active {
+				background-color: #006600;
+				color: #FFFFFF;
+				border: 1px solid #00FF00;
+				cursor: pointer;
+			}
+			.peek-button.active:hover {
+				background-color: #008800;
+			}
 		</style>
 	</head>
 	<body>
@@ -114,10 +130,13 @@
 								<canvas id="canvas"></canvas>
 								<div id="cursor"></div>
 							</div>
-							<select id="actions" onchange="update()" style="display: block; width: 100%; margin-top: 5px;">
-								<option value="move">MOVE</option>
-								<option value="attack">ATTK</option>
-							</select>
+							<div style="display: flex; gap: 5px; margin-top: 5px;">
+								<select id="actions" onchange="update()" style="flex: 1;">
+									<option value="move">MOVE</option>
+									<option value="attack">ATTK</option>
+								</select>
+								<button id="peek-button" class="peek-button" onclick="activatePeekMode()">PEEK</button>
+							</div>
 						</div>
 						<div id="sidebar">
 							<fieldset style="width: auto; overflow-y:auto; margin-bottom: 10px; flex: 1;">
@@ -193,7 +212,7 @@
 				<p><i>Press &lt;TAB&gt; to swap between MOVE & ATTACK modes.<br>
 				Press & hold &lt;SHIFT&gt; to zoom out.<br>
 				Press &lt;SHIFT+E&gt; to toggle EDIT mode.<br>
-				Press &lt;ESC&gt; to exit EDIT mode.<br>
+				Press &lt;ESC&gt; to exit EDIT mode or PEEK mode.<br>
 				Press &lt;period&gt; to pass your turn, or pick up an item you're standing on.<br>
 				L. Click items in inventory to use/equip them.<br>
 				R. Click items in inventory to drop them.

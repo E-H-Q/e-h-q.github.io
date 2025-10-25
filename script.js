@@ -15,6 +15,41 @@ function updateMapSize() {
 	}
 }
 
+function updatePeekButton() {
+	const peekButton = document.getElementById('peek-button');
+	const isPlayerTurn = currentEntityIndex >= 0 && entities[currentEntityIndex] === player;
+	const has2Turns = currentEntityTurnsRemaining >= 2;
+	
+	if (isPlayerTurn && has2Turns && !isPeekMode) {
+		peekButton.classList.add('active');
+		peekButton.disabled = false;
+	} else {
+		peekButton.classList.remove('active');
+		peekButton.disabled = true;
+	}
+}
+
+function activatePeekMode() {
+	// Check if player has 2 turns available
+	if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining >= 2) {
+		isPeekMode = true;
+		peekStep = 1;
+		peekStartX = player.x;
+		peekStartY = player.y;
+		savedPlayerRange = player.range;
+		
+		// Set range to 1 for peek movement
+		player.range = 2;
+		
+		// Switch to move mode
+		action.value = "move";
+		action.disabled = false;
+		
+		console.log("Press ESC to exit peek mode.");
+		update();
+	}
+}
+
 function updateTurnOrder() {
 	var turnOrder = document.getElementById("turn-order");
 	var html = '';
@@ -216,6 +251,9 @@ function update() {
 	canvas.walls(); // draws the walls
 	canvas.items(); // draws the items
 	
+	// Draw onionskin before player
+	canvas.drawOnionskin();
+	
 	canvas.player(); // draws the player
 	canvas.enemy(); // draws the enemies	
 
@@ -225,6 +263,7 @@ function update() {
 	updateTurnOrder();
 	updateInventory();
 	updateEquipment();
+	updatePeekButton();
 
 	var elem = document.getElementById("log");
 	elem.scrollTop = elem.scrollHeight;

@@ -133,6 +133,21 @@ var canvas = {
 			}
 		}
 	},
+	drawOnionskin: function() {
+		// Draw ghost image at peek start position
+		if (isPeekMode && peekStep > 0) {
+			const screenX = (peekStartX - camera.x) * tileSize;
+			const screenY = (peekStartY - camera.y) * tileSize;
+			
+			ctx.fillStyle = "rgba(0, 0, 255, 0.2)";
+			ctx.fillRect(screenX, screenY, tileSize, tileSize);
+			
+			const img = document.getElementById("pep");
+			ctx.globalAlpha = 0.3;
+			ctx.drawImage(img, screenX, screenY, tileSize, tileSize);
+			ctx.globalAlpha = 1.0;
+		}
+	},
 	player: function() {
 		if (player.hp >= 1) {
 			this.drawEntity(player, "rgba(0, 0, 255, 0.5)", "pep");
@@ -140,9 +155,9 @@ var canvas = {
 	},
 	enemy: function() {
 		for (var i = 0; i < allEnemies.length; i++) {
-		if (allEnemies[i].hp >= 1) {
-			this.drawEntity(allEnemies[i], "rgba(125, 125, 0, 0.5)", "enemy");
+			if (allEnemies[i].hp >= 1) {
+				this.drawEntity(allEnemies[i], "rgba(125, 125, 0, 0.5)", "enemy");
+			}
 		}
 	}
-}
 };
