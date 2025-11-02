@@ -76,11 +76,12 @@ function updateTurnOrder() {
 	for (let i = 0; i < entities.length; i++) {
 		const entity = entities[i];
 		
+		// Only show enemies in turn order if they are aware of the player
 		if (entity !== player) {
 			const hasSeenPlayer = (entity.seenX !== 0 || entity.seenY !== 0);
-			const playerCanSeeEnemy = turns.playerCanSeeEnemy(entity);
 			
-			if (!hasSeenPlayer && !playerCanSeeEnemy) {
+			// Don't show unaware enemies in turn order
+			if (!hasSeenPlayer) {
 				continue;
 			}
 		}

@@ -99,9 +99,17 @@ var turns = {
 		const path = calc.los(look);
 		const dist = calc.distance(fromX, toX, fromY, toY);
 		
-		// Path reaches target if path length >= distance + 1 (includes start point)
-		// If blocked by wall, path gets truncated and will be shorter
-		return path.length >= dist + 1;
+		// Path was truncated by wall
+		if (path.length < dist + 1) return false;
+		
+		// Double-check: no walls between start and end (excluding endpoints)
+		for (let i = 1; i < path.length - 1; i++) {
+			if (walls.find(w => w.x === path[i].x && w.y === path[i].y)) {
+				return false;
+			}
+		}
+		
+		return true;
 	},
 	
 	checkEnemyLOS: function() {
@@ -114,6 +122,9 @@ var turns = {
 				enemy.seenX = player.x;
 				enemy.seenY = player.y;
 			}
+			// Note: We intentionally do NOT reset seenX/seenY here if no LOS
+			// This allows enemies to remember the player's last known position
+			// They will only forget when they reach that position (in enemyTurn)
 		}
 	},
 	
