@@ -90,29 +90,8 @@ var turns = {
 		return hasPermissiveLOS(player.x, player.y, enemy.x, enemy.y);
 	},
 	
-	checkEnemyLOS: function() {
-		for (let i = 0; i < allEnemies.length; i++) {
-			const enemy = allEnemies[i];
-			if (enemy.hp < 1) continue;
-			
-			// Use strict LOS for vision
-			const look = {
-				start: { x: enemy.x, y: enemy.y },
-				end: { x: player.x, y: player.y }
-			};
-			const path = calc.los(look);
-			const dist = calc.distance(enemy.x, player.x, enemy.y, player.y);
-			
-			// Path must reach the player (path length > distance means it got there)
-			if (path.length > dist) {
-				enemy.seenX = player.x;
-				enemy.seenY = player.y;
-			}
-		}
-	},
-	
-	hasValidAttackLOS: function(fromX, fromY, toX, toY) {
-		// Use the strict LOS calculation that respects walls
+	// Helper function to check if LOS is clear (no walls blocking)
+	hasStrictLOS: function(fromX, fromY, toX, toY) {
 		const look = {
 			start: { x: fromX, y: fromY },
 			end: { x: toX, y: toY }
@@ -120,9 +99,27 @@ var turns = {
 		const path = calc.los(look);
 		const dist = calc.distance(fromX, toX, fromY, toY);
 		
-		// Path length should be equal to distance + 1 (includes start point)
-		// If a wall blocks, path gets truncated
-		return path.length > dist;
+		// Path reaches target if path length >= distance + 1 (includes start point)
+		// If blocked by wall, path gets truncated and will be shorter
+		return path.length >= dist + 1;
+	},
+	
+	checkEnemyLOS: function() {
+		for (let i = 0; i < allEnemies.length; i++) {
+			const enemy = allEnemies[i];
+			if (enemy.hp < 1) continue;
+			
+			// Use strict LOS helper
+			if (this.hasStrictLOS(enemy.x, enemy.y, player.x, player.y)) {
+				enemy.seenX = player.x;
+				enemy.seenY = player.y;
+			}
+		}
+	},
+	
+	hasValidAttackLOS: function(fromX, fromY, toX, toY) {
+		// Use the same strict LOS check
+		return this.hasStrictLOS(fromX, fromY, toX, toY);
 	},
 	
 	enemyTurn: function(entity) {
@@ -131,23 +128,13 @@ var turns = {
 			return;
 		}
 		
-		// Check if enemy reached their target position
-		if (entity.x === entity.seenX && entity.y === entity.seenY) {
-			entity.seenX = 0;
-			entity.seenY = 0;
-		}
-		
 		const dist = calc.distance(entity.x, player.x, entity.y, player.y);
 		
-		// Use strict LOS for vision
-		const look = {
-			start: { x: entity.x, y: entity.y },
-			end: { x: player.x, y: player.y }
-		};
-		const path = calc.los(look);
-		const canSeePlayer = path.length > dist;
+		// Check LOS first before modifying seenX/seenY
+		const canSeePlayer = this.hasStrictLOS(entity.x, entity.y, player.x, player.y);
 		
 		if (canSeePlayer) {
+			// Update to current player position
 			entity.seenX = player.x;
 			entity.seenY = player.y;
 			
@@ -157,8 +144,16 @@ var turns = {
 				this.enemyMoveToward(entity, player.x, player.y);
 			}
 		} else if (entity.seenX !== 0 || entity.seenY !== 0) {
-			// Move toward last seen position using pathfinding
-			this.enemyMoveToward(entity, entity.seenX, entity.seenY);
+			// Check if enemy reached their last known target position
+			if (entity.x === entity.seenX && entity.y === entity.seenY) {
+				entity.seenX = 0;
+				entity.seenY = 0;
+				// Do random movement since we lost the player
+				this.enemyRandomMove(entity);
+			} else {
+				// Move toward last seen position using pathfinding
+				this.enemyMoveToward(entity, entity.seenX, entity.seenY);
+			}
 		} else {
 			// Random movement
 			this.enemyRandomMove(entity);
