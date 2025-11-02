@@ -17,15 +17,13 @@ var turns = {
 
 		if (currentEntityTurnsRemaining <= 0) {
 			currentEntityIndex++;
-			if (currentEntityIndex >= entities.length) {
-				currentEntityIndex = 0;
-			}
+			if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 			currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 			
 			const currentEntity = entities[currentEntityIndex];
 			camera = {
-				x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
-				y: currentEntity.y - Math.round((viewportSize / 2)) + 1
+				x: currentEntity.x - Math.round(viewportSize / 2) + 1,
+				y: currentEntity.y - Math.round(viewportSize / 2) + 1
 			};
 			canvas.init();
 			canvas.clear();
@@ -43,14 +41,11 @@ var turns = {
 			
 			const dist = calc.distance(currentEntity.x, player.x, currentEntity.y, player.y);
 			if (dist <= currentEntity.attack_range) {
-				const lookAtPlayer = {
+				const pathToPlayer = calc.los({
 					start: { x: currentEntity.x, y: currentEntity.y },
 					end: { x: player.x, y: player.y }
-				};
-				const pathToPlayer = calc.los(lookAtPlayer);
-				if (pathToPlayer.length > 1) {
-					canvas.los(pathToPlayer.slice(1));
-				}
+				});
+				if (pathToPlayer.length > 1) canvas.los(pathToPlayer.slice(1));
 			}
 			
 			const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
@@ -68,69 +63,37 @@ var turns = {
 			return;
 		}
 
-		if (currentEntity === player && action.value === "move") {
-			calc.move(player);
-		}
-		
-		if (currentEntity === player) {
-			this.checkEnemyLOS();
-		}
+		if (currentEntity === player && action.value === "move") calc.move(player);
+		if (currentEntity === player) this.checkEnemyLOS();
 	},
 	
 	isInViewport: function(entity) {
-		const minX = camera.x;
-		const maxX = camera.x + viewportSize - 1;
-		const minY = camera.y;
-		const maxY = camera.y + viewportSize - 1;
-		
-		return entity.x >= minX && entity.x <= maxX && entity.y >= minY && entity.y <= maxY;
+		return entity.x >= camera.x && entity.x <= camera.x + viewportSize - 1 && 
+		       entity.y >= camera.y && entity.y <= camera.y + viewportSize - 1;
 	},
 	
 	playerCanSeeEnemy: function(enemy) {
-		return hasPermissiveLOS(player.x, player.y, enemy.x, enemy.y);
+		return EntitySystem.hasLOS(player, enemy.x, enemy.y, true);
 	},
 	
-	// Helper function to check if LOS is clear (no walls blocking)
 	hasStrictLOS: function(fromX, fromY, toX, toY) {
-		const look = {
-			start: { x: fromX, y: fromY },
-			end: { x: toX, y: toY }
-		};
-		const path = calc.los(look);
-		const dist = calc.distance(fromX, toX, fromY, toY);
-		
-		// Path was truncated by wall
-		if (path.length < dist + 1) return false;
-		
-		// Double-check: no walls between start and end (excluding endpoints)
-		for (let i = 1; i < path.length - 1; i++) {
-			if (walls.find(w => w.x === path[i].x && w.y === path[i].y)) {
-				return false;
-			}
-		}
-		
-		return true;
+		// Create temporary entity for LOS check
+		return EntitySystem.hasLOS({x: fromX, y: fromY}, toX, toY, false);
 	},
 	
 	checkEnemyLOS: function() {
-		for (let i = 0; i < allEnemies.length; i++) {
-			const enemy = allEnemies[i];
-			if (enemy.hp < 1) continue;
+		allEnemies.forEach(enemy => {
+			if (enemy.hp < 1) return;
 			
-			// Use strict LOS helper
-			if (this.hasStrictLOS(enemy.x, enemy.y, player.x, player.y)) {
+			if (EntitySystem.hasLOS(enemy, player.x, player.y, false)) {
 				enemy.seenX = player.x;
 				enemy.seenY = player.y;
 			}
-			// Note: We intentionally do NOT reset seenX/seenY here if no LOS
-			// This allows enemies to remember the player's last known position
-			// They will only forget when they reach that position (in enemyTurn)
-		}
+		});
 	},
 	
 	hasValidAttackLOS: function(fromX, fromY, toX, toY) {
-		// Use the same strict LOS check
-		return this.hasStrictLOS(fromX, fromY, toX, toY);
+		return EntitySystem.hasLOS({x: fromX, y: fromY}, toX, toY, false);
 	},
 	
 	enemyTurn: function(entity) {
@@ -140,12 +103,9 @@ var turns = {
 		}
 		
 		const dist = calc.distance(entity.x, player.x, entity.y, player.y);
-		
-		// Check LOS first before modifying seenX/seenY
 		const canSeePlayer = this.hasStrictLOS(entity.x, entity.y, player.x, player.y);
 		
 		if (canSeePlayer) {
-			// Update to current player position
 			entity.seenX = player.x;
 			entity.seenY = player.y;
 			
@@ -155,30 +115,22 @@ var turns = {
 				this.enemyMoveToward(entity, player.x, player.y);
 			}
 		} else if (entity.seenX !== 0 || entity.seenY !== 0) {
-			// Check if enemy reached their last known target position
+			// Check if reached last known position
 			if (entity.x === entity.seenX && entity.y === entity.seenY) {
 				entity.seenX = 0;
 				entity.seenY = 0;
-				// Do random movement since we lost the player
 				this.enemyRandomMove(entity);
 			} else {
-				// Move toward last seen position using pathfinding
 				this.enemyMoveToward(entity, entity.seenX, entity.seenY);
 			}
 		} else {
-			// Random movement
 			this.enemyRandomMove(entity);
 		}
 	},
 	
 	enemyRandomMove: function(entity) {
-		const moves = [
-			[-1, -1], [0, -1], [1, -1],
-			[-1, 0], [0, 0], [1, 0],
-			[-1, 1], [0, 1], [1, 1]
-		];
-		const direction = Math.floor(Math.random() * 9);
-		const [dx, dy] = moves[direction];
+		const moves = [[-1,-1],[0,-1],[1,-1],[-1,0],[0,0],[1,0],[-1,1],[0,1],[1,1]];
+		const [dx, dy] = moves[Math.floor(Math.random() * 9)];
 		
 		const newX = entity.x + dx;
 		const newY = entity.y + dy;
@@ -188,19 +140,15 @@ var turns = {
 			return;
 		}
 		
-		if (pts[newX] && pts[newX][newY] !== 0) {
+		if (pts[newX]?.[newY] !== 0) {
 			entity.x = newX;
 			entity.y = newY;
-			
-			if (typeof pickupItem !== 'undefined') {
-				pickupItem(entity, entity.x, entity.y);
-			}
+			if (typeof pickupItem !== 'undefined') pickupItem(entity, entity.x, entity.y);
 		}
 		currentEntityTurnsRemaining--;
 	},
 	
 	enemyMove: function(entity) {
-		// This function is now just an alias for backwards compatibility
 		this.enemyRandomMove(entity);
 	},
 	
@@ -212,7 +160,6 @@ var turns = {
 		
 		// Validate target coordinates
 		if (targetX < 0 || targetX >= size || targetY < 0 || targetY >= size) {
-			console.log(entity.name + " has invalid target coordinates, resetting...");
 			entity.seenX = 0;
 			entity.seenY = 0;
 			currentEntityTurnsRemaining--;
@@ -221,29 +168,17 @@ var turns = {
 		
 		const diagonalGraph = new Graph(pts, { diagonal: true });
 		
-		// Mark other entities as obstacles (but not the target tile itself)
-		for (let i = 0; i < entities.length; i++) {
-			if (entities[i] !== entity && entities[i].hp > 0) {
-				// Don't mark the target position as blocked if the player is there
-				// This allows pathfinding to find a path adjacent to the player
-				if (entities[i].x === targetX && entities[i].y === targetY) {
-					continue;
-				}
-				if (diagonalGraph.grid[entities[i].x] && diagonalGraph.grid[entities[i].x][entities[i].y]) {
-					diagonalGraph.grid[entities[i].x][entities[i].y].weight = 0;
+		// Mark other entities as obstacles (except target tile)
+		entities.forEach(e => {
+			if (e !== entity && e.hp > 0 && !(e.x === targetX && e.y === targetY)) {
+				if (diagonalGraph.grid[e.x]?.[e.y]) {
+					diagonalGraph.grid[e.x][e.y].weight = 0;
 				}
 			}
-		}
+		});
 		
-		// Check if start or end nodes are valid
-		if (!diagonalGraph.grid[entity.x] || !diagonalGraph.grid[entity.x][entity.y]) {
-			console.log(entity.name + " is at invalid position!");
-			currentEntityTurnsRemaining--;
-			return;
-		}
-		
-		if (!diagonalGraph.grid[targetX] || !diagonalGraph.grid[targetX][targetY]) {
-			console.log(entity.name + " has invalid target!");
+		// Validate graph nodes
+		if (!diagonalGraph.grid[entity.x]?.[entity.y] || !diagonalGraph.grid[targetX]?.[targetY]) {
 			entity.seenX = 0;
 			entity.seenY = 0;
 			currentEntityTurnsRemaining--;
@@ -254,15 +189,11 @@ var turns = {
 			diagonalGraph, 
 			diagonalGraph.grid[entity.x][entity.y], 
 			diagonalGraph.grid[targetX][targetY], 
-			{
-				closest: true,
-				heuristic: astar.heuristics.diagonal
-			}
+			{ closest: true, heuristic: astar.heuristics.diagonal }
 		);
 		
-		// If no path found, reset last seen position and use random movement
+		// If no path found, reset and random move
 		if (!path || path.length === 0) {
-			console.log(entity.name + " cannot find path to target, forgetting...");
 			entity.seenX = 0;
 			entity.seenY = 0;
 			this.enemyRandomMove(entity);
@@ -273,13 +204,11 @@ var turns = {
 		let finalX = entity.x;
 		let finalY = entity.y;
 		
-		for (let i = 0; i < path.length; i++) {
-			const step = path[i];
+		for (let step of path) {
 			const isDiagonal = (step.x !== finalX && step.y !== finalY);
 			const stepCost = isDiagonal ? 1.5 : 1;
 			
 			if (distanceMoved + stepCost <= entity.range) {
-				// Check if this step is actually walkable (not occupied by another entity)
 				const occupied = entities.some(e => 
 					e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y
 				);
@@ -288,115 +217,42 @@ var turns = {
 					finalX = step.x;
 					finalY = step.y;
 					distanceMoved += stepCost;
-				} else {
-					// Can't move further, stop here
-					break;
-				}
-			} else {
-				break;
-			}
+				} else break;
+			} else break;
 		}
 		
 		if (finalX !== entity.x || finalY !== entity.y) {
 			entity.x = finalX;
 			entity.y = finalY;
-			
-			if (typeof pickupItem !== 'undefined') {
-				pickupItem(entity, entity.x, entity.y);
-			}
+			if (typeof pickupItem !== 'undefined') pickupItem(entity, entity.x, entity.y);
 		}
 		
 		currentEntityTurnsRemaining--;
 	},
 	
-	move: function(entity, x, y) {	
-		if (pts[x] && pts[x][y] !== 0) {
-			entity.x = x;
-			entity.y = y;
-			
-			if (typeof pickupItem !== 'undefined') {
-				pickupItem(entity, x, y);
-			}
-			
+	move: function(entity, x, y) {
+		if (EntitySystem.moveEntity(entity, x, y)) {
 			currentEntityTurnsRemaining--;
 			
 			if (entity === player && currentEntityTurnsRemaining <= 0) {
 				currentEntityIndex++;
-				if (currentEntityIndex >= entities.length) {
-					currentEntityIndex = 0;
-				}
+				if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 				currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 			}
 			
-			if (entity === player) {
-				this.checkEnemyLOS();
-			}
-			
+			if (entity === player) this.checkEnemyLOS();
 			update();
 		}
 	},
 	
 	attack: function(target, entity) {
-		const hitRoll = calc.roll(6, 1);
-		
-		if (hitRoll >= 4) {
-			let dmgRoll = calc.roll(6, 1);
-			
-			if (entity.damage) {
-				dmgRoll += entity.damage;
-			}
-			
-			target.hp -= dmgRoll;
-			target.seenX = entity.x;
-			target.seenY = entity.y;
-			console.log(entity.name + " hits " + target.name + " for " + dmgRoll + "DMG!");
-			
-			if (target.hp <= 0) {
-				if (target.inventory && target.inventory.length > 0) {
-					for (let i = 0; i < target.inventory.length; i++) {
-						if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
-							const droppedItem = {
-								x: target.x,
-								y: target.y,
-								itemType: target.inventory[i].itemType,
-								id: nextItemId++
-							};
-							mapItems.push(droppedItem);
-							console.log(target.name + " dropped " + itemTypes[target.inventory[i].itemType].name);
-						}
-					}
-					target.inventory = [];
-				}
-				
-				if (target.equipment) {
-					for (let slot in target.equipment) {
-						if (target.equipment[slot]) {
-							if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
-								const droppedItem = {
-									x: target.x,
-									y: target.y,
-									itemType: target.equipment[slot].itemType,
-									id: nextItemId++
-								};
-								mapItems.push(droppedItem);
-								console.log(target.name + " dropped " + itemTypes[target.equipment[slot].itemType].name);
-							}
-						}
-					}
-					target.equipment = {};
-				}
-			}
-		} else {
-			console.log(entity.name + " attacks and misses " + target.name + "...");
-		}
+		EntitySystem.attack(entity, target);
 		
 		currentEntityTurnsRemaining--;
 		
 		if (entity === player && currentEntityTurnsRemaining <= 0) {
 			currentEntityIndex++;
-			if (currentEntityIndex >= entities.length) {
-				currentEntityIndex = 0;
-			}
+			if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 			currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 		}
 	}

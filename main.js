@@ -214,63 +214,9 @@ var calc = {
 	distance: (x1, x2, y1, y2) => Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)),
 	
 	move: function(entity) {
-		// Special case for peek mode - show adjacent tiles only
-		if (entity === player && isPeekMode && peekStep === 1) {
-			helper.getAdjacentTiles(entity.x, entity.y, true).forEach(tile => {
-				if (!helper.tileBlocked(tile.x, tile.y)) {
-					if (!valid.find(item => item.x === tile.x && item.y === tile.y)) {
-						valid.push(new calc.coordinate(tile.x, tile.y));
-					}
-					ctx.fillStyle = "rgba(0, 255, 0, 0.5)";
-					ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
-				}
-			});
-			return;
-		}
-		
-		circle(entity.y, entity.x, entity.range);
-		convert();
-		if (!pts) return false;
-
-		graph = new Graph(pts, {diagonal: true});
-
-		// Mark other entities as obstacles
-		entities.forEach(e => {
-			if (e !== entity && e.hp > 0 && pts[e.x]?.[e.y] !== undefined) {
-				pts[e.x][e.y] = 0;
-			}
-		});
-
-		// OPTIMIZATION: Only check tiles within the movement circle
-		const minX = Math.max(0, entity.x - entity.range - 1);
-		const maxX = Math.min(pts.length - 1, entity.x + entity.range + 1);
-		const minY = Math.max(0, entity.y - entity.range - 1);
-		const maxY = Math.min(pts.length - 1, entity.y + entity.range + 1);
-
-		for (let i = minX; i <= maxX; i++) {
-			for (let j = minY; j <= maxY; j++) {
-				if (pts[i][j] === 1) {
-					const res = astar.search(graph, graph.grid[entity.x][entity.y], graph.grid[i][j]);
-					
-					if (res.length > 0) {
-						let pathCost = 0;
-						for (let k = 0; k < res.length; k++) {
-							if (k === 0) {
-								pathCost += 1;
-							} else {
-								const prev = res[k - 1];
-								const curr = res[k];
-								pathCost += (prev.x !== curr.x && prev.y !== curr.y) ? 1.41421 : 1;
-							}
-						}
-						
-						if (pathCost <= entity.range) {
-							canvas.range(res, entity);
-						}
-					}
-				}
-			}
-		}
+		// Use unified entity system
+		const specialMode = (entity === player && isPeekMode && peekStep === 1) ? 'peek' : null;
+		EntitySystem.displayMovement(entity, specialMode);
 	},
 	
 	los: function(look) {
