@@ -131,6 +131,7 @@ var turns = {
 			return;
 		}
 		
+		// Check if enemy reached their target position
 		if (entity.x === entity.seenX && entity.y === entity.seenY) {
 			entity.seenX = 0;
 			entity.seenY = 0;
@@ -203,14 +204,44 @@ var turns = {
 			return;
 		}
 		
+		// Validate target coordinates
+		if (targetX < 0 || targetX >= size || targetY < 0 || targetY >= size) {
+			console.log(entity.name + " has invalid target coordinates, resetting...");
+			entity.seenX = 0;
+			entity.seenY = 0;
+			currentEntityTurnsRemaining--;
+			return;
+		}
+		
 		const diagonalGraph = new Graph(pts, { diagonal: true });
 		
+		// Mark other entities as obstacles (but not the target tile itself)
 		for (let i = 0; i < entities.length; i++) {
 			if (entities[i] !== entity && entities[i].hp > 0) {
+				// Don't mark the target position as blocked if the player is there
+				// This allows pathfinding to find a path adjacent to the player
+				if (entities[i].x === targetX && entities[i].y === targetY) {
+					continue;
+				}
 				if (diagonalGraph.grid[entities[i].x] && diagonalGraph.grid[entities[i].x][entities[i].y]) {
 					diagonalGraph.grid[entities[i].x][entities[i].y].weight = 0;
 				}
 			}
+		}
+		
+		// Check if start or end nodes are valid
+		if (!diagonalGraph.grid[entity.x] || !diagonalGraph.grid[entity.x][entity.y]) {
+			console.log(entity.name + " is at invalid position!");
+			currentEntityTurnsRemaining--;
+			return;
+		}
+		
+		if (!diagonalGraph.grid[targetX] || !diagonalGraph.grid[targetX][targetY]) {
+			console.log(entity.name + " has invalid target!");
+			entity.seenX = 0;
+			entity.seenY = 0;
+			currentEntityTurnsRemaining--;
+			return;
 		}
 		
 		const path = astar.search(
@@ -223,6 +254,15 @@ var turns = {
 			}
 		);
 		
+		// If no path found, reset last seen position and use random movement
+		if (!path || path.length === 0) {
+			console.log(entity.name + " cannot find path to target, forgetting...");
+			entity.seenX = 0;
+			entity.seenY = 0;
+			this.enemyRandomMove(entity);
+			return;
+		}
+		
 		let distanceMoved = 0;
 		let finalX = entity.x;
 		let finalY = entity.y;
@@ -233,9 +273,19 @@ var turns = {
 			const stepCost = isDiagonal ? 1.5 : 1;
 			
 			if (distanceMoved + stepCost <= entity.range) {
-				finalX = step.x;
-				finalY = step.y;
-				distanceMoved += stepCost;
+				// Check if this step is actually walkable (not occupied by another entity)
+				const occupied = entities.some(e => 
+					e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y
+				);
+				
+				if (!occupied) {
+					finalX = step.x;
+					finalY = step.y;
+					distanceMoved += stepCost;
+				} else {
+					// Can't move further, stop here
+					break;
+				}
 			} else {
 				break;
 			}
