@@ -266,6 +266,14 @@ var input = {
 			y: camera.y + gridY
 		};
 		console.log(click_pos);
+		
+		// Populate all X/Y input fields
+		document.getElementById('spawn_x').value = click_pos.x;
+		document.getElementById('spawn_y').value = click_pos.y;
+		document.getElementById('player_x').value = click_pos.x;
+		document.getElementById('player_y').value = click_pos.y;
+		document.getElementById('item_x').value = click_pos.x;
+		document.getElementById('item_y').value = click_pos.y;
 	},
 	
 	mousedown: function(event) {
