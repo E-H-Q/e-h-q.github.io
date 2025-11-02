@@ -3,7 +3,6 @@
 var isZoomedOut = false;
 var isMouseDown = false;
 var lastTile = null;
-const trick = new MouseEvent('mousemove', {clientX: mouse_pos.clientX, clientY: mouse_pos.clientY});
 
 var input = {
 	init: function() {
@@ -27,7 +26,15 @@ var input = {
 		};
 		
 		update();
-		input.mouse(trick);
+		
+		// Refresh cursor position with current mouse location
+		if (mouse_pos.clientX && mouse_pos.clientY) {
+			const evt = new MouseEvent('mousemove', {
+				clientX: mouse_pos.clientX,
+				clientY: mouse_pos.clientY
+			});
+			input.mouse(evt);
+		}
 	},
 	
 	keyboard: function(event) {
@@ -86,15 +93,23 @@ var input = {
 			return;
 		}
 		
-		// Tab key - switch between move and attack
-		if (event.keyCode === 9) {
+		// Tab key OR Spacebar - switch between move and attack
+		if (event.keyCode === 9 || event.keyCode === 32) {
 			event.preventDefault();
 			if (isPeekMode && peekStep === 2) return;
 			
 			action.value = (action.value === "move") ? "attack" : "move";
 			document.activeElement.blur();
 			update();
-			input.mouse(trick);
+			
+			// Refresh cursor position with current mouse location
+			if (mouse_pos.clientX && mouse_pos.clientY) {
+				const evt = new MouseEvent('mousemove', {
+					clientX: mouse_pos.clientX,
+					clientY: mouse_pos.clientY
+				});
+				input.mouse(evt);
+			}
 		}
 	},
 	
