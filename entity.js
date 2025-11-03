@@ -122,14 +122,17 @@ const EntitySystem = {
 		const hitRoll = calc.roll(6);
 		
 		if (hitRoll >= 4) {
-			const dmgRoll = calc.roll(6) + (attacker.damage || 0);
+			const baseDmg = calc.roll(6) + (attacker.damage || 0);
+			const armor = target.armor || 0;
+			const dmgRoll = Math.max(1, baseDmg - armor); // Minimum 1 damage
 			
 			target.hp -= dmgRoll;
 			if (target.seenX !== undefined) {
 				target.seenX = attacker.x;
 				target.seenY = attacker.y;
 			}
-			console.log(attacker.name + " hits " + target.name + " for " + dmgRoll + "DMG!");
+			
+			console.log(attacker.name + " hits " + target.name + " for " + dmgRoll + " DMG!");
 			
 			if (target.hp <= 0) {
 				this.dropAllItems(target);

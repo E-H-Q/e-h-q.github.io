@@ -36,6 +36,15 @@ var itemTypes = {
 			{stat: "attack_range", value: 4}
 		],
 		displayName: "+3 Rifle"
+	},
+	kevlarVest: {
+		name: "Kevlar Vest",
+		type: "equipment",
+		slot: "armor",
+		effects: [
+			{stat: "armor", value: 3}
+		],
+		displayName: "Kevlar Vest"
 	}
 };
 
@@ -96,6 +105,8 @@ function giveItem(entity, itemType) {
 					entity.attack_range += effect.value;
 				} else if (effect.stat === "damage") {
 					entity.damage = (entity.damage || 0) + effect.value;
+				} else if (effect.stat === "armor") {
+					entity.armor = (entity.armor || 0) + effect.value;
 				}
 			}
 		}
@@ -217,6 +228,8 @@ function applyEquipmentEffects(entity, itemDef, equip) {
 				entity.attack_range += effect.value * multiplier;
 			} else if (effect.stat === "damage") {
 				entity.damage = (entity.damage || 0) + (effect.value * multiplier);
+			} else if (effect.stat === "armor") {
+				entity.armor = (entity.armor || 0) + (effect.value * multiplier);
 			}
 		}
 	}

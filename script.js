@@ -169,7 +169,7 @@ function updateEquipment() {
 		player.equipment = {};
 	}
 	
-	const slots = ["weapon", "accessory"];
+	const slots = ["weapon", "armor", "accessory"];
 	let hasEquipment = false;
 	
 	for (let slot of slots) {
