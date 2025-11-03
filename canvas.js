@@ -61,7 +61,8 @@ var canvas = {
 			healthPotion: "HP+",
 			speedPotion: "SP+",
 			scope: "Scp",
-			rifle: "Gun"
+			rifle: "Gun",
+			kevlarVest: "Vest"
 		};
 		
 		mapItems.forEach(item => {
