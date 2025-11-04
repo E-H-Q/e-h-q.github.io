@@ -48,7 +48,7 @@ function hasPermissiveLOS(startX, startY, endX, endY) {
 		
 		// Check if this ray is clear (exclude start and end points from wall check)
 		let blocked = false;
-		for (let i = 1; i < path.length - 1; i++) {
+		for (let i = 1; i < path.length; i++) {
 			const point = path[i];
 			if (walls.find(w => w.x === point.x && w.y === point.y)) {
 				blocked = true;
