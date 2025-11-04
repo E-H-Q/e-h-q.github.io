@@ -158,26 +158,39 @@ var input = {
 			const endX = camera.x + gridX;
 			const endY = camera.y + gridY;
 			
+			const dist = calc.distance(player.x, endX, player.y, endY);
+			
+			// Calculate main line
 			const look = {
 				start: { x: player.x, y: player.y },
 				end: { x: endX, y: endY }
 			};
-			
-			const dist = calc.distance(player.x, endX, player.y, endY);
+				
 			let path = calc.los(look);
-			
+				
 			if (path.length > player.attack_range + 1) {
 				path = path.slice(1, player.attack_range + 1);
 			} else {
 				path = path.slice(1);
 			}
-			
+				
 			// Player uses permissive LOS for targeting
 			const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY);
 			cursor.style.visibility = (dist > player.attack_range || !hasLOS) ? "hidden" : "visible";
-			
-			update();
-			canvas.los(path);
+
+			// Check if player has shotgun equipped	
+			const hasShotgun = player.equipment && player.equipment.weapon && 
+				itemTypes[player.equipment.weapon.itemType]?.special === "cone";
+				
+			if (hasShotgun) {
+				// Use cone targeting
+				const coneTiles = calculateCone(path, player.x, player.y, endX, endY, player.attack_range);
+				update();
+				canvas.los(coneTiles);
+			} else {
+				update();
+				canvas.los(path);
+			}
 		} else {
 			cursor.style.visibility = "visible";
 		}
@@ -215,39 +228,92 @@ var input = {
 				break;
 				
 			case "attack":
-				let targetEnemy = null;
-				for (let i = 0; i < allEnemies.length; i++) {
-					if (click_pos.x === allEnemies[i].x && click_pos.y === allEnemies[i].y && allEnemies[i].hp > 0) {
-						targetEnemy = allEnemies[i];
-						break;
-					}
-				}
+				const dist = calc.distance(player.x, click_pos.x, player.y, click_pos.y);
 				
-				if (!targetEnemy) return;
-				
-				const dist = calc.distance(player.x, targetEnemy.x, player.y, targetEnemy.y);
-				
-				// Player uses permissive LOS
-				if (!hasPermissiveLOS(player.x, player.y, targetEnemy.x, targetEnemy.y)) {
-					console.log("Blocked by wall");
-					return;
-				}
 				if (dist > player.attack_range) {
 					console.log("Target out of range!");
 					return;
 				}
 				
-				// Handle peek mode attack
-				if (isPeekMode && peekStep === 2) {
-					// Attack using turns.attack (uses 1 turn)
-					turns.attack(targetEnemy, player);
-					// Return to start position (no turn cost)
-					player.x = peekStartX;
-					player.y = peekStartY;
-					exitPeekMode(); // This calls update()
+				// Check if player has shotgun equipped
+				const hasShotgun = player.equipment && player.equipment.weapon && 
+					itemTypes[player.equipment.weapon.itemType]?.special === "cone";
+				
+				if (hasShotgun) {
+					// Calculate path for cone
+					const look = {
+						start: { x: player.x, y: player.y },
+						end: { x: click_pos.x, y: click_pos.y }
+					};
+					
+					let path = calc.los(look);
+					
+					if (path.length > player.attack_range + 1) {
+						path = path.slice(1, player.attack_range + 1);
+					} else {
+						path = path.slice(1);
+					}
+					
+					// Shotgun - cone attack
+					const targetsInCone = getEntitiesInCone(path, player.x, player.y, click_pos.x, click_pos.y, player.attack_range);
+					
+					// Filter out the player and only keep enemies
+					const enemiesInCone = targetsInCone.filter(e => e !== player && e.hp > 0);
+					
+					if (enemiesInCone.length === 0) {
+						return;
+					}
+					
+					// Handle peek mode
+					if (isPeekMode && peekStep === 2) {
+						for (let enemy of enemiesInCone) {
+							EntitySystem.attack(player, enemy);
+						}
+						currentEntityTurnsRemaining--;
+						player.x = peekStartX;
+						player.y = peekStartY;
+						exitPeekMode();
+					} else {
+						for (let enemy of enemiesInCone) {
+							EntitySystem.attack(player, enemy);
+						}
+						currentEntityTurnsRemaining--;
+						
+						if (currentEntityTurnsRemaining <= 0) {
+							currentEntityIndex++;
+							if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+							currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+						}
+						update();
+					}
 				} else {
-					turns.attack(targetEnemy, player);
-					update();
+					// Normal single-target attack
+					let targetEnemy = null;
+					for (let i = 0; i < allEnemies.length; i++) {
+						if (click_pos.x === allEnemies[i].x && click_pos.y === allEnemies[i].y && allEnemies[i].hp > 0) {
+							targetEnemy = allEnemies[i];
+							break;
+						}
+					}
+					
+					if (!targetEnemy) return;
+					
+					// Player uses permissive LOS
+					if (!hasPermissiveLOS(player.x, player.y, targetEnemy.x, targetEnemy.y)) {
+						console.log("Blocked by wall");
+						return;
+					}
+					
+					// Handle peek mode attack
+					if (isPeekMode && peekStep === 2) {
+						turns.attack(targetEnemy, player);
+						player.x = peekStartX;
+						player.y = peekStartY;
+						exitPeekMode();
+					} else {
+						turns.attack(targetEnemy, player);
+						update();
+					}
 				}
 				break;
 				

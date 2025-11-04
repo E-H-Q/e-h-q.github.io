@@ -37,6 +37,16 @@ var itemTypes = {
 		],
 		displayName: "+3 Rifle"
 	},
+	shotgun: {
+		name: "Shotgun",
+		type: "equipment",
+		slot: "weapon",
+		effects: [
+			{stat: "damage", value: 5}
+		],
+		displayName: "+5 Shotgun",
+		special: "cone"
+	},
 	kevlarVest: {
 		name: "Kevlar Vest",
 		type: "equipment",
@@ -46,6 +56,15 @@ var itemTypes = {
 		],
 		displayName: "Kevlar Vest"
 	}
+};
+
+const itemLabels = {
+	healthPotion: "HP+",
+	speedPotion: "SP+",
+	scope: "Scope",
+	rifle: "Rifle",
+	kevlarVest: "Vest",
+	shotgun: "Shot Gun"
 };
 
 function spawnItem(itemType, x, y) {

@@ -56,15 +56,7 @@ var canvas = {
 	
 	items: () => {
 		if (!mapItems) return;
-		
-		const itemLabels = {
-			healthPotion: "HP+",
-			speedPotion: "SP+",
-			scope: "Scp",
-			rifle: "Gun",
-			kevlarVest: "Vest"
-		};
-		
+
 		mapItems.forEach(item => {
 			const itemDef = itemTypes[item.itemType];
 			const isEquipment = itemDef?.type === "equipment";
