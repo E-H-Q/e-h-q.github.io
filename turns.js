@@ -41,11 +41,8 @@ var turns = {
 			
 			const dist = calc.distance(currentEntity.x, player.x, currentEntity.y, player.y);
 			if (dist <= currentEntity.attack_range) {
-				const pathToPlayer = calc.los({
-					start: { x: currentEntity.x, y: currentEntity.y },
-					end: { x: player.x, y: player.y }
-				});
-				if (pathToPlayer.length > 1) canvas.los(pathToPlayer.slice(1));
+				const targetingTiles = calculateEntityTargeting(currentEntity, player.x, player.y);
+				canvas.los(targetingTiles);
 			}
 			
 			const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
@@ -109,8 +106,17 @@ var turns = {
 			entity.seenX = player.x;
 			entity.seenY = player.y;
 			
+			// Check if player is in attack range and can be targeted
 			if (dist <= entity.attack_range && this.hasValidAttackLOS(entity.x, entity.y, player.x, player.y)) {
-				this.attack(player, entity);
+				// Use weapon-specific targeting
+				const targets = getTargetedEntities(entity, player.x, player.y);
+				
+				// Attack all targets (could be multiple with shotgun)
+				for (let target of targets) {
+					EntitySystem.attack(entity, target);
+				}
+				
+				currentEntityTurnsRemaining--;
 			} else {
 				this.enemyMoveToward(entity, player.x, player.y);
 			}

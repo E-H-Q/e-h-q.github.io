@@ -31,6 +31,7 @@ var itemTypes = {
 		name: "Rifle",
 		type: "equipment",
 		slot: "weapon",
+		aimStyle: "direct",
 		effects: [
 			{stat: "damage", value: 3},
 			{stat: "attack_range", value: 4}
@@ -41,11 +42,11 @@ var itemTypes = {
 		name: "Shotgun",
 		type: "equipment",
 		slot: "weapon",
+		aimStyle: "cone",
 		effects: [
 			{stat: "damage", value: 5}
 		],
-		displayName: "+5 Shotgun",
-		special: "cone"
+		displayName: "+5 Shotgun"
 	},
 	kevlarVest: {
 		name: "Kevlar Vest",
@@ -66,6 +67,69 @@ const itemLabels = {
 	kevlarVest: "Vest",
 	shotgun: "Shot Gun"
 };
+
+// Get entity's weapon aim style
+function getWeaponAimStyle(entity) {
+	if (entity.equipment && entity.equipment.weapon) {
+		const weaponDef = itemTypes[entity.equipment.weapon.itemType];
+		return weaponDef?.aimStyle || "direct";
+	}
+	return "direct";
+}
+
+// Calculate targeting for entity based on weapon
+function calculateEntityTargeting(entity, endX, endY) {
+	const aimStyle = getWeaponAimStyle(entity);
+	
+	const look = {
+		start: { x: entity.x, y: entity.y },
+		end: { x: endX, y: endY }
+	};
+	
+	let path = calc.los(look);
+	
+	if (path.length > entity.attack_range + 1) {
+		path = path.slice(1, entity.attack_range + 1);
+	} else {
+		path = path.slice(1);
+	}
+	
+	if (aimStyle === "cone") {
+		return calculateCone(path, entity.x, entity.y, endX, endY, entity.attack_range);
+	} else {
+		return path;
+	}
+}
+
+// Get all entities in targeting area
+function getTargetedEntities(attacker, endX, endY) {
+	const aimStyle = getWeaponAimStyle(attacker);
+	
+	if (aimStyle === "cone") {
+		const look = {
+			start: { x: attacker.x, y: attacker.y },
+			end: { x: endX, y: endY }
+		};
+		
+		let path = calc.los(look);
+		
+		if (path.length > attacker.attack_range + 1) {
+			path = path.slice(1, attacker.attack_range + 1);
+		} else {
+			path = path.slice(1);
+		}
+		
+		return getEntitiesInCone(path, attacker.x, attacker.y, endX, endY, attacker.attack_range);
+	} else {
+		// Direct targeting - single entity at endX, endY
+		for (let entity of entities) {
+			if (entity.x === endX && entity.y === endY && entity.hp > 0) {
+				return [entity];
+			}
+		}
+		return [];
+	}
+}
 
 function spawnItem(itemType, x, y) {
 	if (!x || !y) {
@@ -88,7 +152,6 @@ function spawnItem(itemType, x, y) {
 			giveItem(player, itemType);
 			return;
 		}
-		// combine these two if statements ^^^
 
 		if (!hasWall) {
 			const newItem = {
