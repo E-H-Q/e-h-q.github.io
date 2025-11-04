@@ -75,7 +75,21 @@ function spawnItem(itemType, x, y) {
 	
 	if (x >= 0 && x < size && y >= 0 && y < size) {
 		const hasWall = walls.find(w => w.x === x && w.y === y);
-		
+		const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === x && e.y === y);
+		const hasPlayer = (player.x === x && player.y === y);
+		const hasItem = mapItems.find(i => i.x === x && i.y === y);
+
+		if (hasEntity) {
+			giveItem(hasEntity, itemType);
+			return;
+		}
+	
+		if (hasPlayer) {
+			giveItem(player, itemType);
+			return;
+		}
+		// combine these two if statements ^^^
+
 		if (!hasWall) {
 			const newItem = {
 				x: x,
@@ -83,8 +97,10 @@ function spawnItem(itemType, x, y) {
 				itemType: itemType,
 				id: nextItemId++
 			};
+
 			mapItems.push(newItem);
 			console.log("Spawned " + itemTypes[itemType].name + " at " + x + ", " + y);
+
 			update();
 			return true;
 		} else {
