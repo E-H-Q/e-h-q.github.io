@@ -31,7 +31,7 @@ var itemTypes = {
 		name: "Rifle",
 		type: "equipment",
 		slot: "weapon",
-		aimStyle: "pierce",
+		aimStyle: "direct",
 		effects: [
 			{stat: "damage", value: 3},
 			{stat: "attack_range", value: 4}
