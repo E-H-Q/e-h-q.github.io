@@ -31,7 +31,7 @@ var itemTypes = {
 		name: "Rifle",
 		type: "equipment",
 		slot: "weapon",
-		aimStyle: "direct",
+		aimStyle: "pierce",
 		effects: [
 			{stat: "damage", value: 3},
 			{stat: "attack_range", value: 4}
@@ -43,6 +43,7 @@ var itemTypes = {
 		type: "equipment",
 		slot: "weapon",
 		aimStyle: "cone",
+		spread: 3,
 		effects: [
 			{stat: "damage", value: 5}
 		],
@@ -56,6 +57,28 @@ var itemTypes = {
 			{stat: "armor", value: 3}
 		],
 		displayName: "Kevlar Vest"
+	},
+	rocketLauncher: {
+		name: "Rocket Launcher",
+		type: "equipment",
+		slot: "weapon",
+		aimStyle: "area",
+		areaRadius: 2,
+		effects: [{stat: "damage", value: 25},
+			{stat: "attack_range", value: 3}
+		],
+    		displayName: "Rocket Launcher"
+	},
+	machinegun: {
+		name: "Machine Gun",
+		type: "equipment",
+		slot: "weapon",
+		aimStyle: "pierce",
+		areaRadius: 2,
+		effects: [{stat: "damage", value: 3},
+			{stat: "attack_range", value: 1}
+		],
+    		displayName: "Machine Gun"
 	}
 };
 
@@ -65,7 +88,9 @@ const itemLabels = {
 	scope: "Scope",
 	rifle: "Rifle",
 	kevlarVest: "Vest",
-	shotgun: "Shot Gun"
+	shotgun: "Shotgun",
+	rpg: "RPG",
+	machinegun: "SMG"
 };
 
 // Get entity's weapon aim style
@@ -95,8 +120,38 @@ function calculateEntityTargeting(entity, endX, endY) {
 	}
 	
 	if (aimStyle === "cone") {
-		return calculateCone(path, entity.x, entity.y, endX, endY, entity.attack_range);
-	} else {
+		// Get spread value from weapon
+		let spread = 3; // default
+		if (entity.equipment && entity.equipment.weapon) {
+			const weaponDef = itemTypes[entity.equipment.weapon.itemType];
+			spread = weaponDef?.spread || 3;
+		}
+
+		return calculateCone(path, entity.x, entity.y, endX, endY, entity.attack_range, spread);
+	} else if (aimStyle === "area") {
+		// Get area radius from weapon
+		let areaRadius = 2; // default
+		if (entity.equipment && entity.equipment.weapon) {
+			const weaponDef = itemTypes[entity.equipment.weapon.itemType];
+			areaRadius = weaponDef?.areaRadius;
+		}
+
+		// Get circle tiles around end point
+		const areaTiles = calculateArea(path[path.length-1].x, path[path.length-1].y, areaRadius);
+ 		const pathSet = new Set(path.map(p => `${p.x},${p.y}`));
+		// Only add tiles from area that aren't already in path
+		const uniqueAreaTiles = areaTiles.filter(tile => !pathSet.has(`${tile.x},${tile.y}`));
+
+		return [...path, ...uniqueAreaTiles];
+	} else if (aimStyle === "pierce") {
+		const areaTiles = getEntitiesInPath(path);
+		const pathSet = new Set(areaTiles.map(p => `${p.x},${p.y}`));
+		const uniqueAreaTiles = areaTiles.filter(tile => !pathSet.has(`${tile.x},${tile.y}`));
+
+		return [...path, ...uniqueAreaTiles];
+ 	} else {
+		// default - direct
+		// soon to be "standard" mode, taking closest entity to attacker from LOS path.
 		return path;
 	}
 }
@@ -119,7 +174,39 @@ function getTargetedEntities(attacker, endX, endY) {
 			path = path.slice(1);
 		}
 		
-		return getEntitiesInCone(path, attacker.x, attacker.y, endX, endY, attacker.attack_range);
+		// Get spread value from weapon
+		let spread = 3; // default
+		if (attacker.equipment && attacker.equipment.weapon) {
+			const weaponDef = itemTypes[attacker.equipment.weapon.itemType];
+			spread = weaponDef?.spread || 3;
+		}
+		
+		return getEntitiesInCone(path, attacker.x, attacker.y, endX, endY, attacker.attack_range, spread);
+	} else if (aimStyle === "pierce") {
+		const look = {
+			start: { x: attacker.x, y: attacker.y },
+			end: { x: endX, y: endY }
+		};
+		
+		let path = calc.los(look);
+		
+		if (path.length > attacker.attack_range + 1) {
+			path = path.slice(1, attacker.attack_range + 1);
+		} else {
+			path = path.slice(1);
+		}
+		
+		return getEntitiesInPath(path);
+	} else if (aimStyle === "area") {
+		// Get area radius from weapon
+		let areaRadius = 2; // default
+		if (attacker.equipment && attacker.equipment.weapon) {
+			const weaponDef = itemTypes[attacker.equipment.weapon.itemType];
+			areaRadius = weaponDef?.areaRadius || 2;
+		}
+		
+		const areaTiles = calculateArea(endX, endY, areaRadius);
+		return getEntitiesInArea(areaTiles);
 	} else {
 		// Direct targeting - single entity at endX, endY
 		for (let entity of entities) {
@@ -395,6 +482,10 @@ function useItem(entity, inventoryIndex) {
 			break;
 		case "equipment":
 			equipItem(entity, inventoryIndex);
+			// Don't use a turn when equipping
+			if (entity === player && typeof currentEntityTurnsRemaining !== 'undefined') {
+				currentEntityTurnsRemaining++;
+			}
 			break;
 	}
 	

@@ -30,13 +30,18 @@ function line(p0, p1) {
 
 // Permissive LOS: checks rays to target tile and its adjacent tiles
 function hasPermissiveLOS(startX, startY, endX, endY) {
-	// Get all tiles to check (target + adjacent tiles)
+	// Get all tiles to check (target + adjacent tiles that aren't walls)
 	const tilesToCheck = [{x: endX, y: endY}];
 	
-	// Add adjacent tiles (including diagonals)
+	// Add adjacent tiles (including diagonals) that aren't walls
 	if (typeof helper !== 'undefined' && helper.getAdjacentTiles) {
 		const adjacentTiles = helper.getAdjacentTiles(endX, endY, true);
-		tilesToCheck.push(...adjacentTiles);
+		for (let tile of adjacentTiles) {
+			// Only add adjacent tiles if they're not walls
+			if (!walls.find(w => w.x === tile.x && w.y === tile.y)) {
+				tilesToCheck.push(tile);
+			}
+		}
 	}
 	
 	const start = {x: startX, y: startY};
@@ -48,7 +53,7 @@ function hasPermissiveLOS(startX, startY, endX, endY) {
 		
 		// Check if this ray is clear (exclude start and end points from wall check)
 		let blocked = false;
-		for (let i = 1; i < path.length; i++) {
+		for (let i = 1; i < path.length - 1; i++) {
 			const point = path[i];
 			if (walls.find(w => w.x === point.x && w.y === point.y)) {
 				blocked = true;
@@ -65,10 +70,12 @@ function hasPermissiveLOS(startX, startY, endX, endY) {
 	return false;
 }
 
-// Calculate cone-shaped area for shotgun (3 lines: center + 1 on each side)
+// Calculate cone-shaped area for shotgun (multiple lines based on spread)
 // Stops at walls and respects attack range, uses permissive LOS
-// Spread scales with distance (max 1 tile on each side)
-function calculateCone(path, startX, startY, endX, endY, maxRange) {
+// Spread scales with distance
+// spread = total width (e.g., 3 = center + 1 left + 1 right, 5 = center + 2 left + 2 right)
+function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
+	spread = spread || 3; // default spread
 	const coneTiles = new Set();
 	
 	// Process main line (already has walls/range applied from calc.los)
@@ -84,7 +91,7 @@ function calculateCone(path, startX, startY, endX, endY, maxRange) {
 	const distance = Math.sqrt(dx * dx + dy * dy);
 	
 	// Only add spread if distance is at least 2
-	if (distance < 2) {
+	if (distance < 2 || spread <= 1) {
 		return Array.from(coneTiles).map(s => {
 			const [x, y] = s.split(',').map(Number);
 			return {x, y};
@@ -97,81 +104,92 @@ function calculateCone(path, startX, startY, endX, endY, maxRange) {
 	const perpX = -dy / length;
 	const perpY = dx / length;
 	
-	// Scale spread: start at 0, reach 1 at distance 2+
-	const spread = Math.min(1, (distance - 1) / 1);
+	// Calculate how many tiles on each side (spread - 1) / 2
+	const tilesPerSide = Math.floor((spread - 1) / 2);
 	
-	// Calculate two parallel lines (spread tile offset on each side)
-	const leftEndX = Math.round(endX + perpX * spread);
-	const leftEndY = Math.round(endY + perpY * spread);
-	const rightEndX = Math.round(endX - perpX * spread);
-	const rightEndY = Math.round(endY - perpY * spread);
+	// Store all side paths for gap filling
+	const allSidePaths = [];
 	
-	let leftPath = [];
-	let rightPath = [];
-	
-	// Draw left line with permissive LOS check
-	if (hasPermissiveLOS(startX, startY, leftEndX, leftEndY)) {
-		const leftLook = {
-			start: { x: startX, y: startY },
-			end: { x: leftEndX, y: leftEndY }
-		};
-		leftPath = calc.los(leftLook);
+	// Generate lines for each offset from center
+	for (let offset = 1; offset <= tilesPerSide; offset++) {
+		// Scale offset with distance to create gradual spread
+		const scaledOffset = Math.min(offset, (distance - 1) * (offset / tilesPerSide));
 		
-		// Apply range limit and skip first point
-		if (leftPath.length > maxRange + 1) {
-			leftPath = leftPath.slice(1, maxRange + 1);
-		} else if (leftPath.length > 1) {
-			leftPath = leftPath.slice(1);
-		}
+		// Left side
+		const leftEndX = Math.round(endX + perpX * scaledOffset);
+		const leftEndY = Math.round(endY + perpY * scaledOffset);
 		
-		for (let point of leftPath) {
-			coneTiles.add(`${point.x},${point.y}`);
-		}
-	}
-	
-	// Draw right line with permissive LOS check
-	if (hasPermissiveLOS(startX, startY, rightEndX, rightEndY)) {
-		const rightLook = {
-			start: { x: startX, y: startY },
-			end: { x: rightEndX, y: rightEndY }
-		};
-		rightPath = calc.los(rightLook);
-		
-		// Apply range limit and skip first point
-		if (rightPath.length > maxRange + 1) {
-			rightPath = rightPath.slice(1, maxRange + 1);
-		} else if (rightPath.length > 1) {
-			rightPath = rightPath.slice(1);
-		}
-		
-		for (let point of rightPath) {
-			coneTiles.add(`${point.x},${point.y}`);
-		}
-	}
-	
-	// Fill gaps between center and side lines
-	const centerPath = path.slice(startIdx);
-	const maxLen = Math.max(centerPath.length, leftPath.length, rightPath.length);
-	
-	for (let i = 0; i < maxLen; i++) {
-		// Get points at this step (or last point if path is shorter)
-		const centerPt = centerPath[Math.min(i, centerPath.length - 1)];
-		const leftPt = leftPath[Math.min(i, leftPath.length - 1)];
-		const rightPt = rightPath[Math.min(i, rightPath.length - 1)];
-		
-		if (leftPt && centerPt) {
-			// Fill between left and center
-			const fillLine = line({x: leftPt.x, y: leftPt.y}, {x: centerPt.x, y: centerPt.y});
-			for (let pt of fillLine) {
-				coneTiles.add(`${pt.x},${pt.y}`);
+		if (hasPermissiveLOS(startX, startY, leftEndX, leftEndY)) {
+			const leftLook = {
+				start: { x: startX, y: startY },
+				end: { x: leftEndX, y: leftEndY }
+			};
+			let leftPath = calc.los(leftLook);
+			
+			// Apply range limit and skip first point
+			if (leftPath.length > maxRange + 1) {
+				leftPath = leftPath.slice(1, maxRange + 1);
+			} else if (leftPath.length > 1) {
+				leftPath = leftPath.slice(1);
+			}
+			
+			allSidePaths.push(leftPath);
+			
+			for (let point of leftPath) {
+				coneTiles.add(`${point.x},${point.y}`);
 			}
 		}
 		
-		if (rightPt && centerPt) {
-			// Fill between right and center
-			const fillLine = line({x: rightPt.x, y: rightPt.y}, {x: centerPt.x, y: centerPt.y});
-			for (let pt of fillLine) {
-				coneTiles.add(`${pt.x},${pt.y}`);
+		// Right side
+		const rightEndX = Math.round(endX - perpX * scaledOffset);
+		const rightEndY = Math.round(endY - perpY * scaledOffset);
+		
+		if (hasPermissiveLOS(startX, startY, rightEndX, rightEndY)) {
+			const rightLook = {
+				start: { x: startX, y: startY },
+				end: { x: rightEndX, y: rightEndY }
+			};
+			let rightPath = calc.los(rightLook);
+			
+			// Apply range limit and skip first point
+			if (rightPath.length > maxRange + 1) {
+				rightPath = rightPath.slice(1, maxRange + 1);
+			} else if (rightPath.length > 1) {
+				rightPath = rightPath.slice(1);
+			}
+			
+			allSidePaths.push(rightPath);
+			
+			for (let point of rightPath) {
+				coneTiles.add(`${point.x},${point.y}`);
+			}
+		}
+	}
+	
+	// Fill gaps between all paths
+	const centerPath = path.slice(startIdx);
+	const allPaths = [centerPath, ...allSidePaths];
+	
+	// Get max length across all paths
+	let maxLen = 0;
+	for (let p of allPaths) {
+		if (p.length > maxLen) maxLen = p.length;
+	}
+	
+	// Fill gaps between adjacent paths at each step
+	for (let i = 0; i < maxLen; i++) {
+		for (let j = 0; j < allPaths.length - 1; j++) {
+			const path1 = allPaths[j];
+			const path2 = allPaths[j + 1];
+			
+			const pt1 = path1[Math.min(i, path1.length - 1)];
+			const pt2 = path2[Math.min(i, path2.length - 1)];
+			
+			if (pt1 && pt2) {
+				const fillLine = line({x: pt1.x, y: pt1.y}, {x: pt2.x, y: pt2.y});
+				for (let pt of fillLine) {
+					coneTiles.add(`${pt.x},${pt.y}`);
+				}
 			}
 		}
 	}
@@ -184,11 +202,66 @@ function calculateCone(path, startX, startY, endX, endY, maxRange) {
 }
 
 // Get all entities in cone area
-function getEntitiesInCone(path, startX, startY, endX, endY, maxRange) {
-	const coneTiles = calculateCone(path, startX, startY, endX, endY, maxRange);
+function getEntitiesInCone(path, startX, startY, endX, endY, maxRange, spread) {
+	const coneTiles = calculateCone(path, startX, startY, endX, endY, maxRange, spread);
 	const entitiesHit = [];
 	
 	for (let tile of coneTiles) {
+		for (let entity of entities) {
+			if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0) {
+				if (!entitiesHit.includes(entity)) {
+					entitiesHit.push(entity);
+				}
+			}
+		}
+	}
+	
+	return entitiesHit;
+}
+
+// Get all entities in pierce path
+function getEntitiesInPath(path) {
+	const entitiesHit = [];
+	
+	for (let tile of path) {
+		for (let entity of entities) {
+			if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0) {
+				if (!entitiesHit.includes(entity)) {
+					entitiesHit.push(entity);
+				}
+			}
+		}
+	}
+	return entitiesHit;
+}
+
+// Calculate area (circle) around a point
+function calculateArea(centerX, centerY, radius) {
+	const areaTiles = [];
+	
+	// Use the circle algorithm to generate tiles within radius
+	circle(centerY, centerX, radius);
+	convert();
+	
+	if (!pts) return areaTiles;
+	
+	// Collect all tiles marked as 1 within the circle
+	for (let x = Math.max(0, centerX - radius - 1); x <= Math.min(size - 1, centerX + radius + 1); x++) {
+		for (let y = Math.max(0, centerY - radius - 1); y <= Math.min(size - 1, centerY + radius + 1); y++) {
+			if (pts[x] && pts[x][y] === 1) {
+				areaTiles.push({x: x, y: y});
+			}
+		}
+	}
+	
+	return areaTiles;
+}
+
+// Get all entities in area
+function getEntitiesInArea(areaTiles) {
+	const entitiesHit = [];
+	
+	for (let tile of areaTiles) {
 		for (let entity of entities) {
 			if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0) {
 				if (!entitiesHit.includes(entity)) {

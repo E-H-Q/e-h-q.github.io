@@ -242,7 +242,13 @@ var input = {
 						if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 						currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 					}
+					
 					update();
+					// Re-render LOS after attack
+					if (action.value === "attack") {
+						const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
+						canvas.los(targetingTiles);
+					}
 				}
 				break;
 				
