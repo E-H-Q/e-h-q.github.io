@@ -152,14 +152,11 @@ var input = {
 			
 			const dist = calc.distance(player.x, endX, player.y, endY);
 			
-			// Check if wall tile is in valid targeting
 			const targetingTiles = calculateEntityTargeting(player, endX, endY);
-			const isWallTargetable = targetingTiles.some(t => 
-				t.x === endX && t.y === endY && walls.find(w => w.x === t.x && w.y === t.y)
-			);
+			const isInTargeting = targetingTiles.some(t => t.x === endX && t.y === endY);
 			
-			const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY) || isWallTargetable;
-			cursor.style.visibility = (dist > player.attack_range || !hasLOS) ? "hidden" : "visible";
+			const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY) || isInTargeting;
+			//cursor.style.visibility = (dist > player.attack_range || !hasLOS) ? "hidden" : "visible";
 
 			update();
 			canvas.los(targetingTiles);
@@ -203,20 +200,18 @@ var input = {
 				const dist = calc.distance(player.x, click_pos.x, player.y, click_pos.y);
 				
 				if (dist > player.attack_range) {
-					console.log("Target out of range!");
+					//console.log("Target out of range!");
 					return;
 				}
 				
 				const targetsInArea = getTargetedEntities(player, click_pos.x, click_pos.y);
 				const enemies = targetsInArea.filter(e => e !== player && e.hp > 0);
 				
-				// Allow attacking if there are enemies OR if targeting a wall with destructible weapon
 				const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
-				const isWallTargeted = targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y));
-				const canDestroy = player.equipment && player.equipment.weapon && 
-				                   itemTypes[player.equipment.weapon.itemType]?.canDestroy;
+				const hasTargets = targetingTiles.length > 0 && (enemies.length > 0 || 
+					targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y)));
 				
-				if (enemies.length === 0 && !(isWallTargeted && canDestroy)) return;
+				if (!hasTargets) return;
 				
 				if (isPeekMode && peekStep === 2) {
 					for (let enemy of enemies) {

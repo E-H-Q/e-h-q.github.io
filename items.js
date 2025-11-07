@@ -90,27 +90,17 @@ const itemLabels = {
 	rifle: "Rifle",
 	kevlarVest: "Vest",
 	shotgun: "Shotgun",
-	rpg: "RPG",
+	rocketLauncher: "RPG",
 	machinegun: "SMG"
 };
 
 function getWeaponAimStyle(entity) {
-	if (entity.equipment && entity.equipment.weapon) {
-		const weaponDef = itemTypes[entity.equipment.weapon.itemType];
-		return weaponDef?.aimStyle || "direct";
-	}
-	return "direct";
+	return entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.aimStyle || "direct" : "direct";
 }
 
 function calculateEntityTargeting(entity, endX, endY) {
 	const aimStyle = getWeaponAimStyle(entity);
-	
-	const look = {
-		start: { x: entity.x, y: entity.y },
-		end: { x: endX, y: endY }
-	};
-	
-	let path = calc.los(look);
+	let path = calc.los({start: {x: entity.x, y: entity.y}, end: {x: endX, y: endY}});
 	
 	if (path.length > entity.attack_range + 1) {
 		path = path.slice(1, entity.attack_range + 1);
@@ -119,21 +109,12 @@ function calculateEntityTargeting(entity, endX, endY) {
 	}
 	
 	if (aimStyle === "cone") {
-		let spread = 3;
-		if (entity.equipment && entity.equipment.weapon) {
-			const weaponDef = itemTypes[entity.equipment.weapon.itemType];
-			spread = weaponDef?.spread || 3;
-		}
+		const spread = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.spread || 3 : 3;
 		return calculateCone(path, entity.x, entity.y, endX, endY, entity.attack_range, spread);
 	} else if (aimStyle === "area") {
 		if (path.length === 0) return [];
 		
-		let areaRadius = 2;
-		if (entity.equipment && entity.equipment.weapon) {
-			const weaponDef = itemTypes[entity.equipment.weapon.itemType];
-			areaRadius = weaponDef?.areaRadius || 2;
-		}
-
+		const areaRadius = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.areaRadius || 2 : 2;
 		const center = path[path.length - 1];
 		circle(center.y, center.x, areaRadius);
 		convert();
@@ -142,25 +123,30 @@ function calculateEntityTargeting(entity, endX, endY) {
 		for (let x = Math.max(0, center.x - areaRadius - 1); x <= Math.min(size - 1, center.x + areaRadius + 1); x++) {
 			for (let y = Math.max(0, center.y - areaRadius - 1); y <= Math.min(size - 1, center.y + areaRadius + 1); y++) {
 				if (pts[x] && pts[x][y] === 1) {
-					// Check LOS from center to this tile
-					const tilePath = line({x: center.x, y: center.y}, {x: x, y: y});
-					let blocked = false;
+					const tilePath = line({x: center.x, y: center.y}, {x, y});
+					let hitWall = false;
 					
-					// Check all points except start and end
-					for (let i = 1; i < tilePath.length - 1; i++) {
-						if (walls.find(w => w.x === tilePath[i].x && w.y === tilePath[i].y)) {
-							blocked = true;
+					for (let i = 1; i < tilePath.length; i++) {
+						const isWall = walls.find(w => w.x === tilePath[i].x && w.y === tilePath[i].y);
+						if (isWall) {
+							// Include first wall hit, stop after
+							areaTiles.push({x: tilePath[i].x, y: tilePath[i].y});
+							hitWall = true;
 							break;
 						}
 					}
 					
-					if (!blocked) {
-						areaTiles.push({x: x, y: y});
-					}
+					areaTiles.push({x, y});
 				}
 			}
 		}
-		
+
+		// Remove duplicates in areaTiles, in place.
+		const seen = new Set();
+		areaTiles.splice(0, areaTiles.length, 
+			...areaTiles.filter(obj => {const coords = `${obj.x},${obj.y}`;
+			return seen.has(coords) ? false : seen.add(coords);}));
+
 		const pathSet = new Set(path.map(p => `${p.x},${p.y}`));
 		const uniqueAreaTiles = areaTiles.filter(tile => !pathSet.has(`${tile.x},${tile.y}`));
 		return [...path, ...uniqueAreaTiles];
@@ -173,134 +159,65 @@ function calculateEntityTargeting(entity, endX, endY) {
 function getTargetedEntities(attacker, endX, endY) {
 	const aimStyle = getWeaponAimStyle(attacker);
 	
-	if (aimStyle === "cone") {
-		const look = {
-			start: { x: attacker.x, y: attacker.y },
-			end: { x: endX, y: endY }
-		};
-		
-		let path = calc.los(look);
-		
-		if (path.length > attacker.attack_range + 1) {
-			path = path.slice(1, attacker.attack_range + 1);
-		} else {
-			path = path.slice(1);
-		}
-		
-		let spread = 3;
-		if (attacker.equipment && attacker.equipment.weapon) {
-			const weaponDef = itemTypes[attacker.equipment.weapon.itemType];
-			spread = weaponDef?.spread || 3;
-		}
-		
+	if (aimStyle === "area" || aimStyle === "pierce") {
+		const targetingTiles = aimStyle === "area" ? calculateEntityTargeting(attacker, endX, endY) : 
+			(() => {let p = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}}); 
+			return p.length > attacker.attack_range + 1 ? p.slice(1, attacker.attack_range + 1) : p.slice(1);})();
+		return aimStyle === "area" ? getEntitiesInArea(targetingTiles) : getEntitiesInPath(targetingTiles);
+	} else if (aimStyle === "cone") {
+		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
+		path = path.length > attacker.attack_range + 1 ? path.slice(1, attacker.attack_range + 1) : path.slice(1);
+		const spread = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType]?.spread || 3 : 3;
 		return getEntitiesInCone(path, attacker.x, attacker.y, endX, endY, attacker.attack_range, spread);
-	} else if (aimStyle === "pierce") {
-		const look = {
-			start: { x: attacker.x, y: attacker.y },
-			end: { x: endX, y: endY }
-		};
-		
-		let path = calc.los(look);
-		
-		if (path.length > attacker.attack_range + 1) {
-			path = path.slice(1, attacker.attack_range + 1);
-		} else {
-			path = path.slice(1);
-		}
-		
-		return getEntitiesInPath(path);
-	} else if (aimStyle === "area") {
-		// Use the same targeting calculation to get valid tiles
-		const targetingTiles = calculateEntityTargeting(attacker, endX, endY);
-		return getEntitiesInArea(targetingTiles);
 	}
 	
 	for (let entity of entities) {
-		if (entity.x === endX && entity.y === endY && entity.hp > 0) {
-			return [entity];
-		}
+		if (entity.x === endX && entity.y === endY && entity.hp > 0) return [entity];
 	}
 	return [];
 }
 
 function spawnItem(itemType, x, y) {
-	if (!x || !y) {
-		x = player.x;
-		y = player.y;
-	}
+	x = x || player.x;
+	y = y || player.y;
 	
 	if (x >= 0 && x < size && y >= 0 && y < size) {
 		const hasWall = walls.find(w => w.x === x && w.y === y);
-		const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === x && e.y === y);
-		const hasPlayer = (player.x === x && player.y === y);
-		const hasItem = mapItems.find(i => i.x === x && i.y === y);
-
-		if (hasEntity) {
-			giveItem(hasEntity, itemType);
-			return;
-		}
-	
-		if (hasPlayer) {
-			giveItem(player, itemType);
-			return;
-		}
-
+		const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === x && e.y === y) || (player.x === x && player.y === y ? player : null);
+		
+		if (hasEntity) return giveItem(hasEntity, itemType);
+		
 		if (!hasWall) {
-			const newItem = {
-				x: x,
-				y: y,
-				itemType: itemType,
-				id: nextItemId++
-			};
-
-			mapItems.push(newItem);
+			mapItems.push({x, y, itemType, id: nextItemId++});
 			console.log("Spawned " + itemTypes[itemType].name + " at " + x + ", " + y);
-
 			update();
 			return true;
-		} else {
-			console.log("Invalid spawn location for item!");
-			return false;
 		}
+		console.log("Invalid spawn location for item!");
 	}
 	return false;
 }
 
 function giveItem(entity, itemType) {
-	if (!entity.inventory) {
-		entity.inventory = [];
-	}
+	if (!entity.inventory) entity.inventory = [];
 	
-	const newItem = {
-		itemType: itemType,
-		id: nextItemId++
-	};
-	
+	const newItem = {itemType, id: nextItemId++};
 	entity.inventory.push(newItem);
 	console.log(entity.name + " received " + itemTypes[itemType].name);
 	
 	const itemDef = itemTypes[itemType];
-	if (entity !== player && itemDef && itemDef.type === "equipment") {
+	if (entity !== player && itemDef?.type === "equipment") {
 		entity.inventory.pop();
-		
-		if (!entity.equipment) {
-			entity.equipment = {};
-		}
-		
+		if (!entity.equipment) entity.equipment = {};
 		entity.equipment[itemDef.slot] = newItem;
 		
 		if (itemDef.effects) {
 			for (let effect of itemDef.effects) {
-				if (effect.stat === "attack_range") {
-					entity.attack_range += effect.value;
-				} else if (effect.stat === "damage") {
-					entity.damage = (entity.damage || 0) + effect.value;
-				} else if (effect.stat === "armor") {
-					entity.armor = (entity.armor || 0) + effect.value;
-				}
+				if (effect.stat === "attack_range") entity.attack_range += effect.value;
+				else if (effect.stat === "damage") entity.damage = (entity.damage || 0) + effect.value;
+				else if (effect.stat === "armor") entity.armor = (entity.armor || 0) + effect.value;
 			}
 		}
-		
 		console.log(entity.name + " equipped " + itemDef.name);
 	}
 	
@@ -309,14 +226,9 @@ function giveItem(entity, itemType) {
 }
 
 function spawnItemFromUI() {
-	const itemType = document.getElementById('item_type').value;
-	const itemX = document.getElementById('item_x').value;
-	const itemY = document.getElementById('item_y').value;
-	
-	const x = parseInt(itemX);
-	const y = parseInt(itemY);
-	
-	spawnItem(itemType, x, y);
+	spawnItem(document.getElementById('item_type').value, 
+		parseInt(document.getElementById('item_x').value), 
+		parseInt(document.getElementById('item_y').value));
 	document.getElementById('item_x').value = "";
 	document.getElementById('item_y').value = "";
 }
@@ -324,7 +236,6 @@ function spawnItemFromUI() {
 function updateItemDropdown() {
 	const category = document.getElementById('item_category').value;
 	const itemDropdown = document.getElementById('item_type');
-	
 	itemDropdown.innerHTML = '';
 	
 	for (let key in itemTypes) {
@@ -339,153 +250,98 @@ function updateItemDropdown() {
 
 function pickupItem(entity, x, y) {
 	if (!entity.inventory) return false;
-
-	const itemsAtLocation = [];
-	for (let i = 0; i < mapItems.length; i++) {
-		if (mapItems[i].x === x && mapItems[i].y === y) {
-			itemsAtLocation.push({index: i, item: mapItems[i]});
-		}
-	}
+	
+	const itemsAtLocation = mapItems.map((item, index) => item.x === x && item.y === y ? {index, item} : null).filter(Boolean);
 	
 	if (itemsAtLocation.length > 0) {
 		const mostRecent = itemsAtLocation[itemsAtLocation.length - 1];
-		const item = mostRecent.item;
-		const itemDef = itemTypes[item.itemType];
+		const itemDef = itemTypes[mostRecent.item.itemType];
 		
-		if (entity !== player && itemDef.type === "equipment") {
-			if (shouldEnemyEquip(entity, itemDef)) {
-				if (!entity.equipment) entity.equipment = {};
-				
-				if (entity.equipment[itemDef.slot]) {
-					unequipItem(entity, itemDef.slot);
-				}
-				
-				entity.equipment[itemDef.slot] = {itemType: item.itemType, id: item.id};
-				applyEquipmentEffects(entity, itemDef, true);
-				
-				console.log(entity.name + " equipped " + itemDef.name);
-				mapItems.splice(mostRecent.index, 1);
-				return true;
-			}
+		if (entity !== player && itemDef.type === "equipment" && shouldEnemyEquip(entity, itemDef)) {
+			if (!entity.equipment) entity.equipment = {};
+			if (entity.equipment[itemDef.slot]) unequipItem(entity, itemDef.slot);
+			entity.equipment[itemDef.slot] = {itemType: mostRecent.item.itemType, id: mostRecent.item.id};
+			applyEquipmentEffects(entity, itemDef, true);
+			console.log(entity.name + " equipped " + itemDef.name);
+			mapItems.splice(mostRecent.index, 1);
+			return true;
 		}
 		
-		entity.inventory.push({itemType: item.itemType, id: item.id});
+		entity.inventory.push({itemType: mostRecent.item.itemType, id: mostRecent.item.id});
 		console.log(entity.name + " picked up " + itemDef.name);
 		mapItems.splice(mostRecent.index, 1);
 		return true;
 	}
-	
 	return false;
 }
 
 function shouldEnemyEquip(entity, itemDef) {
 	if (!entity.equipment) entity.equipment = {};
-	
 	const currentItem = entity.equipment[itemDef.slot];
 	if (!currentItem) return true;
 	
 	const currentDef = itemTypes[currentItem.itemType];
-	
-	let newTotal = 0;
-	let currentTotal = 0;
-	
-	if (itemDef.effects) {
-		for (let effect of itemDef.effects) {
-			newTotal += effect.value;
-		}
-	}
-	
-	if (currentDef.effects) {
-		for (let effect of currentDef.effects) {
-			currentTotal += effect.value;
-		}
-	}
-	
+	const newTotal = itemDef.effects?.reduce((sum, e) => sum + e.value, 0) || 0;
+	const currentTotal = currentDef.effects?.reduce((sum, e) => sum + e.value, 0) || 0;
 	return newTotal > currentTotal;
 }
 
 function applyEquipmentEffects(entity, itemDef, equip) {
 	const multiplier = equip ? 1 : -1;
-	
 	if (itemDef.effects) {
 		for (let effect of itemDef.effects) {
-			if (effect.stat === "attack_range") {
-				entity.attack_range += effect.value * multiplier;
-			} else if (effect.stat === "damage") {
-				entity.damage = (entity.damage || 0) + (effect.value * multiplier);
-			} else if (effect.stat === "armor") {
-				entity.armor = (entity.armor || 0) + (effect.value * multiplier);
-			}
+			if (effect.stat === "attack_range") entity.attack_range += effect.value * multiplier;
+			else if (effect.stat === "damage") entity.damage = (entity.damage || 0) + (effect.value * multiplier);
+			else if (effect.stat === "armor") entity.armor = (entity.armor || 0) + (effect.value * multiplier);
 		}
 	}
 }
 
 function unequipItem(entity, slot) {
-	if (!entity.equipment || !entity.equipment[slot]) return false;
-	
+	if (!entity.equipment?.[slot]) return false;
 	const equippedItem = entity.equipment[slot];
 	const itemDef = itemTypes[equippedItem.itemType];
-	
 	applyEquipmentEffects(entity, itemDef, false);
-	
 	entity.inventory.push(equippedItem);
 	entity.equipment[slot] = null;
-	
 	console.log(entity.name + " unequipped " + itemDef.name);
 	return true;
 }
 
 function equipItem(entity, inventoryIndex) {
 	if (inventoryIndex < 0 || inventoryIndex >= entity.inventory.length) return false;
-	
 	const item = entity.inventory[inventoryIndex];
 	const itemDef = itemTypes[item.itemType];
-	
 	if (!itemDef || itemDef.type !== "equipment") return false;
 	
 	if (!entity.equipment) entity.equipment = {};
-	
-	if (entity.equipment[itemDef.slot]) {
-		unequipItem(entity, itemDef.slot);
-	}
+	if (entity.equipment[itemDef.slot]) unequipItem(entity, itemDef.slot);
 	
 	entity.inventory.splice(inventoryIndex, 1);
 	entity.equipment[itemDef.slot] = item;
-	
 	applyEquipmentEffects(entity, itemDef, true);
-	
 	console.log(entity.name + " equipped " + itemDef.name);
 	return true;
 }
 
 function useItem(entity, inventoryIndex) {
 	if (inventoryIndex < 0 || inventoryIndex >= entity.inventory.length) return false;
-	
 	const item = entity.inventory[inventoryIndex];
 	const itemDef = itemTypes[item.itemType];
-	
 	if (!itemDef) return false;
 	
-	switch(itemDef.type) {
-		case "consumable":
-			switch(itemDef.effect) {
-				case "heal":
-					entity.hp += itemDef.value;
-					console.log(entity.name + " heals for " + itemDef.value + "HP!");
-					break;
-				case "speed":
-					entity.range += itemDef.value;
-					console.log(entity.name + " feels themselves moving faster!");
-					break;
-			}
-			entity.inventory.splice(inventoryIndex, 1);
-			break;
-		case "equipment":
-			equipItem(entity, inventoryIndex);
-			if (entity === player && typeof currentEntityTurnsRemaining !== 'undefined') {
-				currentEntityTurnsRemaining++;
-			}
-			break;
+	if (itemDef.type === "consumable") {
+		if (itemDef.effect === "heal") {
+			entity.hp += itemDef.value;
+			console.log(entity.name + " heals for " + itemDef.value + "HP!");
+		} else if (itemDef.effect === "speed") {
+			entity.range += itemDef.value;
+			console.log(entity.name + " feels themselves moving faster!");
+		}
+		entity.inventory.splice(inventoryIndex, 1);
+	} else if (itemDef.type === "equipment") {
+		equipItem(entity, inventoryIndex);
+		if (entity === player && typeof currentEntityTurnsRemaining !== 'undefined') currentEntityTurnsRemaining++;
 	}
 	
 	update();
