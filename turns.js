@@ -74,7 +74,6 @@ var turns = {
 	},
 	
 	hasStrictLOS: function(fromX, fromY, toX, toY) {
-		// Create temporary entity for LOS check
 		return EntitySystem.hasLOS({x: fromX, y: fromY}, toX, toY, false);
 	},
 	
@@ -106,22 +105,19 @@ var turns = {
 			entity.seenX = player.x;
 			entity.seenY = player.y;
 			
-			// Check if player is in attack range and can be targeted
 			if (dist <= entity.attack_range && this.hasValidAttackLOS(entity.x, entity.y, player.x, player.y)) {
-				// Use weapon-specific targeting
 				const targets = getTargetedEntities(entity, player.x, player.y);
 				
-				// Attack all targets (could be multiple with shotgun)
 				for (let target of targets) {
 					EntitySystem.attack(entity, target);
 				}
+				EntitySystem.destroyWalls(entity, player.x, player.y);
 				
 				currentEntityTurnsRemaining--;
 			} else {
 				this.enemyMoveToward(entity, player.x, player.y);
 			}
 		} else if (entity.seenX !== 0 || entity.seenY !== 0) {
-			// Check if reached last known position
 			if (entity.x === entity.seenX && entity.y === entity.seenY) {
 				entity.seenX = 0;
 				entity.seenY = 0;
@@ -164,7 +160,6 @@ var turns = {
 			return;
 		}
 		
-		// Validate target coordinates
 		if (targetX < 0 || targetX >= size || targetY < 0 || targetY >= size) {
 			entity.seenX = 0;
 			entity.seenY = 0;
@@ -174,7 +169,6 @@ var turns = {
 		
 		const diagonalGraph = new Graph(pts, { diagonal: true });
 		
-		// Mark other entities as obstacles (except target tile)
 		entities.forEach(e => {
 			if (e !== entity && e.hp > 0 && !(e.x === targetX && e.y === targetY)) {
 				if (diagonalGraph.grid[e.x]?.[e.y]) {
@@ -183,7 +177,6 @@ var turns = {
 			}
 		});
 		
-		// Validate graph nodes
 		if (!diagonalGraph.grid[entity.x]?.[entity.y] || !diagonalGraph.grid[targetX]?.[targetY]) {
 			entity.seenX = 0;
 			entity.seenY = 0;
@@ -198,7 +191,6 @@ var turns = {
 			{ closest: true, heuristic: astar.heuristics.diagonal }
 		);
 		
-		// If no path found, reset and random move
 		if (!path || path.length === 0) {
 			entity.seenX = 0;
 			entity.seenY = 0;

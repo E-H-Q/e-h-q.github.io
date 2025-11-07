@@ -1,7 +1,6 @@
 // ENTITY.JS: UNIFIED ENTITY SYSTEM FOR ALL CHARACTERS
 
 const EntitySystem = {
-	// Check if entity can see target
 	hasLOS: function(entity, targetX, targetY, usePermissive = false) {
 		if (usePermissive) {
 			return hasPermissiveLOS(entity.x, entity.y, targetX, targetY);
@@ -22,9 +21,7 @@ const EntitySystem = {
 		return true;
 	},
 	
-	// Calculate and display movement range for any entity
 	calculateMovement: function(entity, specialMode = null) {
-		// Special mode for peek (only adjacent tiles)
 		if (specialMode === 'peek') {
 			return helper.getAdjacentTiles(entity.x, entity.y, true)
 				.filter(tile => !helper.tileBlocked(tile.x, tile.y));
@@ -36,7 +33,6 @@ const EntitySystem = {
 		
 		const graph = new Graph(pts, {diagonal: true});
 		
-		// Mark other entities as obstacles
 		entities.forEach(e => {
 			if (e !== entity && e.hp > 0 && pts[e.x]?.[e.y] !== undefined) {
 				pts[e.x][e.y] = 0;
@@ -45,7 +41,6 @@ const EntitySystem = {
 		
 		const validMoves = [];
 		
-		// Only check tiles within movement circle (optimization)
 		const minX = Math.max(0, entity.x - entity.range - 1);
 		const maxX = Math.min(pts.length - 1, entity.x + entity.range + 1);
 		const minY = Math.max(0, entity.y - entity.range - 1);
@@ -79,14 +74,12 @@ const EntitySystem = {
 		return validMoves;
 	},
 	
-	// Display movement range on canvas
 	displayMovement: function(entity, specialMode = null) {
 		const moves = this.calculateMovement(entity, specialMode);
 		
 		moves.forEach(move => {
 			const coord = new calc.coordinate(move.x, move.y);
 			
-			// Add to valid array if this is the current player
 			if (entity === player && !valid.find(item => item.x === coord.x && item.y === coord.y)) {
 				valid.push(coord);
 			}
@@ -96,7 +89,6 @@ const EntitySystem = {
 		});
 	},
 	
-	// Move entity to position
 	moveEntity: function(entity, x, y) {
 		if (pts[x]?.[y] !== 0) {
 			entity.x = x;
@@ -107,24 +99,21 @@ const EntitySystem = {
 		return false;
 	},
 	
-	// Check if entity can attack target
 	canAttack: function(entity, target) {
 		const dist = calc.distance(entity.x, target.x, entity.y, target.y);
 		if (dist > entity.attack_range) return false;
 		
-		// Use permissive LOS for player, strict for AI
 		const usePermissive = entity === player;
 		return this.hasLOS(entity, target.x, target.y, usePermissive);
 	},
 	
-	// Perform attack
 	attack: function(attacker, target) {
 		const hitRoll = calc.roll(6);
 		
 		if (hitRoll >= 4) {
 			const baseDmg = calc.roll(6) + (attacker.damage || 0);
 			const armor = target.armor || 0;
-			const dmgRoll = Math.max(1, baseDmg - armor); // Minimum 1 damage
+			const dmgRoll = Math.max(1, baseDmg - armor);
 			
 			target.hp -= dmgRoll;
 			if (target.seenX !== undefined) {
@@ -142,11 +131,31 @@ const EntitySystem = {
 		}
 	},
 	
-	// Drop all items on death
+	destroyWalls: function(attacker, targetX, targetY) {
+		if (!attacker.equipment || !attacker.equipment.weapon) return;
+		
+		const weaponDef = itemTypes[attacker.equipment.weapon.itemType];
+		if (!weaponDef || !weaponDef.canDestroy) return;
+		
+		const targeting = calculateEntityTargeting(attacker, targetX, targetY);
+		let destroyedCount = 0;
+		
+		for (let tile of targeting) {
+			const wallIndex = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
+			if (wallIndex >= 0) {
+				walls.splice(wallIndex, 1);
+				destroyedCount++;
+			}
+		}
+		
+		if (destroyedCount > 0) {
+			console.log(attacker.name + " destroyed " + destroyedCount + " wall tile(s)!");
+		}
+	},
+	
 	dropAllItems: function(entity) {
 		if (typeof mapItems === 'undefined' || typeof nextItemId === 'undefined') return;
 		
-		// Drop inventory
 		entity.inventory?.forEach(item => {
 			mapItems.push({
 				x: entity.x,
@@ -158,7 +167,6 @@ const EntitySystem = {
 		});
 		entity.inventory = [];
 		
-		// Drop equipment
 		if (entity.equipment) {
 			for (let slot in entity.equipment) {
 				if (entity.equipment[slot]) {
@@ -175,12 +183,10 @@ const EntitySystem = {
 		}
 	},
 	
-	// Check if entity is AI-controlled
 	isAI: function(entity) {
 		return entity !== player && entity.seenX !== undefined;
 	},
 	
-	// Get all valid targets for entity
 	getValidTargets: function(entity) {
 		return entities.filter(e => 
 			e !== entity && 
@@ -190,5 +196,4 @@ const EntitySystem = {
 	}
 };
 
-// Expose to global
 window.EntitySystem = EntitySystem;

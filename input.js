@@ -27,7 +27,6 @@ var input = {
 		
 		update();
 		
-		// Refresh cursor position with current mouse location
 		if (mouse_pos.clientX && mouse_pos.clientY) {
 			const evt = new MouseEvent('mousemove', {
 				clientX: mouse_pos.clientX,
@@ -40,7 +39,6 @@ var input = {
 	keyboard: function(event) {
 		if (event.type !== 'keydown' && event.keyCode !== 16) return;
 		
-		// Escape - Exit Peek Mode or Edit Mode
 		if (event.keyCode === 27) {
 			if (isPeekMode) {
 				exitPeekMode();
@@ -52,7 +50,6 @@ var input = {
 			return;
 		}
 		
-		// Shift+E - Toggle Edit Mode
 		if (event.shiftKey && event.keyCode === 69) {
 			edit.checked = !edit.checked;
 			if (edit.checked && !isZoomedOut) input.handleZoom(true);
@@ -60,7 +57,6 @@ var input = {
 			return;
 		}
 		
-		// Period key - pass/wait (skip one turn)
 		if (event.keyCode === 190) {
 			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining > 0) {
 				if (typeof pickupItem !== 'undefined') {
@@ -79,7 +75,6 @@ var input = {
 			return;
 		}
 		
-		// Left Shift key - toggle zoom
 		if (event.keyCode === 16) {
 			if (event.type === 'keydown') {
 				if (edit.checked) {
@@ -93,7 +88,6 @@ var input = {
 			return;
 		}
 		
-		// Tab key OR Spacebar - switch between move and attack
 		if (event.keyCode === 9 || event.keyCode === 32) {
 			event.preventDefault();
 			if (isPeekMode && peekStep === 2) return;
@@ -102,7 +96,6 @@ var input = {
 			document.activeElement.blur();
 			update();
 			
-			// Refresh cursor position with current mouse location
 			if (mouse_pos.clientX && mouse_pos.clientY) {
 				const evt = new MouseEvent('mousemove', {
 					clientX: mouse_pos.clientX,
@@ -131,7 +124,6 @@ var input = {
 		cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
 		cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
 
-		// Handle drawing in edit mode while mouse is down
 		if (edit.checked && isMouseDown) {
 			const click_pos = {
 				x: camera.x + gridX,
@@ -160,12 +152,15 @@ var input = {
 			
 			const dist = calc.distance(player.x, endX, player.y, endY);
 			
-			// Player uses permissive LOS for targeting
-			const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY);
+			// Check if wall tile is in valid targeting
+			const targetingTiles = calculateEntityTargeting(player, endX, endY);
+			const isWallTargetable = targetingTiles.some(t => 
+				t.x === endX && t.y === endY && walls.find(w => w.x === t.x && w.y === t.y)
+			);
+			
+			const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY) || isWallTargetable;
 			cursor.style.visibility = (dist > player.attack_range || !hasLOS) ? "hidden" : "visible";
 
-			// Use weapon-specific targeting
-			const targetingTiles = calculateEntityTargeting(player, endX, endY);
 			update();
 			canvas.los(targetingTiles);
 		} else {
@@ -212,21 +207,23 @@ var input = {
 					return;
 				}
 				
-				// Get all entities in targeting area
 				const targetsInArea = getTargetedEntities(player, click_pos.x, click_pos.y);
-				
-				// Filter out the player and only keep enemies
 				const enemies = targetsInArea.filter(e => e !== player && e.hp > 0);
 				
-				if (enemies.length === 0) {
-					return;
-				}
+				// Allow attacking if there are enemies OR if targeting a wall with destructible weapon
+				const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
+				const isWallTargeted = targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y));
+				const canDestroy = player.equipment && player.equipment.weapon && 
+				                   itemTypes[player.equipment.weapon.itemType]?.canDestroy;
 				
-				// Handle peek mode
+				if (enemies.length === 0 && !(isWallTargeted && canDestroy)) return;
+				
 				if (isPeekMode && peekStep === 2) {
 					for (let enemy of enemies) {
 						EntitySystem.attack(player, enemy);
 					}
+					EntitySystem.destroyWalls(player, click_pos.x, click_pos.y);
+					
 					currentEntityTurnsRemaining--;
 					player.x = peekStartX;
 					player.y = peekStartY;
@@ -235,6 +232,8 @@ var input = {
 					for (let enemy of enemies) {
 						EntitySystem.attack(player, enemy);
 					}
+					EntitySystem.destroyWalls(player, click_pos.x, click_pos.y);
+					
 					currentEntityTurnsRemaining--;
 					
 					if (currentEntityTurnsRemaining <= 0) {
@@ -244,7 +243,6 @@ var input = {
 					}
 					
 					update();
-					// Re-render LOS after attack
 					if (action.value === "attack") {
 						const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
 						canvas.los(targetingTiles);
@@ -268,7 +266,6 @@ var input = {
 		};
 		console.log(click_pos);
 		
-		// Populate all X/Y input fields
 		document.getElementById('spawn_x').value = click_pos.x;
 		document.getElementById('spawn_y').value = click_pos.y;
 		document.getElementById('player_x').value = click_pos.x;

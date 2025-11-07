@@ -64,6 +64,7 @@ var itemTypes = {
 		slot: "weapon",
 		aimStyle: "area",
 		areaRadius: 2,
+		canDestroy: true,
 		effects: [{stat: "damage", value: 25},
 			{stat: "attack_range", value: 3}
 		],
@@ -93,7 +94,6 @@ const itemLabels = {
 	machinegun: "SMG"
 };
 
-// Get entity's weapon aim style
 function getWeaponAimStyle(entity) {
 	if (entity.equipment && entity.equipment.weapon) {
 		const weaponDef = itemTypes[entity.equipment.weapon.itemType];
@@ -102,7 +102,6 @@ function getWeaponAimStyle(entity) {
 	return "direct";
 }
 
-// Calculate targeting for entity based on weapon
 function calculateEntityTargeting(entity, endX, endY) {
 	const aimStyle = getWeaponAimStyle(entity);
 	
@@ -120,43 +119,57 @@ function calculateEntityTargeting(entity, endX, endY) {
 	}
 	
 	if (aimStyle === "cone") {
-		// Get spread value from weapon
-		let spread = 3; // default
+		let spread = 3;
 		if (entity.equipment && entity.equipment.weapon) {
 			const weaponDef = itemTypes[entity.equipment.weapon.itemType];
 			spread = weaponDef?.spread || 3;
 		}
-
 		return calculateCone(path, entity.x, entity.y, endX, endY, entity.attack_range, spread);
 	} else if (aimStyle === "area") {
-		// Get area radius from weapon
-		let areaRadius = 2; // default
+		if (path.length === 0) return [];
+		
+		let areaRadius = 2;
 		if (entity.equipment && entity.equipment.weapon) {
 			const weaponDef = itemTypes[entity.equipment.weapon.itemType];
-			areaRadius = weaponDef?.areaRadius;
+			areaRadius = weaponDef?.areaRadius || 2;
 		}
 
-		// Get circle tiles around end point
-		const areaTiles = calculateArea(path[path.length-1].x, path[path.length-1].y, areaRadius);
- 		const pathSet = new Set(path.map(p => `${p.x},${p.y}`));
-		// Only add tiles from area that aren't already in path
+		const center = path[path.length - 1];
+		circle(center.y, center.x, areaRadius);
+		convert();
+		
+		const areaTiles = [];
+		for (let x = Math.max(0, center.x - areaRadius - 1); x <= Math.min(size - 1, center.x + areaRadius + 1); x++) {
+			for (let y = Math.max(0, center.y - areaRadius - 1); y <= Math.min(size - 1, center.y + areaRadius + 1); y++) {
+				if (pts[x] && pts[x][y] === 1) {
+					// Check LOS from center to this tile
+					const tilePath = line({x: center.x, y: center.y}, {x: x, y: y});
+					let blocked = false;
+					
+					// Check all points except start and end
+					for (let i = 1; i < tilePath.length - 1; i++) {
+						if (walls.find(w => w.x === tilePath[i].x && w.y === tilePath[i].y)) {
+							blocked = true;
+							break;
+						}
+					}
+					
+					if (!blocked) {
+						areaTiles.push({x: x, y: y});
+					}
+				}
+			}
+		}
+		
+		const pathSet = new Set(path.map(p => `${p.x},${p.y}`));
 		const uniqueAreaTiles = areaTiles.filter(tile => !pathSet.has(`${tile.x},${tile.y}`));
-
 		return [...path, ...uniqueAreaTiles];
 	} else if (aimStyle === "pierce") {
-		const areaTiles = getEntitiesInPath(path);
-		const pathSet = new Set(areaTiles.map(p => `${p.x},${p.y}`));
-		const uniqueAreaTiles = areaTiles.filter(tile => !pathSet.has(`${tile.x},${tile.y}`));
-
-		return [...path, ...uniqueAreaTiles];
- 	} else {
-		// default - direct
-		// soon to be "standard" mode, taking closest entity to attacker from LOS path.
 		return path;
-	}
+ 	}
+	return path;
 }
 
-// Get all entities in targeting area
 function getTargetedEntities(attacker, endX, endY) {
 	const aimStyle = getWeaponAimStyle(attacker);
 	
@@ -174,8 +187,7 @@ function getTargetedEntities(attacker, endX, endY) {
 			path = path.slice(1);
 		}
 		
-		// Get spread value from weapon
-		let spread = 3; // default
+		let spread = 3;
 		if (attacker.equipment && attacker.equipment.weapon) {
 			const weaponDef = itemTypes[attacker.equipment.weapon.itemType];
 			spread = weaponDef?.spread || 3;
@@ -198,24 +210,17 @@ function getTargetedEntities(attacker, endX, endY) {
 		
 		return getEntitiesInPath(path);
 	} else if (aimStyle === "area") {
-		// Get area radius from weapon
-		let areaRadius = 2; // default
-		if (attacker.equipment && attacker.equipment.weapon) {
-			const weaponDef = itemTypes[attacker.equipment.weapon.itemType];
-			areaRadius = weaponDef?.areaRadius || 2;
-		}
-		
-		const areaTiles = calculateArea(endX, endY, areaRadius);
-		return getEntitiesInArea(areaTiles);
-	} else {
-		// Direct targeting - single entity at endX, endY
-		for (let entity of entities) {
-			if (entity.x === endX && entity.y === endY && entity.hp > 0) {
-				return [entity];
-			}
-		}
-		return [];
+		// Use the same targeting calculation to get valid tiles
+		const targetingTiles = calculateEntityTargeting(attacker, endX, endY);
+		return getEntitiesInArea(targetingTiles);
 	}
+	
+	for (let entity of entities) {
+		if (entity.x === endX && entity.y === endY && entity.hp > 0) {
+			return [entity];
+		}
+	}
+	return [];
 }
 
 function spawnItem(itemType, x, y) {
@@ -347,17 +352,14 @@ function pickupItem(entity, x, y) {
 		const item = mostRecent.item;
 		const itemDef = itemTypes[item.itemType];
 		
-		// Enemy auto-equips if it improves stats
 		if (entity !== player && itemDef.type === "equipment") {
 			if (shouldEnemyEquip(entity, itemDef)) {
 				if (!entity.equipment) entity.equipment = {};
 				
-				// Unequip old item if present
 				if (entity.equipment[itemDef.slot]) {
 					unequipItem(entity, itemDef.slot);
 				}
 				
-				// Equip new item
 				entity.equipment[itemDef.slot] = {itemType: item.itemType, id: item.id};
 				applyEquipmentEffects(entity, itemDef, true);
 				
@@ -367,7 +369,6 @@ function pickupItem(entity, x, y) {
 			}
 		}
 		
-		// Player or non-beneficial equipment: add to inventory
 		entity.inventory.push({itemType: item.itemType, id: item.id});
 		console.log(entity.name + " picked up " + itemDef.name);
 		mapItems.splice(mostRecent.index, 1);
@@ -381,11 +382,10 @@ function shouldEnemyEquip(entity, itemDef) {
 	if (!entity.equipment) entity.equipment = {};
 	
 	const currentItem = entity.equipment[itemDef.slot];
-	if (!currentItem) return true; // Empty slot, always equip
+	if (!currentItem) return true;
 	
 	const currentDef = itemTypes[currentItem.itemType];
 	
-	// Compare total stat bonuses
 	let newTotal = 0;
 	let currentTotal = 0;
 	
@@ -482,7 +482,6 @@ function useItem(entity, inventoryIndex) {
 			break;
 		case "equipment":
 			equipItem(entity, inventoryIndex);
-			// Don't use a turn when equipping
 			if (entity === player && typeof currentEntityTurnsRemaining !== 'undefined') {
 				currentEntityTurnsRemaining++;
 			}
