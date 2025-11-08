@@ -211,37 +211,44 @@ var input = {
 					targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y)));
 				
 				if (!hasTargets) return;
-				
+			
 				if (isPeekMode && peekStep === 2) {
+					const hadTargets = enemies.length > 0;
 					for (let enemy of enemies) {
 						EntitySystem.attack(player, enemy);
 					}
-					EntitySystem.destroyWalls(player, click_pos.x, click_pos.y);
-					
-					currentEntityTurnsRemaining--;
+					const destroyedWalls = EntitySystem.destroyWalls(player, click_pos.x, click_pos.y);
+
+					if (hadTargets || destroyedWalls) {
+						currentEntityTurnsRemaining--;
+					}
 					player.x = peekStartX;
 					player.y = peekStartY;
 					exitPeekMode();
 				} else {
+					const hadTargets = enemies.length > 0;
 					for (let enemy of enemies) {
 						EntitySystem.attack(player, enemy);
 					}
-					EntitySystem.destroyWalls(player, click_pos.x, click_pos.y);
-					
-					currentEntityTurnsRemaining--;
-					
+					const destroyedWalls = EntitySystem.destroyWalls(player, click_pos.x, click_pos.y);
+
+					if (hadTargets || destroyedWalls) {
+						currentEntityTurnsRemaining--;
+					}
+
 					if (currentEntityTurnsRemaining <= 0) {
 						currentEntityIndex++;
 						if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 						currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 					}
-					
+
 					update();
 					if (action.value === "attack") {
 						const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
 						canvas.los(targetingTiles);
 					}
 				}
+				
 				break;
 				
 			default:

@@ -29,23 +29,25 @@ function line(p0, p1) {
 }
 
 function hasPermissiveLOS(startX, startY, endX, endY) {
-	const tilesToCheck = [{x: endX, y: endY}];
-	
+	const startTilesToCheck = [{x: startX, y: startY}];
+
 	if (typeof helper !== 'undefined' && helper.getAdjacentTiles) {
-		const adjacentTiles = helper.getAdjacentTiles(endX, endY, true);
+		const adjacentTiles = helper.getAdjacentTiles(startX, startY, true);
 		for (let tile of adjacentTiles) {
-			if (!walls.find(w => w.x === tile.x && w.y === tile.y)) {
-				tilesToCheck.push(tile);
+			const hasWall = walls.find(w => w.x === tile.x && w.y === tile.y);
+			const hasEntity = entities?.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
+			if (!hasWall && !hasEntity) {
+				startTilesToCheck.push(tile);
 			}
 		}
 	}
-	
-	const start = {x: startX, y: startY};
-	
-	for (let targetTile of tilesToCheck) {
-		const end = {x: targetTile.x, y: targetTile.y};
+
+	const end = {x: endX, y: endY};
+
+	for (let startTile of startTilesToCheck) {
+		const start = {x: startTile.x, y: startTile.y};
 		const path = line(start, end);
-		
+
 		let blocked = false;
 		for (let i = 1; i < path.length - 1; i++) {
 			const point = path[i];
@@ -54,12 +56,12 @@ function hasPermissiveLOS(startX, startY, endX, endY) {
 				break;
 			}
 		}
-		
+
 		if (!blocked) {
 			return true;
 		}
 	}
-	
+
 	return false;
 }
 

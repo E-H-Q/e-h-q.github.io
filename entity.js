@@ -104,10 +104,11 @@ const EntitySystem = {
 	},
 	
 	destroyWalls: function(attacker, targetX, targetY) {
-		if (!attacker.equipment?.weapon) return;
+		if (!attacker.equipment?.weapon) return false;
 		const weaponDef = itemTypes[attacker.equipment.weapon.itemType];
-		if (!weaponDef?.canDestroy) return;
+		if (!weaponDef?.canDestroy) return false;
 		
+		let destroyedAny = false;
 		const targetingTiles = calculateEntityTargeting(attacker, targetX, targetY);
 		targetingTiles.forEach(tile => {
 			const wallIndex = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
@@ -116,11 +117,13 @@ const EntitySystem = {
 				const wallEntity = {name: "wall", hp: 1, x: tile.x, y: tile.y, armor: 0};
 				if (this.attack(attacker, wallEntity)) {
 					walls.splice(wallIndex, 1);
+					destroyedAny = true;
 				}
 			}
 		});
+		return destroyedAny;
 	},
-	
+
 	dropAllItems: function(entity) {
 		if (typeof mapItems === 'undefined' || typeof nextItemId === 'undefined') return;
 		

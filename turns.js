@@ -104,16 +104,19 @@ var turns = {
 		if (canSeePlayer) {
 			entity.seenX = player.x;
 			entity.seenY = player.y;
-			
-			if (dist <= entity.attack_range && this.hasValidAttackLOS(entity.x, entity.y, player.x, player.y)) {
-				const targets = getTargetedEntities(entity, player.x, player.y);
+		
+		if (dist <= entity.attack_range && this.hasValidAttackLOS(entity.x, entity.y, player.x, player.y)) {
+			const targets = getTargetedEntities(entity, player.x, player.y);
 				
-				for (let target of targets) {
-					EntitySystem.attack(entity, target);
-				}
-				EntitySystem.destroyWalls(entity, player.x, player.y);
+			const hadTargets = targets.length > 0;
+			for (let target of targets) {
+				EntitySystem.attack(entity, target);
+			}
+			const destroyedWalls = EntitySystem.destroyWalls(entity, player.x, player.y);
 				
+			if (hadTargets || destroyedWalls) {
 				currentEntityTurnsRemaining--;
+			}
 			} else {
 				this.enemyMoveToward(entity, player.x, player.y);
 			}
