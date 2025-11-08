@@ -155,11 +155,18 @@ var input = {
 			const targetingTiles = calculateEntityTargeting(player, endX, endY);
 			const isInTargeting = targetingTiles.some(t => t.x === endX && t.y === endY);
 			
-			const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY) || isInTargeting;
+			const accessoryDef = player.equipment?.accessory ? itemTypes[player.equipment.accessory.itemType] : null;
+			const weaponDef = player.equipment?.weapon ? itemTypes[player.equipment.weapon.itemType] : null;
+			const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
+			
+			const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY);
+			//const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY) || isInTargeting || canDestroy;
 			cursor.style.visibility = (dist > player.attack_range || !hasLOS) ? "hidden" : "visible";
 
 			update();
-			canvas.los(targetingTiles);
+			if (hasLOS && dist <= player.attack_range) {
+				canvas.los(targetingTiles);
+			}
 		} else {
 			cursor.style.visibility = "visible";
 		}
@@ -197,28 +204,29 @@ var input = {
 				break;
 				
 			case "attack":
-				const dist = calc.distance(player.x, click_pos.x, player.y, click_pos.y);
-				
-				if (dist > player.attack_range) {
-					//console.log("Target out of range!");
-					return;
-				}
+
 				const targetsInArea = getTargetedEntities(player, click_pos.x, click_pos.y);
 				const enemies = targetsInArea.filter(e => e !== player && e.hp > 0);
 				
 				const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
-				const hasTargets = targetingTiles.length > 0 && (enemies.length > 0 || 
-					targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y)));
+				
+				// Check if breaching kit equipped
+				const accessoryDef = player.equipment?.accessory ? itemTypes[player.equipment.accessory.itemType] : null;
+				const weaponDef = player.equipment?.weapon ? itemTypes[player.equipment.weapon.itemType] : null;
+				const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
+				
+				const hasWalls = canDestroy && targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y));
+				const hasTargets = targetingTiles.length > 0 && (enemies.length > 0 || hasWalls);
 				
 				if (!hasTargets) return;
-			
+
 				if (isPeekMode && peekStep === 2) {
 					const hadTargets = enemies.length > 0;
 					for (let enemy of enemies) {
 						EntitySystem.attack(player, enemy);
 					}
 					const destroyedWalls = EntitySystem.destroyWalls(player, click_pos.x, click_pos.y);
-
+					
 					if (hadTargets || destroyedWalls) {
 						currentEntityTurnsRemaining--;
 					}
@@ -231,24 +239,23 @@ var input = {
 						EntitySystem.attack(player, enemy);
 					}
 					const destroyedWalls = EntitySystem.destroyWalls(player, click_pos.x, click_pos.y);
-
+					
 					if (hadTargets || destroyedWalls) {
 						currentEntityTurnsRemaining--;
 					}
-
+					
 					if (currentEntityTurnsRemaining <= 0) {
 						currentEntityIndex++;
 						if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 						currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 					}
-
+					
 					update();
 					if (action.value === "attack") {
 						const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
 						canvas.los(targetingTiles);
 					}
 				}
-				
 				break;
 				
 			default:

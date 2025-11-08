@@ -186,6 +186,11 @@ function updateEquipment() {
 				}
 			}
 			
+			if (itemDef.grantsDestroy) {
+				if (effectsStr) effectsStr += ', ';
+				effectsStr += 'Attacks destroy terrain';
+			}
+			
 			html += '<div class="equipment-item" onclick="unequipSlot(\'' + slot + '\')">' +
 			        slot.toUpperCase() + ': ' + itemDef.displayName + '<br>' +
 			        ' <span style="color: #0f0;">(' + effectsStr + ')</span>' +

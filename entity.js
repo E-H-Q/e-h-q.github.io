@@ -106,7 +106,10 @@ const EntitySystem = {
 	destroyWalls: function(attacker, targetX, targetY) {
 		if (!attacker.equipment?.weapon) return false;
 		const weaponDef = itemTypes[attacker.equipment.weapon.itemType];
-		if (!weaponDef?.canDestroy) return false;
+		const accessoryDef = attacker.equipment?.accessory ? itemTypes[attacker.equipment.accessory.itemType] : null;
+		
+		const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
+		if (!canDestroy) return false;
 		
 		let destroyedAny = false;
 		const targetingTiles = calculateEntityTargeting(attacker, targetX, targetY);
@@ -123,7 +126,7 @@ const EntitySystem = {
 		});
 		return destroyedAny;
 	},
-
+	
 	dropAllItems: function(entity) {
 		if (typeof mapItems === 'undefined' || typeof nextItemId === 'undefined') return;
 		
