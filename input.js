@@ -156,7 +156,7 @@ var input = {
 			const isInTargeting = targetingTiles.some(t => t.x === endX && t.y === endY);
 			
 			const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY) || isInTargeting;
-			//cursor.style.visibility = (dist > player.attack_range || !hasLOS) ? "hidden" : "visible";
+			cursor.style.visibility = (dist > player.attack_range || !hasLOS) ? "hidden" : "visible";
 
 			update();
 			canvas.los(targetingTiles);
@@ -203,7 +203,6 @@ var input = {
 					//console.log("Target out of range!");
 					return;
 				}
-				
 				const targetsInArea = getTargetedEntities(player, click_pos.x, click_pos.y);
 				const enemies = targetsInArea.filter(e => e !== player && e.hp > 0);
 				
