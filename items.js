@@ -103,7 +103,8 @@ const itemLabels = {
 };
 
 function getWeaponAimStyle(entity) {
-	return entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.aimStyle || "direct" : "direct";
+	const style = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.aimStyle : null;
+	return style || "standard";
 }
 
 function canEntityDestroyWalls(entity) {
@@ -218,18 +219,53 @@ function calculateEntityTargeting(entity, endX, endY) {
 		return path;
  	}
 	
-	// Direct aim style - path already includes first wall if canDestroy
+	// Standard/direct aim style - path already includes first wall if canDestroy
 	return path;
 }
 
 function getTargetedEntities(attacker, endX, endY) {
 	const aimStyle = getWeaponAimStyle(attacker);
 	
-	if (aimStyle === "area" || aimStyle === "pierce") {
-		const targetingTiles = aimStyle === "area" ? calculateEntityTargeting(attacker, endX, endY) : 
-			(() => {let p = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}}); 
-			return p.length > attacker.attack_range + 1 ? p.slice(1, attacker.attack_range + 1) : p.slice(1);})();
-		return aimStyle === "area" ? getEntitiesInArea(targetingTiles) : getEntitiesInPath(targetingTiles);
+	if (aimStyle === "standard") {
+		// Standard: hit only the closest enemy in the path
+		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
+		path = path.length > attacker.attack_range + 1 ? path.slice(1, attacker.attack_range + 1) : path.slice(1);
+		
+		for (let tile of path) {
+			for (let entity of entities) {
+				if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0) {
+					return [entity];
+				}
+			}
+		}
+		return [];
+	} else if (aimStyle === "area") {
+		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
+		if (path.length === 0) return [];
+		
+		path = path.length > attacker.attack_range + 1 ? path.slice(1, attacker.attack_range + 1) : path.slice(1);
+		if (path.length === 0) return [];
+		
+		const areaRadius = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType]?.areaRadius || 2 : 2;
+		const center = path[path.length - 1];
+		circle(center.y, center.x, areaRadius);
+		convert();
+		
+		const areaTiles = [];
+		for (let x = Math.max(0, center.x - areaRadius - 1); x <= Math.min(size - 1, center.x + areaRadius + 1); x++) {
+			for (let y = Math.max(0, center.y - areaRadius - 1); y <= Math.min(size - 1, center.y + areaRadius + 1); y++) {
+				if (pts[x] && pts[x][y] === 1) {
+					areaTiles.push({x, y});
+				}
+			}
+		}
+		
+		// Only return entities in the area, not the path
+		return getEntitiesInArea(areaTiles);
+	} else if (aimStyle === "pierce") {
+		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
+		path = path.length > attacker.attack_range + 1 ? path.slice(1, attacker.attack_range + 1) : path.slice(1);
+		return getEntitiesInPath(path);
 	} else if (aimStyle === "cone") {
 		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
 		path = path.length > attacker.attack_range + 1 ? path.slice(1, attacker.attack_range + 1) : path.slice(1);
@@ -237,8 +273,11 @@ function getTargetedEntities(attacker, endX, endY) {
 		return getEntitiesInCone(path, attacker.x, attacker.y, endX, endY, attacker.attack_range, spread);
 	}
 	
+	// Direct aim (default): hit only the entity at the exact target location
 	for (let entity of entities) {
-		if (entity.x === endX && entity.y === endY && entity.hp > 0) return [entity];
+		if (entity.x === endX && entity.y === endY && entity.hp > 0) {
+			return [entity];
+		}
 	}
 	return [];
 }
