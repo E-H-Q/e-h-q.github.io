@@ -69,79 +69,68 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 	spread = spread || 3;
 	const coneTiles = new Set();
 	
-	const startIdx = path.length > 1 ? 1 : 0;
-	for (let i = startIdx; i < path.length; i++) {
-		coneTiles.add(`${path[i].x},${path[i].y}`);
+	// Use raw line instead of LOS-blocked path for center direction
+	const rawCenterPath = line({x: startX, y: startY}, {x: endX, y: endY});
+	let centerPath = rawCenterPath.slice(1); // Remove start position
+	if (centerPath.length > maxRange) {
+		centerPath = centerPath.slice(0, maxRange);
+	}
+	
+	// Add center path tiles
+	for (let point of centerPath) {
+		coneTiles.add(`${point.x},${point.y}`);
 	}
 	
 	const dx = endX - startX;
 	const dy = endY - startY;
 	const distance = Math.sqrt(dx * dx + dy * dy);
 	
-	if (distance < 2 || spread <= 1) {
+	if (distance < 1) {
 		return Array.from(coneTiles).map(s => {
 			const [x, y] = s.split(',').map(Number);
 			return {x, y};
 		});
 	}
 	
-	const length = distance;
-	const perpX = -dy / length;
-	const perpY = dx / length;
-	const tilesPerSide = Math.floor((spread - 1) / 2);
+	// Perpendicular vector for spreading
+	const perpX = -dy / distance;
+	const perpY = dx / distance;
+	
+	const tilesPerSide = Math.floor(spread / 2);
 	const allSidePaths = [];
 	
-	for (let offset = 1; offset <= tilesPerSide; offset++) {
-		const scaledOffset = Math.min(offset, (distance - 1) * (offset / tilesPerSide));
-		
-		const leftEndX = Math.round(endX + perpX * scaledOffset);
-		const leftEndY = Math.round(endY + perpY * scaledOffset);
-		
-		if (hasPermissiveLOS(startX, startY, leftEndX, leftEndY)) {
-			const leftLook = {
-				start: { x: startX, y: startY },
-				end: { x: leftEndX, y: leftEndY }
-			};
-			let leftPath = calc.los(leftLook);
+	// Generate side rays
+	for (let side of [-1, 1]) {
+		for (let offset = 1; offset <= tilesPerSide; offset++) {
+			// Scale offset based on distance to create cone shape
+			const spreadAmount = offset * (1 + distance / maxRange * 0.5);
 			
-			if (leftPath.length > maxRange + 1) {
-				leftPath = leftPath.slice(1, maxRange + 1);
-			} else if (leftPath.length > 1) {
-				leftPath = leftPath.slice(1);
-			}
+			const offsetX = Math.round(endX + perpX * spreadAmount * side);
+			const offsetY = Math.round(endY + perpY * spreadAmount * side);
 			
-			allSidePaths.push(leftPath);
-			
-			for (let point of leftPath) {
-				coneTiles.add(`${point.x},${point.y}`);
-			}
-		}
-		
-		const rightEndX = Math.round(endX - perpX * scaledOffset);
-		const rightEndY = Math.round(endY - perpY * scaledOffset);
-		
-		if (hasPermissiveLOS(startX, startY, rightEndX, rightEndY)) {
-			const rightLook = {
-				start: { x: startX, y: startY },
-				end: { x: rightEndX, y: rightEndY }
-			};
-			let rightPath = calc.los(rightLook);
-			
-			if (rightPath.length > maxRange + 1) {
-				rightPath = rightPath.slice(1, maxRange + 1);
-			} else if (rightPath.length > 1) {
-				rightPath = rightPath.slice(1);
-			}
-			
-			allSidePaths.push(rightPath);
-			
-			for (let point of rightPath) {
-				coneTiles.add(`${point.x},${point.y}`);
+			if (hasPermissiveLOS(startX, startY, offsetX, offsetY)) {
+				const sideLook = {
+					start: { x: startX, y: startY },
+					end: { x: offsetX, y: offsetY }
+				};
+				let sidePath = calc.los(sideLook);
+				
+				if (sidePath.length > maxRange + 1) {
+					sidePath = sidePath.slice(1, maxRange + 1);
+				} else if (sidePath.length > 1) {
+					sidePath = sidePath.slice(1);
+				}
+				
+				allSidePaths.push(sidePath);
+				
+				for (let point of sidePath) {
+					coneTiles.add(`${point.x},${point.y}`);
+				}
 			}
 		}
 	}
 	
-	const centerPath = path.slice(startIdx);
+	// Fill between all paths
 	const allPaths = [centerPath, ...allSidePaths];
 	
 	let maxLen = 0;
@@ -149,19 +138,24 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 		if (p.length > maxLen) maxLen = p.length;
 	}
 	
+	// For each distance step, fill between adjacent paths
 	for (let i = 0; i < maxLen; i++) {
-		for (let j = 0; j < allPaths.length - 1; j++) {
-			const path1 = allPaths[j];
-			const path2 = allPaths[j + 1];
+		const pointsAtDepth = [];
+		
+		for (let pathIdx = 0; pathIdx < allPaths.length; pathIdx++) {
+			const path = allPaths[pathIdx];
+			const pt = path[Math.min(i, path.length - 1)];
+			if (pt) pointsAtDepth.push(pt);
+		}
+		
+		// Fill between all points at this depth
+		for (let j = 0; j < pointsAtDepth.length - 1; j++) {
+			const pt1 = pointsAtDepth[j];
+			const pt2 = pointsAtDepth[j + 1];
 			
-			const pt1 = path1[Math.min(i, path1.length - 1)];
-			const pt2 = path2[Math.min(i, path2.length - 1)];
-			
-			if (pt1 && pt2) {
-				const fillLine = line({x: pt1.x, y: pt1.y}, {x: pt2.x, y: pt2.y});
-				for (let pt of fillLine) {
-					coneTiles.add(`${pt.x},${pt.y}`);
-				}
+			const fillLine = line({x: pt1.x, y: pt1.y}, {x: pt2.x, y: pt2.y});
+			for (let pt of fillLine) {
+				coneTiles.add(`${pt.x},${pt.y}`);
 			}
 		}
 	}

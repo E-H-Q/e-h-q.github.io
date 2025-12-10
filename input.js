@@ -169,6 +169,12 @@ var input = {
 			}
 		} else {
 			cursor.style.visibility = "visible";
+			
+			// Store cursor position for path drawing in move mode
+			const endX = camera.x + gridX;
+			const endY = camera.y + gridY;
+			window.cursorWorldPos = {x: endX, y: endY};
+			update();
 		}
 	},
 	

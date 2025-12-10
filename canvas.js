@@ -99,6 +99,13 @@ var canvas = {
 		});
 	},
 	
+	path: (path) => {
+		ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
+		path.forEach(point => {
+			ctx.fillRect((point.x - camera.x) * tileSize, (point.y - camera.y) * tileSize, tileSize, tileSize);
+		});
+	},
+	
 	drawEntity: (entity, color, imgId) => {
 		ctx.fillStyle = color;
 		const screenX = (entity.x - camera.x) * tileSize;

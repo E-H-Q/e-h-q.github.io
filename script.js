@@ -266,6 +266,39 @@ function update() {
 	populate.enemies();
 	populate.player();
 	turns.check();
+	
+	// Draw path in move mode when it's the player's turn
+	if (currentEntity === player && action.value === "move" && window.cursorWorldPos) {
+		const endX = window.cursorWorldPos.x;
+		const endY = window.cursorWorldPos.y;
+		
+		// Check if cursor is within valid movement range
+		const isValid = valid.find(v => v.x === endX && v.y === endY);
+		
+		if (isValid && endX >= 0 && endX < size && endY >= 0 && endY < size) {
+			// Calculate A* path
+			circle(player.y, player.x, player.range);
+			convert();
+			
+			if (pts && pts[player.x] && pts[player.y] && pts[endX] && pts[endY]) {
+				const graph = new Graph(pts, {diagonal: true});
+				
+				// Block other entities
+				entities.forEach(e => {
+					if (e !== player && e.hp > 0 && pts[e.x]?.[e.y] !== undefined) {
+						pts[e.x][e.y] = 0;
+					}
+				});
+				
+				const pathResult = astar.search(graph, graph.grid[player.x][player.y], graph.grid[endX][endY]);
+				
+				if (pathResult && pathResult.length > 0) {
+					canvas.path(pathResult);
+				}
+			}
+		}
+	}
+	
 	updateTurnOrder();
 	updateInventory();
 	updateEquipment();
