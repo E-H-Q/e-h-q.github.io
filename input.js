@@ -3,6 +3,7 @@
 var isZoomedOut = false;
 var isMouseDown = false;
 var lastTile = null;
+var keyboardMode = false;
 
 var input = {
 	init: function() {
@@ -39,6 +40,69 @@ var input = {
 	keyboard: function(event) {
 		if (event.type !== 'keydown' && event.keyCode !== 16) return;
 		
+		// Arrow keys for keyboard cursor movement
+		if ([37, 38, 39, 40].includes(event.keyCode)) {
+			event.preventDefault();
+			keyboardMode = true;
+			document.body.style.cursor = 'none';
+			
+			if (!window.cursorWorldPos) {
+				window.cursorWorldPos = {x: player.x, y: player.y};
+			}
+			
+			// Move cursor by arrow key
+			switch(event.keyCode) {
+				case 37: window.cursorWorldPos.x--; break; // Left
+				case 38: window.cursorWorldPos.y--; break; // Up
+				case 39: window.cursorWorldPos.x++; break; // Right
+				case 40: window.cursorWorldPos.y++; break; // Down
+			}
+			
+			// Clamp to map bounds
+			window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
+			window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
+			
+			// Update cursor position
+			const gridX = window.cursorWorldPos.x - camera.x;
+			const gridY = window.cursorWorldPos.y - camera.y;
+			
+			const rect = c.getBoundingClientRect();
+			const canvasX = gridX * tileSize + tileSize / 2;
+			const canvasY = gridY * tileSize + tileSize / 2;
+			
+			mouse_pos = {
+				canvasX: canvasX,
+				canvasY: canvasY,
+				clientX: rect.left + canvasX,
+				clientY: rect.top + canvasY
+			};
+			
+			cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
+			cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
+			
+	
+				cursor.style.visibility = "visible";
+			
+			
+			update();
+			
+			if (action.value === "attack") {
+				const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
+				if (targetingTiles.length > 0) canvas.los(targetingTiles);
+			}
+			
+			return;
+		}
+		
+		// Enter key acts as click
+		if (event.keyCode === 13) {
+			event.preventDefault();
+			if (keyboardMode && currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
+				input.click();
+			}
+			return;
+		}
+		
 		if (event.keyCode === 27) {
 			if (isPeekMode) {
 				exitPeekMode();
@@ -54,6 +118,99 @@ var input = {
 			edit.checked = !edit.checked;
 			if (edit.checked && !isZoomedOut) input.handleZoom(true);
 			document.getElementById('size-input-container').style.display = edit.checked ? 'inline-block' : 'none';
+			return;
+		}
+		
+		if (event.keyCode === 222) { // Apostrophe key
+			event.preventDefault(); // Prevent browser find dialog
+			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
+				keyboardMode = true;
+				document.body.style.cursor = 'none';
+				
+				if (action.value === "attack") {
+					// Cycle through visible enemies in turn order
+					const visibleEnemies = entities.filter(e => 
+						e !== player && 
+						e.hp > 0 && 
+						(e.seenX !== 0 || e.seenY !== 0) &&
+						EntitySystem.hasLOS(player, e.x, e.y, true)
+					);
+					
+					if (visibleEnemies.length > 0) {
+						if (window.targetIndex === undefined) {
+							window.targetIndex = 0;
+						} else {
+							window.targetIndex = (window.targetIndex + 1) % visibleEnemies.length;
+						}
+						
+						const target = visibleEnemies[window.targetIndex];
+						
+						// Calculate screen position for cursor
+						const gridX = target.x - camera.x;
+						const gridY = target.y - camera.y;
+						
+						const rect = c.getBoundingClientRect();
+						const canvasX = gridX * tileSize + tileSize / 2;
+						const canvasY = gridY * tileSize + tileSize / 2;
+						
+						mouse_pos = {
+							canvasX: canvasX,
+							canvasY: canvasY,
+							clientX: rect.left + canvasX,
+							clientY: rect.top + canvasY
+						};
+						
+						cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
+						cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
+						cursor.style.visibility = "visible";
+						
+						window.cursorWorldPos = {x: target.x, y: target.y};
+						update();
+						
+						const targetingTiles = calculateEntityTargeting(player, target.x, target.y);
+						canvas.los(targetingTiles);
+					}
+				} else if (action.value === "move") {
+					// Cycle through visible items in viewport
+					const visibleItems = mapItems.filter(item => {
+						const inViewport = item.x >= camera.x && item.x < camera.x + viewportSize &&
+						                   item.y >= camera.y && item.y < camera.y + viewportSize;
+						return inViewport;
+					});
+					
+					if (visibleItems.length > 0) {
+						if (window.itemTargetIndex === undefined) {
+							window.itemTargetIndex = 0;
+						} else {
+							window.itemTargetIndex = (window.itemTargetIndex + 1) % visibleItems.length;
+						}
+						
+						const target = visibleItems[window.itemTargetIndex];
+						
+						// Calculate screen position for cursor
+						const gridX = target.x - camera.x;
+						const gridY = target.y - camera.y;
+						
+						const rect = c.getBoundingClientRect();
+						const canvasX = gridX * tileSize + tileSize / 2;
+						const canvasY = gridY * tileSize + tileSize / 2;
+						
+						mouse_pos = {
+							canvasX: canvasX,
+							canvasY: canvasY,
+							clientX: rect.left + canvasX,
+							clientY: rect.top + canvasY
+						};
+						
+						cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
+						cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
+						cursor.style.visibility = "visible";
+						
+						window.cursorWorldPos = {x: target.x, y: target.y};
+						update();
+					}
+				}
+			}
 			return;
 		}
 		
@@ -94,6 +251,11 @@ var input = {
 			
 			action.value = (action.value === "move") ? "attack" : "move";
 			document.activeElement.blur();
+			
+			// Reset target cycling when switching modes
+			window.targetIndex = 0;
+			window.itemTargetIndex = 0;
+			
 			update();
 			
 			if (mouse_pos.clientX && mouse_pos.clientY) {
@@ -107,6 +269,13 @@ var input = {
 	},
 	
 	mouse: function(event) {
+		// Re-enable mouse cursor on mouse movement
+		if (keyboardMode) {
+			keyboardMode = false;
+			document.body.style.cursor = '';
+			window.cursorWorldPos = null; // Reset keyboard cursor position
+		}
+		
 		const rect = c.getBoundingClientRect();
 		const canvasX = event.clientX - rect.left;
 		const canvasY = event.clientY - rect.top;
