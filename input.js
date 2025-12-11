@@ -103,7 +103,7 @@ var input = {
 		// Enter key acts as click
 		if (event.keyCode === 13) {
 			event.preventDefault();
-			if (keyboardMode && currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
+			if (keyboardMode && currentEntityIndex >= 0 && entities[currentEntityIndex] === player && cursor.style.visibility === "visible") {
 				input.click();
 			}
 			return;
@@ -334,11 +334,10 @@ var input = {
 			
 			const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY);
 			
-			// Always show cursor in attack mode
-			cursor.style.visibility = "visible";
+			cursor.style.visibility = (dist > player.attack_range || !hasLOS) ? "hidden" : "visible";
 
 			update();
-			if (targetingTiles.length > 0) {
+			if (hasLOS && dist <= player.attack_range) {
 				canvas.los(targetingTiles);
 			}
 		} else {
@@ -402,9 +401,17 @@ var input = {
 
 				if (isPeekMode && peekStep === 2) {
 					const hadTargets = enemies.length > 0;
-					for (let enemy of enemies) {
-						EntitySystem.attack(player, enemy);
+					
+					// Check for burst fire
+					const burstCount = weaponDef?.burst || 1;
+					for (let burst = 0; burst < burstCount; burst++) {
+						for (let enemy of enemies) {
+							if (enemy.hp > 0) {
+								EntitySystem.attack(player, enemy);
+							}
+						}
 					}
+					
 					const destroyedWalls = EntitySystem.destroyWalls(player, click_pos.x, click_pos.y);
 					
 					if (hadTargets || destroyedWalls) {
@@ -415,9 +422,17 @@ var input = {
 					exitPeekMode();
 				} else {
 					const hadTargets = enemies.length > 0;
-					for (let enemy of enemies) {
-						EntitySystem.attack(player, enemy);
+					
+					// Check for burst fire
+					const burstCount = weaponDef?.burst || 1;
+					for (let burst = 0; burst < burstCount; burst++) {
+						for (let enemy of enemies) {
+							if (enemy.hp > 0) {
+								EntitySystem.attack(player, enemy);
+							}
+						}
 					}
+					
 					const destroyedWalls = EntitySystem.destroyWalls(player, click_pos.x, click_pos.y);
 					
 					if (hadTargets || destroyedWalls) {

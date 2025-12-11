@@ -82,7 +82,7 @@ var itemTypes = {
 		type: "equipment",
 		slot: "weapon",
 		aimStyle: "pierce",
-		areaRadius: 2,
+		burst: 3,
 		effects: [{stat: "damage", value: 3},
 			{stat: "attack_range", value: 1}
 		],
