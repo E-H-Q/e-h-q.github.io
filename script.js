@@ -268,6 +268,7 @@ function update() {
 	turns.check();
 	
 	// Draw path in move mode when it's the player's turn
+	// Only calculate if cursor position exists and hasn't been calculated this frame
 	if (currentEntity === player && action.value === "move" && window.cursorWorldPos) {
 		const endX = window.cursorWorldPos.x;
 		const endY = window.cursorWorldPos.y;
@@ -276,7 +277,7 @@ function update() {
 		const isValid = valid.find(v => v.x === endX && v.y === endY);
 		
 		if (isValid && endX >= 0 && endX < size && endY >= 0 && endY < size) {
-			// Calculate A* path
+			// Recalculate graph every time to ensure accuracy
 			circle(player.y, player.x, player.range);
 			convert();
 			

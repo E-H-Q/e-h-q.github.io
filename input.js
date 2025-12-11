@@ -43,12 +43,14 @@ var input = {
 		// Arrow keys for keyboard cursor movement
 		if ([37, 38, 39, 40].includes(event.keyCode)) {
 			event.preventDefault();
-			keyboardMode = true;
-			document.body.style.cursor = 'none';
 			
-			if (!window.cursorWorldPos) {
+			// If switching from mouse to keyboard mode, reset cursor to player position
+			if (!keyboardMode) {
 				window.cursorWorldPos = {x: player.x, y: player.y};
 			}
+			
+			keyboardMode = true;
+			document.body.style.cursor = 'none';
 			
 			// Move cursor by arrow key
 			switch(event.keyCode) {
@@ -80,9 +82,13 @@ var input = {
 			cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
 			cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
 			
-	
+			if (action.value === "attack") {
+				const dist = calc.distance(player.x, window.cursorWorldPos.x, player.y, window.cursorWorldPos.y);
+				const hasLOS = hasPermissiveLOS(player.x, player.y, window.cursorWorldPos.x, window.cursorWorldPos.y);
+				cursor.style.visibility = (dist > player.attack_range || !hasLOS) ? "hidden" : "visible";
+			} else {
 				cursor.style.visibility = "visible";
-			
+			}
 			
 			update();
 			
@@ -171,11 +177,9 @@ var input = {
 						canvas.los(targetingTiles);
 					}
 				} else if (action.value === "move") {
-					// Cycle through visible items in viewport
+					// Cycle through items with LOS
 					const visibleItems = mapItems.filter(item => {
-						const inViewport = item.x >= camera.x && item.x < camera.x + viewportSize &&
-						                   item.y >= camera.y && item.y < camera.y + viewportSize;
-						return inViewport;
+						return hasPermissiveLOS(player.x, player.y, item.x, item.y);
 					});
 					
 					if (visibleItems.length > 0) {
@@ -329,11 +333,12 @@ var input = {
 			const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
 			
 			const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY);
-			//const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY) || isInTargeting || canDestroy;
-			cursor.style.visibility = (dist > player.attack_range || !hasLOS) ? "hidden" : "visible";
+			
+			// Always show cursor in attack mode
+			cursor.style.visibility = "visible";
 
 			update();
-			if (hasLOS && dist <= player.attack_range) {
+			if (targetingTiles.length > 0) {
 				canvas.los(targetingTiles);
 			}
 		} else {
