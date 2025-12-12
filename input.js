@@ -82,13 +82,8 @@ var input = {
 			cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
 			cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
 			
-			if (action.value === "attack") {
-				const dist = calc.distance(player.x, window.cursorWorldPos.x, player.y, window.cursorWorldPos.y);
-				const hasLOS = hasPermissiveLOS(player.x, player.y, window.cursorWorldPos.x, window.cursorWorldPos.y);
-				cursor.style.visibility = (dist > player.attack_range || !hasLOS) ? "hidden" : "visible";
-			} else {
-				cursor.style.visibility = "visible";
-			}
+			// Always show cursor in keyboard mode
+			cursor.style.visibility = "visible";
 			
 			update();
 			
@@ -103,7 +98,7 @@ var input = {
 		// Enter key acts as click
 		if (event.keyCode === 13) {
 			event.preventDefault();
-			if (keyboardMode && currentEntityIndex >= 0 && entities[currentEntityIndex] === player && cursor.style.visibility === "visible") {
+			if (keyboardMode && currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
 				input.click();
 			}
 			return;
@@ -334,10 +329,11 @@ var input = {
 			
 			const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY);
 			
-			cursor.style.visibility = (dist > player.attack_range || !hasLOS) ? "hidden" : "visible";
+			// Always show cursor in attack mode
+			cursor.style.visibility = "visible";
 
 			update();
-			if (hasLOS && dist <= player.attack_range) {
+			if (targetingTiles.length > 0) {
 				canvas.los(targetingTiles);
 			}
 		} else {
@@ -377,7 +373,38 @@ var input = {
 						currentEntityTurnsRemaining--;
 						update();
 					} else {
+						// Store cursor screen position before move
+						const preMoveScreenX = window.cursorWorldPos ? window.cursorWorldPos.x - camera.x : 0;
+						const preMoveScreenY = window.cursorWorldPos ? window.cursorWorldPos.y - camera.y : 0;
+						
 						turns.move(player, click_pos.x, click_pos.y);
+						
+						// Update cursor world position to maintain screen position in keyboard mode
+						if (keyboardMode && window.cursorWorldPos) {
+							window.cursorWorldPos.x = camera.x + preMoveScreenX;
+							window.cursorWorldPos.y = camera.y + preMoveScreenY;
+							
+							// Clamp to map bounds
+							window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
+							window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
+							
+							const gridX = window.cursorWorldPos.x - camera.x;
+							const gridY = window.cursorWorldPos.y - camera.y;
+							
+							const rect = c.getBoundingClientRect();
+							const canvasX = gridX * tileSize + tileSize / 2;
+							const canvasY = gridY * tileSize + tileSize / 2;
+							
+							mouse_pos = {
+								canvasX: canvasX,
+								canvasY: canvasY,
+								clientX: rect.left + canvasX,
+								clientY: rect.top + canvasY
+							};
+							
+							cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
+							cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
+						}
 					}
 				}
 				break;
@@ -393,6 +420,13 @@ var input = {
 				const accessoryDef = player.equipment?.accessory ? itemTypes[player.equipment.accessory.itemType] : null;
 				const weaponDef = player.equipment?.weapon ? itemTypes[player.equipment.weapon.itemType] : null;
 				const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
+				
+				// Validate range and LOS
+				const dist = calc.distance(player.x, click_pos.x, player.y, click_pos.y);
+				const hasLOS = hasPermissiveLOS(player.x, player.y, click_pos.x, click_pos.y);
+				
+				// Cannot attack if out of range or no LOS
+				if (dist > player.attack_range || !hasLOS) return;
 				
 				const hasWalls = canDestroy && targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y));
 				const hasTargets = targetingTiles.length > 0 && (enemies.length > 0 || hasWalls);
@@ -421,6 +455,10 @@ var input = {
 					player.y = peekStartY;
 					exitPeekMode();
 				} else {
+					// Store cursor screen position before any camera changes
+					const preMoveScreenX = window.cursorWorldPos ? window.cursorWorldPos.x - camera.x : 0;
+					const preMoveScreenY = window.cursorWorldPos ? window.cursorWorldPos.y - camera.y : 0;
+					
 					const hadTargets = enemies.length > 0;
 					
 					// Check for burst fire
@@ -446,6 +484,34 @@ var input = {
 					}
 					
 					update();
+					
+					// Update cursor world position to maintain screen position in keyboard mode
+					if (keyboardMode && window.cursorWorldPos) {
+						window.cursorWorldPos.x = camera.x + preMoveScreenX;
+						window.cursorWorldPos.y = camera.y + preMoveScreenY;
+						
+						// Clamp to map bounds
+						window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
+						window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
+						
+						const gridX = window.cursorWorldPos.x - camera.x;
+						const gridY = window.cursorWorldPos.y - camera.y;
+						
+						const rect = c.getBoundingClientRect();
+						const canvasX = gridX * tileSize + tileSize / 2;
+						const canvasY = gridY * tileSize + tileSize / 2;
+						
+						mouse_pos = {
+							canvasX: canvasX,
+							canvasY: canvasY,
+							clientX: rect.left + canvasX,
+							clientY: rect.top + canvasY
+						};
+						
+						cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
+						cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
+					}
+					
 					if (action.value === "attack") {
 						const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
 						canvas.los(targetingTiles);
