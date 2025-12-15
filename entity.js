@@ -39,38 +39,19 @@ const EntitySystem = {
 				if (pts[i][j] === 1) {
 					const res = astar.search(graph, graph.grid[entity.x][entity.y], graph.grid[i][j]);
 					if (res.length > 0) {
-						// Calculate path cost with "every other diagonal = 2" rule
 						let pathCost = 0;
-						let consecutiveDiagonals = 0;
+						let diagonalCount = 0;
 						
 						for (let k = 0; k < res.length; k++) {
-							if (k === 0) {
-								// First step
-								const isDiagonal = (res[k].x !== entity.x && res[k].y !== entity.y);
-								if (isDiagonal) {
-									pathCost += 1;
-									consecutiveDiagonals = 1;
-								} else {
-									pathCost += 1;
-									consecutiveDiagonals = 0;
-								}
+							const prev = k === 0 ? {x: entity.x, y: entity.y} : res[k - 1];
+							const curr = res[k];
+							const isDiagonal = (prev.x !== curr.x && prev.y !== curr.y);
+							
+							if (isDiagonal) {
+								diagonalCount++;
+								pathCost += (diagonalCount % 2 === 0) ? 2 : 1;
 							} else {
-								const prev = res[k - 1];
-								const curr = res[k];
-								const isDiagonal = (prev.x !== curr.x && prev.y !== curr.y);
-								
-								if (isDiagonal) {
-									consecutiveDiagonals++;
-									// Every other diagonal costs 2
-									if (consecutiveDiagonals % 2 === 0) {
-										pathCost += 2;
-									} else {
-										pathCost += 1;
-									}
-								} else {
-									pathCost += 1;
-									consecutiveDiagonals = 0;
-								}
+								pathCost += 1;
 							}
 						}
 						
@@ -142,7 +123,6 @@ const EntitySystem = {
 		targetingTiles.forEach(tile => {
 			const wallIndex = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
 			if (wallIndex >= 0) {
-				// Create fake wall "entity" and use existing attack function
 				const wallEntity = {name: "wall", hp: 1, x: tile.x, y: tile.y, armor: 0};
 				if (this.attack(attacker, wallEntity)) {
 					walls.splice(wallIndex, 1);

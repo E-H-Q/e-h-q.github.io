@@ -124,10 +124,8 @@ function getDestroyableWallsInTiles(tiles, originX, originY, canDestroy) {
 		if (checkedTiles.has(tileKey)) continue;
 		checkedTiles.add(tileKey);
 		
-		// Cast ray from origin to this tile
 		const rayPath = line({x: originX, y: originY}, {x: tile.x, y: tile.y});
 		
-		// Find first wall in the ray
 		for (let i = 1; i < rayPath.length; i++) {
 			const point = rayPath[i];
 			const isWall = walls.find(w => w.x === point.x && w.y === point.y);
@@ -136,7 +134,7 @@ function getDestroyableWallsInTiles(tiles, originX, originY, canDestroy) {
 				if (!wallsToDestroy.some(w => `${w.x},${w.y}` === wallKey)) {
 					wallsToDestroy.push({x: point.x, y: point.y});
 				}
-				break; // Stop at first wall
+				break;
 			}
 		}
 	}
@@ -148,14 +146,6 @@ function calculateEntityTargeting(entity, endX, endY) {
 	const aimStyle = getWeaponAimStyle(entity);
 	const canDestroy = canEntityDestroyWalls(entity);
 	
-	// Use raw line without wall blocking when checking for destroyable walls
-	let rawPath = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
-	if (rawPath.length > entity.attack_range + 1) {
-		rawPath = rawPath.slice(1, entity.attack_range + 1);
-	} else {
-		rawPath = rawPath.slice(1);
-	}
-	
 	// Get normal LOS path (stops at walls)
 	let path = calc.los({start: {x: entity.x, y: entity.y}, end: {x: endX, y: endY}});
 	if (path.length > entity.attack_range + 1) {
@@ -164,32 +154,35 @@ function calculateEntityTargeting(entity, endX, endY) {
 		path = path.slice(1);
 	}
 	
-	// If canDestroy and aiming at/past a wall, use raw path to include first wall
-	if (canDestroy && rawPath.length > 0) {
-		for (let i = 0; i < rawPath.length; i++) {
-			const tile = rawPath[i];
+	// If path is blocked and can destroy, include the wall
+	if (canDestroy && path.length > 0) {
+		const rawPath = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
+		const limitedRawPath = rawPath.length > entity.attack_range + 1 ? 
+			rawPath.slice(1, entity.attack_range + 1) : rawPath.slice(1);
+		
+		for (let i = 0; i < limitedRawPath.length; i++) {
+			const tile = limitedRawPath[i];
 			const isWall = walls.find(w => w.x === tile.x && w.y === tile.y);
 			if (isWall) {
-				// Include path up to and including first wall
-				path = rawPath.slice(0, i + 1);
+				path = limitedRawPath.slice(0, i + 1);
 				break;
 			}
 		}
 	}
 	
+	// Return empty if path is blocked (for all aim styles)
+	if (path.length === 0) return [];
+	
 	if (aimStyle === "cone") {
 		const spread = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.spread || 3 : 3;
 		let tiles = calculateCone(path, entity.x, entity.y, endX, endY, entity.attack_range, spread);
 		
-		// Add destroyable walls for all cone tiles
 		if (canDestroy) {
 			const wallsToDestroy = getDestroyableWallsInTiles(tiles, entity.x, entity.y, canDestroy);
 			return [...tiles, ...wallsToDestroy];
 		}
 		return tiles;
 	} else if (aimStyle === "area") {
-		if (path.length === 0) return [];
-		
 		const areaRadius = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.areaRadius || 2 : 2;
 		const center = path[path.length - 1];
 		circle(center.y, center.x, areaRadius);
@@ -207,7 +200,6 @@ function calculateEntityTargeting(entity, endX, endY) {
 		const pathSet = new Set(path.map(p => `${p.x},${p.y}`));
 		const uniqueAreaTiles = areaTiles.filter(tile => !pathSet.has(`${tile.x},${tile.y}`));
 		
-		// Add destroyable walls
 		const allTiles = [...path, ...uniqueAreaTiles];
 		if (canDestroy) {
 			const wallsToDestroy = getDestroyableWallsInTiles(allTiles, center.x, center.y, canDestroy);
@@ -215,11 +207,9 @@ function calculateEntityTargeting(entity, endX, endY) {
 		}
 		return allTiles;
 	} else if (aimStyle === "pierce") {
-		// Pierce already includes walls in path if canDestroy
 		return path;
  	}
 	
-	// Standard/direct aim style - path already includes first wall if canDestroy
 	return path;
 }
 
@@ -227,7 +217,6 @@ function getTargetedEntities(attacker, endX, endY) {
 	const aimStyle = getWeaponAimStyle(attacker);
 	
 	if (aimStyle === "standard") {
-		// Standard: hit only the closest enemy in the path
 		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
 		path = path.length > attacker.attack_range + 1 ? path.slice(1, attacker.attack_range + 1) : path.slice(1);
 		
@@ -260,7 +249,6 @@ function getTargetedEntities(attacker, endX, endY) {
 			}
 		}
 		
-		// Only return entities in the area, not the path
 		return getEntitiesInArea(areaTiles);
 	} else if (aimStyle === "pierce") {
 		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
@@ -269,11 +257,13 @@ function getTargetedEntities(attacker, endX, endY) {
 	} else if (aimStyle === "cone") {
 		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
 		path = path.length > attacker.attack_range + 1 ? path.slice(1, attacker.attack_range + 1) : path.slice(1);
+		
+		if (path.length === 0) return [];
+		
 		const spread = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType]?.spread || 3 : 3;
 		return getEntitiesInCone(path, attacker.x, attacker.y, endX, endY, attacker.attack_range, spread);
 	}
 	
-	// Direct aim (default): hit only the entity at the exact target location
 	for (let entity of entities) {
 		if (entity.x === endX && entity.y === endY && entity.hp > 0) {
 			return [entity];
