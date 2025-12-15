@@ -39,15 +39,41 @@ const EntitySystem = {
 				if (pts[i][j] === 1) {
 					const res = astar.search(graph, graph.grid[entity.x][entity.y], graph.grid[i][j]);
 					if (res.length > 0) {
+						// Calculate path cost with "every other diagonal = 2" rule
 						let pathCost = 0;
+						let consecutiveDiagonals = 0;
+						
 						for (let k = 0; k < res.length; k++) {
-							if (k === 0) pathCost += 1;
-							else {
+							if (k === 0) {
+								// First step
+								const isDiagonal = (res[k].x !== entity.x && res[k].y !== entity.y);
+								if (isDiagonal) {
+									pathCost += 1;
+									consecutiveDiagonals = 1;
+								} else {
+									pathCost += 1;
+									consecutiveDiagonals = 0;
+								}
+							} else {
 								const prev = res[k - 1];
 								const curr = res[k];
-								pathCost += (prev.x !== curr.x && prev.y !== curr.y) ? 1.41421 : 1;
+								const isDiagonal = (prev.x !== curr.x && prev.y !== curr.y);
+								
+								if (isDiagonal) {
+									consecutiveDiagonals++;
+									// Every other diagonal costs 2
+									if (consecutiveDiagonals % 2 === 0) {
+										pathCost += 2;
+									} else {
+										pathCost += 1;
+									}
+								} else {
+									pathCost += 1;
+									consecutiveDiagonals = 0;
+								}
 							}
 						}
+						
 						if (pathCost <= entity.range) validMoves.push({x: i, y: j, path: res});
 					}
 				}
