@@ -101,9 +101,6 @@ var turns = {
 		const dist = calc.distance(entity.x, player.x, entity.y, player.y);
 		const canSeePlayer = this.hasStrictLOS(entity.x, entity.y, player.x, player.y);
 		
-		if (entity.equipment.aimStyle === "melee") {
-			entity.attack_range = 1;
-		}
 		if (canSeePlayer) {
 			entity.seenX = player.x;
 			entity.seenY = player.y;
