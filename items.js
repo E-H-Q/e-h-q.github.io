@@ -175,7 +175,9 @@ function calculateEntityTargeting(entity, endX, endY) {
 	
 	if (aimStyle === "cone") {
 		const spread = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.spread || 3 : 3;
-		let tiles = calculateCone(path, entity.x, entity.y, endX, endY, entity.attack_range, spread);
+		// Use the last tile in the path as the cone endpoint (respects range limit)
+		const coneEndpoint = path[path.length - 1];
+		let tiles = calculateCone(path, entity.x, entity.y, coneEndpoint.x, coneEndpoint.y, entity.attack_range, spread);
 		
 		if (canDestroy) {
 			const wallsToDestroy = getDestroyableWallsInTiles(tiles, entity.x, entity.y, canDestroy);
@@ -261,7 +263,9 @@ function getTargetedEntities(attacker, endX, endY) {
 		if (path.length === 0) return [];
 		
 		const spread = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType]?.spread || 3 : 3;
-		return getEntitiesInCone(path, attacker.x, attacker.y, endX, endY, attacker.attack_range, spread);
+		// Use the last tile in path as cone endpoint (respects range limit)
+		const coneEndpoint = path[path.length - 1];
+		return getEntitiesInCone(path, attacker.x, attacker.y, coneEndpoint.x, coneEndpoint.y, attacker.attack_range, spread);
 	}
 	
 	for (let entity of entities) {
