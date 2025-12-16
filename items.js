@@ -87,6 +87,16 @@ var itemTypes = {
 			{stat: "attack_range", value: 1}
 		],
     		displayName: "Machine Gun"
+	},
+	knife: {
+		name: "Knife",
+		type: "equipment",
+		slot: "weapon",
+		aimStyle: "melee",
+		effects: [
+			{stat: "damage", value: 7}
+		],
+		displayName: "+7 Knife"
 	}
 };
 
@@ -99,7 +109,8 @@ const itemLabels = {
 	shotgun: "Shotgun",
 	rocketLauncher: "RPG",
 	machinegun: "SMG",
-	breachingKit: "Breach"
+	breachingKit: "Breach",
+	knife: "Knife"
 };
 
 function getWeaponAimStyle(entity) {
@@ -142,14 +153,26 @@ function getDestroyableWallsInTiles(tiles, originX, originY, canDestroy) {
 	return wallsToDestroy;
 }
 
+function getEntityAttackRange(entity) {
+	const weaponDef = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
+	
+	// Melee weapons lock attack range to 1
+	if (weaponDef?.aimStyle === "melee") {
+		return 1;
+	}
+	
+	return entity.attack_range;
+}
+
 function calculateEntityTargeting(entity, endX, endY) {
 	const aimStyle = getWeaponAimStyle(entity);
 	const canDestroy = canEntityDestroyWalls(entity);
+	const effectiveRange = getEntityAttackRange(entity);
 	
 	// Get normal LOS path (stops at walls)
 	let path = calc.los({start: {x: entity.x, y: entity.y}, end: {x: endX, y: endY}});
-	if (path.length > entity.attack_range + 1) {
-		path = path.slice(1, entity.attack_range + 1);
+	if (path.length > effectiveRange + 1) {
+		path = path.slice(1, effectiveRange + 1);
 	} else {
 		path = path.slice(1);
 	}
@@ -157,8 +180,8 @@ function calculateEntityTargeting(entity, endX, endY) {
 	// If path is blocked and can destroy, include the wall
 	if (canDestroy && path.length > 0) {
 		const rawPath = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
-		const limitedRawPath = rawPath.length > entity.attack_range + 1 ? 
-			rawPath.slice(1, entity.attack_range + 1) : rawPath.slice(1);
+		const limitedRawPath = rawPath.length > effectiveRange + 1 ? 
+			rawPath.slice(1, effectiveRange + 1) : rawPath.slice(1);
 		
 		for (let i = 0; i < limitedRawPath.length; i++) {
 			const tile = limitedRawPath[i];
@@ -175,9 +198,8 @@ function calculateEntityTargeting(entity, endX, endY) {
 	
 	if (aimStyle === "cone") {
 		const spread = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.spread || 3 : 3;
-		// Use the last tile in the path as the cone endpoint (respects range limit)
 		const coneEndpoint = path[path.length - 1];
-		let tiles = calculateCone(path, entity.x, entity.y, coneEndpoint.x, coneEndpoint.y, entity.attack_range, spread);
+		let tiles = calculateCone(path, entity.x, entity.y, coneEndpoint.x, coneEndpoint.y, effectiveRange, spread);
 		
 		if (canDestroy) {
 			const wallsToDestroy = getDestroyableWallsInTiles(tiles, entity.x, entity.y, canDestroy);
@@ -210,6 +232,9 @@ function calculateEntityTargeting(entity, endX, endY) {
 		return allTiles;
 	} else if (aimStyle === "pierce") {
 		return path;
+	} else if (aimStyle === "melee") {
+		// Melee only targets adjacent tiles
+		return path;
  	}
 	
 	return path;
@@ -217,10 +242,11 @@ function calculateEntityTargeting(entity, endX, endY) {
 
 function getTargetedEntities(attacker, endX, endY) {
 	const aimStyle = getWeaponAimStyle(attacker);
+	const effectiveRange = getEntityAttackRange(attacker);
 	
-	if (aimStyle === "standard") {
+	if (aimStyle === "standard" || aimStyle === "melee") {
 		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
-		path = path.length > attacker.attack_range + 1 ? path.slice(1, attacker.attack_range + 1) : path.slice(1);
+		path = path.length > effectiveRange + 1 ? path.slice(1, effectiveRange + 1) : path.slice(1);
 		
 		for (let tile of path) {
 			for (let entity of entities) {
@@ -234,7 +260,7 @@ function getTargetedEntities(attacker, endX, endY) {
 		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
 		if (path.length === 0) return [];
 		
-		path = path.length > attacker.attack_range + 1 ? path.slice(1, attacker.attack_range + 1) : path.slice(1);
+		path = path.length > effectiveRange + 1 ? path.slice(1, effectiveRange + 1) : path.slice(1);
 		if (path.length === 0) return [];
 		
 		const areaRadius = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType]?.areaRadius || 2 : 2;
@@ -254,18 +280,17 @@ function getTargetedEntities(attacker, endX, endY) {
 		return getEntitiesInArea(areaTiles);
 	} else if (aimStyle === "pierce") {
 		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
-		path = path.length > attacker.attack_range + 1 ? path.slice(1, attacker.attack_range + 1) : path.slice(1);
+		path = path.length > effectiveRange + 1 ? path.slice(1, effectiveRange + 1) : path.slice(1);
 		return getEntitiesInPath(path);
 	} else if (aimStyle === "cone") {
 		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
-		path = path.length > attacker.attack_range + 1 ? path.slice(1, attacker.attack_range + 1) : path.slice(1);
+		path = path.length > effectiveRange + 1 ? path.slice(1, effectiveRange + 1) : path.slice(1);
 		
 		if (path.length === 0) return [];
 		
 		const spread = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType]?.spread || 3 : 3;
-		// Use the last tile in path as cone endpoint (respects range limit)
 		const coneEndpoint = path[path.length - 1];
-		return getEntitiesInCone(path, attacker.x, attacker.y, coneEndpoint.x, coneEndpoint.y, attacker.attack_range, spread);
+		return getEntitiesInCone(path, attacker.x, attacker.y, coneEndpoint.x, coneEndpoint.y, effectiveRange, spread);
 	}
 	
 	for (let entity of entities) {
