@@ -97,7 +97,7 @@ var turns = {
 			currentEntityTurnsRemaining = 0;
 			return;
 		}
-		
+
 		const dist = calc.distance(entity.x, player.x, entity.y, player.y);
 		const canSeePlayer = this.hasStrictLOS(entity.x, entity.y, player.x, player.y);
 		
