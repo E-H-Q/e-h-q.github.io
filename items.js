@@ -342,9 +342,6 @@ function giveItem(entity, itemType) {
 				else if (effect.stat === "armor") entity.armor = (entity.armor || 0) + effect.value;
 			}
 		}
-		if (itemDef.aimStyle === "melee") {
-			entity.attack_range = 1;
-		}
 		console.log(entity.name + " equipped " + itemDef.name);
 	}
 	
