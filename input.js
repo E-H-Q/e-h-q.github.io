@@ -218,6 +218,7 @@ var input = {
 		}
 		
 		if (event.keyCode === 16) {
+			/*
 			if (event.type === 'keydown') {
 				if (edit.checked) {
 					input.handleZoom(!isZoomedOut);
@@ -228,9 +229,18 @@ var input = {
 				input.handleZoom(false);
 			}
 			return;
+			*/
+			if (event.type === 'keydown') {
+				if (!isZoomedOut) {
+					input.handleZoom(true);
+				} else if (isZoomedOut) {
+					input.handleZoom(false);
+				}
+			}
+			return;
 		}
 		
-		if (event.keyCode === 9 || event.keyCode === 32) {
+		if (event.keyCode === 9) {
 			event.preventDefault();
 			if (isPeekMode && peekStep === 2) return;
 			
