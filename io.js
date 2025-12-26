@@ -47,32 +47,19 @@ function load_map() {
 			if (loaded_player) {
 				player = JSON.parse(loaded_player);
 				
-				// Reapply equipment effects after loading
+				// Reapply equipment effects after loading using helper function
 				if (player.equipment) {
-					// Store base stats
-					const baseAttackRange = 4; // Default player attack range
-					const baseDamage = 0;
-					const baseArmor = 0;
-					
-					// Reset to base
-					player.attack_range = baseAttackRange;
-					player.damage = baseDamage;
-					player.armor = baseArmor;
+					// Reset to base stats
+					player.attack_range = 4; // Default player attack range
+					player.damage = 0;
+					player.armor = 0;
 					
 					// Reapply all equipped items
 					for (let slot in player.equipment) {
 						if (player.equipment[slot]) {
 							const itemDef = itemTypes[player.equipment[slot].itemType];
-							if (itemDef && itemDef.effects) {
-								for (let effect of itemDef.effects) {
-									if (effect.stat === "attack_range") {
-										player.attack_range += effect.value;
-									} else if (effect.stat === "damage") {
-										player.damage = (player.damage || 0) + effect.value;
-									} else if (effect.stat === "armor") {
-										player.armor = (player.armor || 0) + effect.value;
-									}
-								}
+							if (itemDef) {
+								applyEquipmentEffects(player, itemDef, true);
 							}
 						}
 					}

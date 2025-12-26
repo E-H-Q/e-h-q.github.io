@@ -40,7 +40,8 @@ var turns = {
 			calc.move(currentEntity);
 			
 			const dist = calc.distance(currentEntity.x, player.x, currentEntity.y, player.y);
-			if (dist <= currentEntity.attack_range) {
+			const effectiveRange = getEntityAttackRange(currentEntity);
+			if (dist <= effectiveRange) {
 				const targetingTiles = calculateEntityTargeting(currentEntity, player.x, player.y);
 				canvas.los(targetingTiles);
 			}
@@ -73,10 +74,6 @@ var turns = {
 		return EntitySystem.hasLOS(player, enemy.x, enemy.y, true);
 	},
 	
-	hasStrictLOS: function(fromX, fromY, toX, toY) {
-		return EntitySystem.hasLOS({x: fromX, y: fromY}, toX, toY, false);
-	},
-	
 	checkEnemyLOS: function() {
 		allEnemies.forEach(enemy => {
 			if (enemy.hp < 1) return;
@@ -88,10 +85,6 @@ var turns = {
 		});
 	},
 	
-	hasValidAttackLOS: function(fromX, fromY, toX, toY) {
-		return EntitySystem.hasLOS({x: fromX, y: fromY}, toX, toY, false);
-	},
-	
 	enemyTurn: function(entity) {
 		if (entity.hp < 1) {
 			currentEntityTurnsRemaining = 0;
@@ -99,13 +92,14 @@ var turns = {
 		}
 
 		const dist = calc.distance(entity.x, player.x, entity.y, player.y);
-		const canSeePlayer = this.hasStrictLOS(entity.x, entity.y, player.x, player.y);
+		const canSeePlayer = EntitySystem.hasLOS(entity, player.x, player.y, false);
+		const effectiveRange = getEntityAttackRange(entity);
 		
 		if (canSeePlayer) {
 			entity.seenX = player.x;
 			entity.seenY = player.y;
 			
-			if (dist <= entity.attack_range && this.hasValidAttackLOS(entity.x, entity.y, player.x, player.y)) {
+			if (dist <= effectiveRange && EntitySystem.hasLOS(entity, player.x, player.y, false)) {
 				const targets = getTargetedEntities(entity, player.x, player.y);
 				
 				const hadTargets = targets.length > 0;

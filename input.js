@@ -40,11 +40,9 @@ var input = {
 	keyboard: function(event) {
 		if (event.type !== 'keydown' && event.keyCode !== 16) return;
 		
-		// Arrow keys for keyboard cursor movement
 		if ([37, 38, 39, 40].includes(event.keyCode)) {
 			event.preventDefault();
 			
-			// If switching from mouse to keyboard mode, reset cursor to player position
 			if (!keyboardMode) {
 				window.cursorWorldPos = {x: player.x, y: player.y};
 			}
@@ -52,19 +50,16 @@ var input = {
 			keyboardMode = true;
 			document.body.style.cursor = 'none';
 			
-			// Move cursor by arrow key
 			switch(event.keyCode) {
-				case 37: window.cursorWorldPos.x--; break; // Left
-				case 38: window.cursorWorldPos.y--; break; // Up
-				case 39: window.cursorWorldPos.x++; break; // Right
-				case 40: window.cursorWorldPos.y++; break; // Down
+				case 37: window.cursorWorldPos.x--; break;
+				case 38: window.cursorWorldPos.y--; break;
+				case 39: window.cursorWorldPos.x++; break;
+				case 40: window.cursorWorldPos.y++; break;
 			}
 			
-			// Clamp to map bounds
 			window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
 			window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
 			
-			// Update cursor position
 			const gridX = window.cursorWorldPos.x - camera.x;
 			const gridY = window.cursorWorldPos.y - camera.y;
 			
@@ -81,8 +76,6 @@ var input = {
 			
 			cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
 			cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
-			
-			// Always show cursor in keyboard mode
 			cursor.style.visibility = "visible";
 			
 			update();
@@ -95,7 +88,6 @@ var input = {
 			return;
 		}
 		
-		// Enter key acts as click
 		if (event.keyCode === 13) {
 			event.preventDefault();
 			if (keyboardMode && currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
@@ -122,14 +114,13 @@ var input = {
 			return;
 		}
 		
-		if (event.keyCode === 222) { // Apostrophe key
-			event.preventDefault(); // Prevent browser find dialog
+		if (event.keyCode === 222) {
+			event.preventDefault();
 			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
 				keyboardMode = true;
 				document.body.style.cursor = 'none';
 				
 				if (action.value === "attack") {
-					// Cycle through visible enemies in turn order
 					const visibleEnemies = entities.filter(e => 
 						e !== player && 
 						e.hp > 0 && 
@@ -145,8 +136,6 @@ var input = {
 						}
 						
 						const target = visibleEnemies[window.targetIndex];
-						
-						// Calculate screen position for cursor
 						const gridX = target.x - camera.x;
 						const gridY = target.y - camera.y;
 						
@@ -172,7 +161,6 @@ var input = {
 						canvas.los(targetingTiles);
 					}
 				} else if (action.value === "move") {
-					// Cycle through items with LOS
 					const visibleItems = mapItems.filter(item => {
 						return hasPermissiveLOS(player.x, player.y, item.x, item.y);
 					});
@@ -185,8 +173,6 @@ var input = {
 						}
 						
 						const target = visibleItems[window.itemTargetIndex];
-						
-						// Calculate screen position for cursor
 						const gridX = target.x - camera.x;
 						const gridY = target.y - camera.y;
 						
@@ -251,7 +237,6 @@ var input = {
 			action.value = (action.value === "move") ? "attack" : "move";
 			document.activeElement.blur();
 			
-			// Reset target cycling when switching modes
 			window.targetIndex = 0;
 			window.itemTargetIndex = 0;
 			
@@ -268,11 +253,10 @@ var input = {
 	},
 	
 	mouse: function(event) {
-		// Re-enable mouse cursor on mouse movement
 		if (keyboardMode) {
 			keyboardMode = false;
 			document.body.style.cursor = '';
-			window.cursorWorldPos = null; // Reset keyboard cursor position
+			window.cursorWorldPos = null;
 		}
 		
 		const rect = c.getBoundingClientRect();
@@ -318,28 +302,16 @@ var input = {
 			const endX = camera.x + gridX;
 			const endY = camera.y + gridY;
 			
-			const dist = calc.distance(player.x, endX, player.y, endY);
-			
-			const targetingTiles = calculateEntityTargeting(player, endX, endY);
-			const isInTargeting = targetingTiles.some(t => t.x === endX && t.y === endY);
-			
-			const accessoryDef = player.equipment?.accessory ? itemTypes[player.equipment.accessory.itemType] : null;
-			const weaponDef = player.equipment?.weapon ? itemTypes[player.equipment.weapon.itemType] : null;
-			const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
-			
-			const hasLOS = hasPermissiveLOS(player.x, player.y, endX, endY);
-			
-			// Always show cursor in attack mode
 			cursor.style.visibility = "visible";
 
 			update();
+			const targetingTiles = calculateEntityTargeting(player, endX, endY);
 			if (targetingTiles.length > 0) {
 				canvas.los(targetingTiles);
 			}
 		} else {
 			cursor.style.visibility = "visible";
 			
-			// Store cursor position for path drawing in move mode
 			const endX = camera.x + gridX;
 			const endY = camera.y + gridY;
 			window.cursorWorldPos = {x: endX, y: endY};
@@ -373,18 +345,15 @@ var input = {
 						currentEntityTurnsRemaining--;
 						update();
 					} else {
-						// Store cursor screen position before move
 						const preMoveScreenX = window.cursorWorldPos ? window.cursorWorldPos.x - camera.x : 0;
 						const preMoveScreenY = window.cursorWorldPos ? window.cursorWorldPos.y - camera.y : 0;
 						
 						turns.move(player, click_pos.x, click_pos.y);
 						
-						// Update cursor world position to maintain screen position in keyboard mode
 						if (keyboardMode && window.cursorWorldPos) {
 							window.cursorWorldPos.x = camera.x + preMoveScreenX;
 							window.cursorWorldPos.y = camera.y + preMoveScreenY;
 							
-							// Clamp to map bounds
 							window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
 							window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
 							
@@ -410,23 +379,20 @@ var input = {
 				break;
 				
 			case "attack":
-
 				const targetsInArea = getTargetedEntities(player, click_pos.x, click_pos.y);
 				const enemies = targetsInArea.filter(e => e !== player && e.hp > 0);
 				
 				const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
 				
-				// Check if breaching kit equipped
 				const accessoryDef = player.equipment?.accessory ? itemTypes[player.equipment.accessory.itemType] : null;
 				const weaponDef = player.equipment?.weapon ? itemTypes[player.equipment.weapon.itemType] : null;
 				const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
 				
-				// Validate range and LOS
+				const effectiveRange = getEntityAttackRange(player);
 				const dist = calc.distance(player.x, click_pos.x, player.y, click_pos.y);
 				const hasLOS = hasPermissiveLOS(player.x, player.y, click_pos.x, click_pos.y);
 				
-				// Cannot attack if out of range or no LOS
-				if (dist > player.attack_range || !hasLOS) return;
+				if (dist > effectiveRange || !hasLOS) return;
 				
 				const hasWalls = canDestroy && targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y));
 				const hasTargets = targetingTiles.length > 0 && (enemies.length > 0 || hasWalls);
@@ -436,7 +402,6 @@ var input = {
 				if (isPeekMode && peekStep === 2) {
 					const hadTargets = enemies.length > 0;
 					
-					// Check for burst fire
 					const burstCount = weaponDef?.burst || 1;
 					for (let burst = 0; burst < burstCount; burst++) {
 						for (let enemy of enemies) {
@@ -455,13 +420,11 @@ var input = {
 					player.y = peekStartY;
 					exitPeekMode();
 				} else {
-					// Store cursor screen position before any camera changes
 					const preMoveScreenX = window.cursorWorldPos ? window.cursorWorldPos.x - camera.x : 0;
 					const preMoveScreenY = window.cursorWorldPos ? window.cursorWorldPos.y - camera.y : 0;
 					
 					const hadTargets = enemies.length > 0;
 					
-					// Check for burst fire
 					const burstCount = weaponDef?.burst || 1;
 					for (let burst = 0; burst < burstCount; burst++) {
 						for (let enemy of enemies) {
@@ -485,12 +448,10 @@ var input = {
 					
 					update();
 					
-					// Update cursor world position to maintain screen position in keyboard mode
 					if (keyboardMode && window.cursorWorldPos) {
 						window.cursorWorldPos.x = camera.x + preMoveScreenX;
 						window.cursorWorldPos.y = camera.y + preMoveScreenY;
 						
-						// Clamp to map bounds
 						window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
 						window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
 						
