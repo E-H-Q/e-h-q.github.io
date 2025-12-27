@@ -218,18 +218,9 @@ var input = {
 		}
 		
 		if (event.keyCode === 16) {
-			/*
-			if (event.type === 'keydown') {
-				if (edit.checked) {
-					input.handleZoom(!isZoomedOut);
-				} else if (!isZoomedOut) {
-					input.handleZoom(true);
-				}
-			} else if (event.type === 'keyup' && isZoomedOut && !edit.checked) {
-				input.handleZoom(false);
-			}
-			return;
-			*/
+			// Guard: only allow zoom during player turn
+			if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
+			
 			if (event.type === 'keydown') {
 				if (!isZoomedOut) {
 					input.handleZoom(true);
@@ -242,6 +233,9 @@ var input = {
 		
 		if (event.keyCode === 9) {
 			event.preventDefault();
+			
+			// Guard: only allow mode switching during player turn
+			if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
 			if (isPeekMode && peekStep === 2) return;
 			
 			action.value = (action.value === "move") ? "attack" : "move";
