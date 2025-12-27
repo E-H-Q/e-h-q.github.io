@@ -222,13 +222,20 @@ var calc = {
 	los: function(look) {
 		const path = line(look.start, look.end);
 		
+		// Find the earliest wall in the path
+		let earliestWallIndex = path.length;
 		for (let wall of walls) {
-			const res = path.findIndex(el => el.x === wall.x && el.y === wall.y);
-			if (res > 0) {
-				path.length = res;
-				break;
+			const wallIndex = path.findIndex(el => el.x === wall.x && el.y === wall.y);
+			if (wallIndex > 0 && wallIndex < earliestWallIndex) {
+				earliestWallIndex = wallIndex;
 			}
 		}
+		
+		// Truncate path at earliest wall
+		if (earliestWallIndex < path.length) {
+			path.length = earliestWallIndex;
+		}
+		
 		return path;
 	},
 	
