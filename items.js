@@ -2,6 +2,8 @@
 
 var mapItems = [];
 var nextItemId = 0;
+var maxInventorySlots = 10;
+var maxStackSize = 10;
 
 var itemTypes = {
 	healthPotion: {
@@ -9,14 +11,14 @@ var itemTypes = {
 		type: "consumable",
 		effect: "heal",
 		value: 10,
-		displayName: "HP Potion"
+		displayName: "HP Potion",
 	},
 	speedPotion: {
 		name: "Speed Potion",
 		type: "consumable",
 		effect: "speed",
 		value: 2,
-		displayName: "Speed Potion"
+		displayName: "Speed Potion",
 	},
 	scope: {
 		name: "Scope",
@@ -334,11 +336,34 @@ function spawnItem(itemType, x, y) {
 function giveItem(entity, itemType) {
 	if (!entity.inventory) entity.inventory = [];
 
-	const newItem = {itemType, id: nextItemId++};
-	entity.inventory.push(newItem);
-	console.log(entity.name + " received " + itemTypes[itemType].name);
-
 	const itemDef = itemTypes[itemType];
+	
+	// Try to stack if it's a stackable consumable
+	if (itemDef.type === "consumable") {
+		for (let item of entity.inventory) {
+			if (item.itemType === itemType && (item.quantity || 1) < maxStackSize) {
+				item.quantity = (item.quantity || 1) + 1;
+				console.log(entity.name + " received another " + itemDef.name);
+				update();
+				return true;
+			}
+		}
+	}
+	
+	// Check inventory limit
+	if (entity === player && entity.inventory.length >= maxInventorySlots) {
+		console.log("Inventory full!");
+		return false;
+	}
+
+	const newItem = {itemType, id: nextItemId++};
+	if (itemDef.type === "consumable") {
+		newItem.quantity = 1;
+	}
+	
+	entity.inventory.push(newItem);
+	console.log(entity.name + " received " + itemDef.name);
+
 	if (entity !== player && itemDef?.type === "equipment") {
 		entity.inventory.pop();
 		if (!entity.equipment) entity.equipment = {};
@@ -404,7 +429,30 @@ function pickupItem(entity, x, y) {
 			return true;
 		}
 
-		entity.inventory.push({itemType: mostRecent.item.itemType, id: mostRecent.item.id});
+		// Try to stack if stackable
+		if (itemDef.type === "consumable") {
+			for (let item of entity.inventory) {
+				if (item.itemType === mostRecent.item.itemType && (item.quantity || 1) < maxStackSize) {
+					item.quantity = (item.quantity || 1) + 1;
+					console.log(entity.name + " picked up another " + itemDef.name);
+					mapItems.splice(mostRecent.index, 1);
+					return true;
+				}
+			}
+		}
+		
+		// Check inventory limit
+		if (entity === player && entity.inventory.length >= maxInventorySlots) {
+			console.log("Inventory full!");
+			return false;
+		}
+
+		const newItem = {itemType: mostRecent.item.itemType, id: mostRecent.item.id};
+		if (itemDef.type === "consumable") {
+			newItem.quantity = 1;
+		}
+		
+		entity.inventory.push(newItem);
 		console.log(entity.name + " picked up " + itemDef.name);
 		mapItems.splice(mostRecent.index, 1);
 		return true;
@@ -475,7 +523,13 @@ function useItem(entity, inventoryIndex) {
 			entity.range += itemDef.value;
 			console.log(entity.name + " feels themselves moving faster!");
 		}
-		entity.inventory.splice(inventoryIndex, 1);
+		
+		// Handle stack quantity
+		if (item.quantity && item.quantity > 1) {
+			item.quantity--;
+		} else {
+			entity.inventory.splice(inventoryIndex, 1);
+		}
 	} else if (itemDef.type === "equipment") {
 		equipItem(entity, inventoryIndex);
 		if (entity === player && typeof currentEntityTurnsRemaining !== 'undefined') currentEntityTurnsRemaining++;

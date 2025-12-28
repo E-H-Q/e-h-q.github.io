@@ -109,12 +109,14 @@ function updateInventory() {
 			const item = player.inventory[i];
 			const itemDef = itemTypes[item.itemType];
 			const itemTypeLabel = itemDef.type === "equipment" ? " [equip]" : "";
+			const quantityLabel = item.quantity > 1 ? "(" + item.quantity + ") " : "";
+			const slotNumber = i === 9 ? 0 : i + 1;
 			html += '<div style="padding: 5px; margin: 3px 0; border: 1px solid #fff; cursor: pointer;" ' +
 			        'onclick="useInventoryItem(' + i + ')" ' +
 			        'oncontextmenu="dropInventoryItem(event, ' + i + ')" ' +
 			        'onmouseover="this.style.backgroundColor=\'#333\'" ' +
 			        'onmouseout="this.style.backgroundColor=\'transparent\'">' +
-			        (i + 1) + '. ' + itemDef.displayName + itemTypeLabel + '</div>';
+			        slotNumber + '. ' + quantityLabel + itemDef.displayName + itemTypeLabel + '</div>';
 		}
 	}
 	
@@ -151,8 +153,10 @@ function dropInventoryItem(event, inventoryIndex) {
 					itemType: item.itemType,
 					id: nextItemId++
 				};
-				mapItems.push(droppedItem);
-				console.log(player.name + " dropped " + itemDef.name);
+				for (var i = 0; i < item.quantity; i++) {
+					mapItems.push(droppedItem);
+				}
+				console.log(player.name + " dropped " + item.quantity + " " + itemDef.name);
 			}
 			
 			player.inventory.splice(inventoryIndex, 1);

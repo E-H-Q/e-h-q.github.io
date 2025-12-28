@@ -202,7 +202,8 @@ var input = {
 		if (event.keyCode === 190) {
 			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining > 0) {
 				if (typeof pickupItem !== 'undefined') {
-					pickupItem(entities[currentEntityIndex], entities[currentEntityIndex].x, entities[currentEntityIndex].y);
+					pickupItem(entities[currentEntityIndex],
+					entities[currentEntityIndex].x, entities[currentEntityIndex].y);
 				}
 				currentEntityTurnsRemaining--;
 				console.log(player.name + " waits...");
@@ -213,6 +214,40 @@ var input = {
 					currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 				}
 				update();
+			}
+			return;
+		}
+		
+		// Number keys 1-9 and 0 for inventory slots
+		if (event.keyCode >= 48 && event.keyCode <= 57) {
+			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
+				let slotIndex = event.keyCode - 49; // 49 is keyCode for '1'
+				if (event.keyCode === 48) slotIndex = 9; // 0 key maps to slot 10
+				
+				if (slotIndex >= 0 && slotIndex < player.inventory.length) {
+					if (typeof useItem !== 'undefined' && useItem(player, slotIndex)) {
+						if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
+							const item = player.inventory[slotIndex];
+							const itemDef = item ? itemTypes[item.itemType] : null;
+							
+							// Only consume turn for consumables
+							if (itemDef && itemDef.type === "consumable") {
+								currentEntityTurnsRemaining--;
+								
+								if (isPeekMode) {
+									exitPeekMode();
+								}
+								
+								if (currentEntityTurnsRemaining <= 0) {
+									currentEntityIndex++;
+									if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+									currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+								}
+							}
+						}
+						update();
+					}
+				}
 			}
 			return;
 		}

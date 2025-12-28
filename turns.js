@@ -37,10 +37,18 @@ var turns = {
 		const currentEntity = entities[currentEntityIndex];
 		
 		if (currentEntity !== player && currentEntityTurnsRemaining > 0) {
-			calc.move(currentEntity);
-			
 			const dist = calc.distance(currentEntity.x, player.x, currentEntity.y, player.y);
 			const effectiveRange = getEntityAttackRange(currentEntity);
+			
+			// Check if enemy will attack this turn
+			const canSeePlayer = EntitySystem.hasLOS(currentEntity, player.x, player.y, false);
+			const willAttack = canSeePlayer && dist <= effectiveRange;
+			
+			// Only show movement range if NOT attacking
+			if (!willAttack) {
+				calc.move(currentEntity);
+			}
+			
 			if (dist <= effectiveRange) {
 				const targetingTiles = calculateEntityTargeting(currentEntity, player.x, player.y);
 				canvas.los(targetingTiles);
