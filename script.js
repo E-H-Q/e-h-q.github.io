@@ -125,15 +125,9 @@ function updateInventory() {
 
 function useInventoryItem(inventoryIndex) {
 	if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
-		if (typeof useItem !== 'undefined' && useItem(player, inventoryIndex)) {
-			endPlayerTurn();
-			
-			// Exit peek mode if active
-			if (isPeekMode) {
-				exitPeekMode();
-			}
-			
-			update();
+		if (typeof useItem !== 'undefined') {
+			//update();
+			useItem(player, inventoryIndex)
 		}
 	}
 }

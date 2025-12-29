@@ -530,9 +530,10 @@ function useItem(entity, inventoryIndex) {
 		} else {
 			entity.inventory.splice(inventoryIndex, 1);
 		}
+		currentEntityTurnsRemaining--; // Use a turn phase for consumables
 	} else if (itemDef.type === "equipment") {
 		equipItem(entity, inventoryIndex);
-		if (entity === player && typeof currentEntityTurnsRemaining !== 'undefined') currentEntityTurnsRemaining++;
+		//if (entity === player && typeof currentEntityTurnsRemaining !== 'undefined') currentEntityTurnsRemaining++;
 	}
 
 	update();
