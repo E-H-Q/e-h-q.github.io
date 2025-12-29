@@ -15,8 +15,10 @@ const EntitySystem = {
 	},
 	
 	calculateMovement: function(entity, specialMode = null) {
-		if (specialMode === 'peek') {
-			return helper.getAdjacentTiles(entity.x, entity.y, true).filter(tile => !helper.tileBlocked(tile.x, tile.y));
+		if (specialMode === 'peek' || entity.range === 1) {
+			const adjacentTiles = helper.getAdjacentTiles(entity.x, entity.y, true)
+				.filter(tile => !helper.tileBlocked(tile.x, tile.y));
+			return adjacentTiles;
 		}
 		
 		circle(entity.y, entity.x, entity.range);

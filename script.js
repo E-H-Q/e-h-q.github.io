@@ -281,25 +281,13 @@ function update() {
 		const isValid = valid.find(v => v.x === endX && v.y === endY);
 		
 		if (isValid && endX >= 0 && endX < size && endY >= 0 && endY < size) {
-			// Recalculate graph every time to ensure accuracy
-			circle(player.y, player.x, player.range);
-			convert();
-			
-			if (pts && pts[player.x] && pts[player.y] && pts[endX] && pts[endY]) {
-				const graph = new Graph(pts, {diagonal: true});
+			const graph = new Graph(pts, {diagonal: true});
+			// const graph = new Graph(pts, {diagonal: true}); // Fire Emblem style path?
 				
-				// Block other entities
-				entities.forEach(e => {
-					if (e !== player && e.hp > 0 && pts[e.x]?.[e.y] !== undefined) {
-						pts[e.x][e.y] = 0;
-					}
-				});
-				
-				const pathResult = astar.search(graph, graph.grid[player.x][player.y], graph.grid[endX][endY]);
-				
-				if (pathResult && pathResult.length > 0) {
-					canvas.path(pathResult);
-				}
+			const pathResult = astar.search(graph, graph.grid[player.x][player.y], graph.grid[endX][endY]);
+	
+			if (pathResult && pathResult.length > 0) {
+				canvas.path(pathResult);
 			}
 		}
 	}

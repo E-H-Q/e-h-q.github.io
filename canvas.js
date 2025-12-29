@@ -120,15 +120,14 @@ var canvas = {
 			ctx.fillStyle = "rgba(255, 255, 255, 1)";
 			ctx.font = '16px serif';
 			ctx.fillText(entity.hp, screenX, screenY + tileSize);
-			
-			// Draw "?" if enemy is unaware
-			if (entity !== player && entity.seenX === 0 && entity.seenY === 0) {
-				ctx.fillStyle = "rgba(255, 255, 255, 1)";
-				ctx.font = 'bold 12px serif';
-				ctx.textAlign = 'center';
-				ctx.fillText("?", screenX + tileSize * 0.75, screenY + tileSize * 0.25);
-				ctx.textAlign = 'left';
-			}
+		}
+		// Draw "?" if enemy is unaware
+		if (entity !== player && entity.seenX === 0 && entity.seenY === 0) {
+			ctx.fillStyle = "rgba(255, 255, 255, 1)";
+			ctx.font = 'bold 12px serif';
+			ctx.textAlign = 'center';
+			ctx.fillText("?", screenX + tileSize * 0.75, screenY + tileSize * 0.25);
+			ctx.textAlign = 'left';
 		}
 	},
 	
