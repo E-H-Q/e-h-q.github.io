@@ -32,7 +32,7 @@ var turns = {
 			canvas.items();
 			canvas.player();
 			canvas.enemy();
-			canvas.cursor();
+			//canvas.cursor();
 		}
 
 		const currentEntity = entities[currentEntityIndex];
@@ -248,11 +248,10 @@ var turns = {
 			if (entity === player) this.checkEnemyLOS();
 			update();
 		}
-	//	const trick = new MouseEvent('mousemove', {clientX: window.cursorWorldPos.x * tileSize, clientY: window.cursorWorldPos.y * tileSize});
-	//	input.mouse(trick);
 
-		// Important for cursor continuity
+		// Important for cursor continuity - only for mouse mode
 		if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
+		
 		if (!keyboardMode && mouse_pos.clientX && mouse_pos.clientY) {
 			const evt = new MouseEvent('mousemove', {
 				clientX: mouse_pos.clientX,

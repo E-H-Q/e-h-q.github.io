@@ -61,7 +61,7 @@ var input = {
 			return;
 		}
 		
-		if (event.keyCode === 13) {
+		if (event.keyCode === 13) { // ENTER
 			event.preventDefault();
 			if (keyboardMode && currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
 				input.click();
@@ -171,7 +171,7 @@ var input = {
 			return;
 		}
 		
-		if (event.keyCode === 16) {
+		if (event.keyCode === 16) { // SHIFT
 			// Guard: only allow zoom during player turn
 			if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
 			
@@ -185,7 +185,7 @@ var input = {
 			return;
 		}
 		
-		if (event.keyCode === 9) {
+		if (event.keyCode === 9) { // TAB
 			event.preventDefault();
 			
 			// Guard: only allow mode switching during player turn
@@ -200,7 +200,7 @@ var input = {
 			
 			update();
 			
-			if (mouse_pos.clientX && mouse_pos.clientY) {
+			if (!keyboardMode && mouse_pos.clientX && mouse_pos.clientY) {
 				const evt = new MouseEvent('mousemove', {
 					clientX: mouse_pos.clientX,
 					clientY: mouse_pos.clientY
@@ -298,17 +298,22 @@ var input = {
 						currentEntityTurnsRemaining--;
 						update();
 					} else {
-						const preMoveScreenX = window.cursorWorldPos.x - camera.x;
-						const preMoveScreenY = window.cursorWorldPos.y - camera.y;
+						// Store screen offset BEFORE move in keyboard mode
+						let screenOffsetX, screenOffsetY;
+						if (keyboardMode) {
+							screenOffsetX = window.cursorWorldPos.x - camera.x;
+							screenOffsetY = window.cursorWorldPos.y - camera.y;
+						}
 						
 						turns.move(player, click_pos.x, click_pos.y);
 						
+						// Restore cursor to same screen position AFTER camera moves
 						if (keyboardMode) {
-							window.cursorWorldPos.x = camera.x + preMoveScreenX;
-							window.cursorWorldPos.y = camera.y + preMoveScreenY;
-							
+							window.cursorWorldPos.x = camera.x + screenOffsetX;
+							window.cursorWorldPos.y = camera.y + screenOffsetY;
 							window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
 							window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
+							update();
 						}
 					}
 				}
@@ -356,9 +361,6 @@ var input = {
 					player.y = peekStartY;
 					exitPeekMode();
 				} else {
-					const preMoveScreenX = window.cursorWorldPos.x - camera.x;
-					const preMoveScreenY = window.cursorWorldPos.y - camera.y;
-					
 					const hadTargets = enemies.length > 0;
 					
 					const burstCount = weaponDef?.burst || 1;
@@ -383,14 +385,6 @@ var input = {
 					}
 					
 					update();
-					
-					if (keyboardMode) {
-						window.cursorWorldPos.x = camera.x + preMoveScreenX;
-						window.cursorWorldPos.y = camera.y + preMoveScreenY;
-						
-						window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
-						window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
-					}
 					
 					if (action.value === "attack") {
 						const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
