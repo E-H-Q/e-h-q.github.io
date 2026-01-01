@@ -20,6 +20,7 @@
 				border: 1px solid #FFFFFF;
 				display: block;
 				image-rendering: pixelated;
+				/*cursor: none;*/
 			}
 			.hidden {
 				display: none;
@@ -35,12 +36,8 @@
 				flex-direction: column;
 			}
 			#canvas-container {
-				position: block;
+				position: relative;
 				display: inline-block;
-			}
-			#cursor {
-				position: absolute;
-				pointer-events: auto;
 			}
 			#controls-row {
 				display: flex;
@@ -128,7 +125,6 @@
 						<div>
 							<div id="canvas-container">
 								<canvas id="canvas"></canvas>
-								<div id="cursor"></div>
 							</div>
 							<div style="display: flex; gap: 5px; margin-top: 5px;">
 								<select id="actions" onchange="update()" style="flex: 1;">

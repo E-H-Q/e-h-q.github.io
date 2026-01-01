@@ -126,7 +126,6 @@ function updateInventory() {
 function useInventoryItem(inventoryIndex) {
 	if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
 		if (typeof useItem !== 'undefined') {
-			//update();
 			useItem(player, inventoryIndex)
 		}
 	}
@@ -266,17 +265,14 @@ function update() {
 	turns.check();
 	
 	// Draw path in move mode when it's the player's turn
-	// Only calculate if cursor position exists and hasn't been calculated this frame
 	if (currentEntity === player && action.value === "move" && window.cursorWorldPos) {
 		const endX = window.cursorWorldPos.x;
 		const endY = window.cursorWorldPos.y;
 		
-		// Check if cursor is within valid movement range
 		const isValid = valid.find(v => v.x === endX && v.y === endY);
 		
 		if (isValid && endX >= 0 && endX < size && endY >= 0 && endY < size) {
 			const graph = new Graph(pts, {diagonal: true});
-			// const graph = new Graph(pts, {diagonal: true}); // Fire Emblem style path?
 				
 			const pathResult = astar.search(graph, graph.grid[player.x][player.y], graph.grid[endX][endY]);
 	
@@ -285,6 +281,8 @@ function update() {
 			}
 		}
 	}
+	// Draw cursor last so it's on top
+	canvas.cursor();
 	
 	updateTurnOrder();
 	updateInventory();
@@ -308,10 +306,11 @@ function handleMouseMove(event) {
 	input.mouse(event);
 }
 
+// Canvas event listeners
 c.onmousemove = handleMouseMove;
-cursor.addEventListener("click", input.click);
-cursor.addEventListener("mousedown", input.mousedown);
-cursor.addEventListener("contextmenu", input.right_click);
+c.addEventListener("click", input.click);
+c.addEventListener("mousedown", input.mousedown);
+c.addEventListener("contextmenu", input.right_click);
 document.addEventListener("mouseup", input.mouseup);
 document.addEventListener("keydown", input.keyboard);
 document.addEventListener("keyup", input.keyboard);

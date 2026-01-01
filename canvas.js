@@ -147,6 +147,20 @@ var canvas = {
 		}
 	},
 	
+	cursor: () => {
+		if (!cursorVisible || !window.cursorWorldPos) return;
+		
+		const screenX = (window.cursorWorldPos.x - camera.x) * tileSize;
+		const screenY = (window.cursorWorldPos.y - camera.y) * tileSize;
+		
+		// Only draw if cursor is within viewport
+		if (screenX >= 0 && screenX < c.width && screenY >= 0 && screenY < c.height) {
+			ctx.strokeStyle = "rgba(255, 0, 0, 1)";
+			ctx.lineWidth = 2;
+			ctx.strokeRect(screenX, screenY, tileSize, tileSize);
+		}
+	},
+	
 	player: () => {
 		if (player.hp >= 1) canvas.drawEntity(player, "rgba(0, 0, 255, 0.5)", "pep");
 	},

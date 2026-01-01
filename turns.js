@@ -32,6 +32,7 @@ var turns = {
 			canvas.items();
 			canvas.player();
 			canvas.enemy();
+			canvas.cursor();
 		}
 
 		const currentEntity = entities[currentEntityIndex];
@@ -56,12 +57,13 @@ var turns = {
 			
 			const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
 			const enemyInViewport = this.isInViewport(currentEntity);
+			const timeout = 250;
 			
 			if (enemyHasSeenPlayer && enemyInViewport) {
 				setTimeout(() => {
 					this.enemyTurn(currentEntity);
 					update();
-				}, 250);
+				}, timeout);
 			} else {
 				this.enemyTurn(currentEntity);
 				update();
@@ -245,6 +247,18 @@ var turns = {
 			
 			if (entity === player) this.checkEnemyLOS();
 			update();
+		}
+	//	const trick = new MouseEvent('mousemove', {clientX: window.cursorWorldPos.x * tileSize, clientY: window.cursorWorldPos.y * tileSize});
+	//	input.mouse(trick);
+
+		// Important for cursor continuity
+		if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
+		if (!keyboardMode && mouse_pos.clientX && mouse_pos.clientY) {
+			const evt = new MouseEvent('mousemove', {
+				clientX: mouse_pos.clientX,
+				clientY: mouse_pos.clientY
+			});
+			input.mouse(evt);
 		}
 	},
 	

@@ -4,21 +4,19 @@ var isZoomedOut = false;
 var isMouseDown = false;
 var lastTile = null;
 var keyboardMode = false;
+var cursorVisible = false;
 
 var input = {
 	init: function() {
-		cursor.style.position = "absolute";
-		cursor.style.visibility = "hidden";
-		cursor.style.padding = (tileSize / 2) + "px";
-		cursor.style.border = "1px solid #FF0000";
-		cursor.style.pointerEvents = "auto";
+		// Initialize cursor position
+		window.cursorWorldPos = null;
+		cursorVisible = false;
 	},
 	
 	handleZoom: function(zoomOut) {
 		isZoomedOut = zoomOut;
 		tileSize = zoomOut ? tileSize / 2 : tileSize * 2;
 		viewportSize = zoomOut ? viewportSize * 2 : viewportSize / 2;
-		cursor.style.padding = (tileSize / 2) + "px";
 		
 		const currentEntity = entities[currentEntityIndex] || player;
 		camera = {
@@ -26,15 +24,7 @@ var input = {
 			y: currentEntity.y - Math.round((viewportSize / 2)) + 1
 		};
 		
-		update();
-		
-		if (mouse_pos.clientX && mouse_pos.clientY) {
-			const evt = new MouseEvent('mousemove', {
-				clientX: mouse_pos.clientX,
-				clientY: mouse_pos.clientY
-			});
-			input.mouse(evt);
-		}
+		update();	
 	},
 	
 	keyboard: function(event) {
@@ -48,6 +38,7 @@ var input = {
 			}
 			
 			keyboardMode = true;
+			cursorVisible = true;
 			document.body.style.cursor = 'none';
 			
 			switch(event.keyCode) {
@@ -59,24 +50,6 @@ var input = {
 			
 			window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
 			window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
-			
-			const gridX = window.cursorWorldPos.x - camera.x;
-			const gridY = window.cursorWorldPos.y - camera.y;
-			
-			const rect = c.getBoundingClientRect();
-			const canvasX = gridX * tileSize + tileSize / 2;
-			const canvasY = gridY * tileSize + tileSize / 2;
-			
-			mouse_pos = {
-				canvasX: canvasX,
-				canvasY: canvasY,
-				clientX: rect.left + canvasX,
-				clientY: rect.top + canvasY
-			};
-			
-			cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
-			cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
-			cursor.style.visibility = "visible";
 			
 			update();
 			
@@ -118,6 +91,7 @@ var input = {
 			event.preventDefault();
 			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
 				keyboardMode = true;
+				cursorVisible = true;
 				document.body.style.cursor = 'none';
 				
 				if (action.value === "attack") {
@@ -136,24 +110,6 @@ var input = {
 						}
 						
 						const target = visibleEnemies[window.targetIndex];
-						const gridX = target.x - camera.x;
-						const gridY = target.y - camera.y;
-						
-						const rect = c.getBoundingClientRect();
-						const canvasX = gridX * tileSize + tileSize / 2;
-						const canvasY = gridY * tileSize + tileSize / 2;
-						
-						mouse_pos = {
-							canvasX: canvasX,
-							canvasY: canvasY,
-							clientX: rect.left + canvasX,
-							clientY: rect.top + canvasY
-						};
-						
-						cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
-						cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
-						cursor.style.visibility = "visible";
-						
 						window.cursorWorldPos = {x: target.x, y: target.y};
 						update();
 						
@@ -173,24 +129,6 @@ var input = {
 						}
 						
 						const target = visibleItems[window.itemTargetIndex];
-						const gridX = target.x - camera.x;
-						const gridY = target.y - camera.y;
-						
-						const rect = c.getBoundingClientRect();
-						const canvasX = gridX * tileSize + tileSize / 2;
-						const canvasY = gridY * tileSize + tileSize / 2;
-						
-						mouse_pos = {
-							canvasX: canvasX,
-							canvasY: canvasY,
-							clientX: rect.left + canvasX,
-							clientY: rect.top + canvasY
-						};
-						
-						cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
-						cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
-						cursor.style.visibility = "visible";
-						
 						window.cursorWorldPos = {x: target.x, y: target.y};
 						update();
 					}
@@ -226,7 +164,6 @@ var input = {
 				
 				if (slotIndex >= 0 && slotIndex < player.inventory.length) {
 					if (typeof useItem !== 'undefined') {
-						//update();
 						useItem(player, slotIndex)
 					}
 				}
@@ -277,7 +214,6 @@ var input = {
 		if (keyboardMode) {
 			keyboardMode = false;
 			document.body.style.cursor = '';
-			window.cursorWorldPos = null;
 		}
 		
 		const rect = c.getBoundingClientRect();
@@ -294,8 +230,12 @@ var input = {
 		const gridX = Math.floor(canvasX / tileSize);
 		const gridY = Math.floor(canvasY / tileSize);
 		
-		cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
-		cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
+		// Update cursor world position
+		window.cursorWorldPos = {
+			x: camera.x + gridX,
+			y: camera.y + gridY
+		};
+		cursorVisible = true;
 
 		if (edit.checked && isMouseDown) {
 			const click_pos = {
@@ -323,33 +263,25 @@ var input = {
 			const endX = camera.x + gridX;
 			const endY = camera.y + gridY;
 			
-			cursor.style.visibility = "visible";
-
 			update();
 			const targetingTiles = calculateEntityTargeting(player, endX, endY);
 			if (targetingTiles.length > 0) {
 				canvas.los(targetingTiles);
 			}
 		} else {
-			cursor.style.visibility = "visible";
-			
-			const endX = camera.x + gridX;
-			const endY = camera.y + gridY;
-			window.cursorWorldPos = {x: endX, y: endY};
 			update();
 		}
 	},
 	
 	click: function() {
 		if (edit.checked) return;
-		
-		const gridX = Math.floor(mouse_pos.canvasX / tileSize);
-		const gridY = Math.floor(mouse_pos.canvasY / tileSize);
+		if (!window.cursorWorldPos) return;
 		
 		const click_pos = {
-			x: camera.x + gridX,
-			y: camera.y + gridY
+			x: window.cursorWorldPos.x,
+			y: window.cursorWorldPos.y
 		};
+
 
 		switch (action.value) {
 			case "move":
@@ -366,34 +298,17 @@ var input = {
 						currentEntityTurnsRemaining--;
 						update();
 					} else {
-						const preMoveScreenX = window.cursorWorldPos ? window.cursorWorldPos.x - camera.x : 0;
-						const preMoveScreenY = window.cursorWorldPos ? window.cursorWorldPos.y - camera.y : 0;
+						const preMoveScreenX = window.cursorWorldPos.x - camera.x;
+						const preMoveScreenY = window.cursorWorldPos.y - camera.y;
 						
 						turns.move(player, click_pos.x, click_pos.y);
 						
-						if (keyboardMode && window.cursorWorldPos) {
+						if (keyboardMode) {
 							window.cursorWorldPos.x = camera.x + preMoveScreenX;
 							window.cursorWorldPos.y = camera.y + preMoveScreenY;
 							
 							window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
 							window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
-							
-							const gridX = window.cursorWorldPos.x - camera.x;
-							const gridY = window.cursorWorldPos.y - camera.y;
-							
-							const rect = c.getBoundingClientRect();
-							const canvasX = gridX * tileSize + tileSize / 2;
-							const canvasY = gridY * tileSize + tileSize / 2;
-							
-							mouse_pos = {
-								canvasX: canvasX,
-								canvasY: canvasY,
-								clientX: rect.left + canvasX,
-								clientY: rect.top + canvasY
-							};
-							
-							cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
-							cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
 						}
 					}
 				}
@@ -441,8 +356,8 @@ var input = {
 					player.y = peekStartY;
 					exitPeekMode();
 				} else {
-					const preMoveScreenX = window.cursorWorldPos ? window.cursorWorldPos.x - camera.x : 0;
-					const preMoveScreenY = window.cursorWorldPos ? window.cursorWorldPos.y - camera.y : 0;
+					const preMoveScreenX = window.cursorWorldPos.x - camera.x;
+					const preMoveScreenY = window.cursorWorldPos.y - camera.y;
 					
 					const hadTargets = enemies.length > 0;
 					
@@ -469,29 +384,12 @@ var input = {
 					
 					update();
 					
-					if (keyboardMode && window.cursorWorldPos) {
+					if (keyboardMode) {
 						window.cursorWorldPos.x = camera.x + preMoveScreenX;
 						window.cursorWorldPos.y = camera.y + preMoveScreenY;
 						
 						window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
 						window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
-						
-						const gridX = window.cursorWorldPos.x - camera.x;
-						const gridY = window.cursorWorldPos.y - camera.y;
-						
-						const rect = c.getBoundingClientRect();
-						const canvasX = gridX * tileSize + tileSize / 2;
-						const canvasY = gridY * tileSize + tileSize / 2;
-						
-						mouse_pos = {
-							canvasX: canvasX,
-							canvasY: canvasY,
-							clientX: rect.left + canvasX,
-							clientY: rect.top + canvasY
-						};
-						
-						cursor.style.left = (rect.left + window.scrollX + gridX * tileSize) + "px";
-						cursor.style.top = (rect.top + window.scrollY + gridY * tileSize) + "px";
 					}
 					
 					if (action.value === "attack") {
@@ -508,38 +406,27 @@ var input = {
 	
 	right_click: function(event) {
 		event.preventDefault();
-		const gridX = Math.floor(mouse_pos.canvasX / tileSize);
-		const gridY = Math.floor(mouse_pos.canvasY / tileSize);
 		
-		const click_pos = {
-			x: camera.x + gridX,
-			y: camera.y + gridY
-		};
-		console.log(click_pos);
+		if (!window.cursorWorldPos) return;
 		
-		document.getElementById('spawn_x').value = click_pos.x;
-		document.getElementById('spawn_y').value = click_pos.y;
-		document.getElementById('player_x').value = click_pos.x;
-		document.getElementById('player_y').value = click_pos.y;
-		document.getElementById('item_x').value = click_pos.x;
-		document.getElementById('item_y').value = click_pos.y;
+		console.log(window.cursorWorldPos);
+		
+		document.getElementById('spawn_x').value = window.cursorWorldPos.x;
+		document.getElementById('spawn_y').value = window.cursorWorldPos.y;
+		document.getElementById('player_x').value = window.cursorWorldPos.x;
+		document.getElementById('player_y').value = window.cursorWorldPos.y;
+		document.getElementById('item_x').value = window.cursorWorldPos.x;
+		document.getElementById('item_y').value = window.cursorWorldPos.y;
 	},
 	
 	mousedown: function(event) {
 		if (event.button === 0) {
 			isMouseDown = true;
 			
-			if (edit.checked) {
-				const rect = c.getBoundingClientRect();
-				const canvasX = event.clientX - rect.left;
-				const canvasY = event.clientY - rect.top;
-				
-				const gridX = Math.floor(canvasX / tileSize);
-				const gridY = Math.floor(canvasY / tileSize);
-				
+			if (edit.checked && window.cursorWorldPos) {
 				const click_pos = {
-					x: camera.x + gridX,
-					y: camera.y + gridY
+					x: window.cursorWorldPos.x,
+					y: window.cursorWorldPos.y
 				};
 				
 				if (click_pos.x >= 0 && click_pos.y >= 0 && click_pos.x < size && click_pos.y < size) {

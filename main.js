@@ -2,7 +2,6 @@
 
 var c = document.getElementById("canvas");
 var ctx = c.getContext("2d");
-var cursor = document.getElementById("cursor");
 var action = document.getElementById("actions");
 var save_button = document.getElementById("save_button");
 var input = document.getElementById("file");
