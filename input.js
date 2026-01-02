@@ -50,6 +50,16 @@ var input = {
 				case 40: window.cursorWorldPos.y++; break;
 			}
 			
+			// Clamp to viewport bounds
+			const minX = camera.x;
+			const maxX = camera.x + viewportSize - 1;
+			const minY = camera.y;
+			const maxY = camera.y + viewportSize - 1;
+			
+			window.cursorWorldPos.x = Math.max(minX, Math.min(maxX, window.cursorWorldPos.x));
+			window.cursorWorldPos.y = Math.max(minY, Math.min(maxY, window.cursorWorldPos.y));
+			
+			// Also clamp to map bounds as fallback
 			window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
 			window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
 			
@@ -101,7 +111,9 @@ var input = {
 						e !== player && 
 						e.hp > 0 && 
 						(e.seenX !== 0 || e.seenY !== 0) &&
-						EntitySystem.hasLOS(player, e.x, e.y, true)
+						EntitySystem.hasLOS(player, e.x, e.y, true) &&
+						e.x >= camera.x && e.x < camera.x + viewportSize &&
+						e.y >= camera.y && e.y < camera.y + viewportSize
 					);
 					
 					if (visibleEnemies.length > 0) {
@@ -120,7 +132,9 @@ var input = {
 					}
 				} else if (action.value === "move") {
 					const visibleItems = mapItems.filter(item => {
-						return hasPermissiveLOS(player.x, player.y, item.x, item.y);
+						return hasPermissiveLOS(player.x, player.y, item.x, item.y) &&
+						       item.x >= camera.x && item.x < camera.x + viewportSize &&
+						       item.y >= camera.y && item.y < camera.y + viewportSize;
 					});
 					
 					if (visibleItems.length > 0) {
@@ -196,14 +210,24 @@ var input = {
 			window.targetIndex = 0;
 			window.itemTargetIndex = 0;
 			
-			update();
-			
-			if (!keyboardMode && mouse_pos.clientX && mouse_pos.clientY) {
-				const evt = new MouseEvent('mousemove', {
-					clientX: mouse_pos.clientX,
-					clientY: mouse_pos.clientY
-				});
-				input.mouse(evt);
+			// In keyboard mode, keep cursor position and render immediately
+			if (keyboardMode && window.cursorWorldPos) {
+				update();
+				
+				if (action.value === "attack") {
+					const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
+					if (targetingTiles.length > 0) canvas.los(targetingTiles);
+				}
+			} else {
+				update();
+				
+				if (mouse_pos.clientX && mouse_pos.clientY) {
+					const evt = new MouseEvent('mousemove', {
+						clientX: mouse_pos.clientX,
+						clientY: mouse_pos.clientY
+					});
+					input.mouse(evt);
+				}
 			}
 		}
 	},
