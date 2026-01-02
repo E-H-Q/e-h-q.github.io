@@ -29,8 +29,10 @@ var input = {
 	
 	keyboard: function(event) {
 		if (event.type !== 'keydown' && event.keyCode !== 16) return;
+		// Guard: only allow zoom during player turn
+		if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
 		
-		if ([37, 38, 39, 40].includes(event.keyCode)) {
+		if ([37, 38, 39, 40].includes(event.keyCode)) { // ARROW KEYS
 			event.preventDefault();
 			
 			if (!keyboardMode) {
@@ -172,8 +174,6 @@ var input = {
 		}
 		
 		if (event.keyCode === 16) { // SHIFT
-			// Guard: only allow zoom during player turn
-			if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
 			
 			if (event.type === 'keydown') {
 				if (!isZoomedOut) {
@@ -188,8 +188,6 @@ var input = {
 		if (event.keyCode === 9) { // TAB
 			event.preventDefault();
 			
-			// Guard: only allow mode switching during player turn
-			if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
 			if (isPeekMode && peekStep === 2) return;
 			
 			action.value = (action.value === "move") ? "attack" : "move";
