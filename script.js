@@ -138,18 +138,19 @@ function dropInventoryItem(event, inventoryIndex) {
 		if (inventoryIndex >= 0 && inventoryIndex < player.inventory.length) {
 			const item = player.inventory[inventoryIndex];
 			const itemDef = itemTypes[item.itemType];
+			const quantity = item.quantity || 1;
 			
 			if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
-				const droppedItem = {
-					x: player.x,
-					y: player.y,
-					itemType: item.itemType,
-					id: nextItemId++
-				};
-				for (var i = 0; i < item.quantity; i++) {
+				for (var i = 0; i < quantity; i++) {
+					const droppedItem = {
+						x: player.x,
+						y: player.y,
+						itemType: item.itemType,
+						id: nextItemId++
+					};
 					mapItems.push(droppedItem);
 				}
-				console.log(player.name + " dropped " + item.quantity + " " + itemDef.name);
+				console.log(player.name + " dropped " + quantity + " " + itemDef.name);
 			}
 			
 			player.inventory.splice(inventoryIndex, 1);
