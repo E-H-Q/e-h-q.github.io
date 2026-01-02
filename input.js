@@ -331,15 +331,57 @@ var input = {
 							screenOffsetY = window.cursorWorldPos.y - camera.y;
 						}
 						
+						// turns.move already calls update() internally, so we don't need to call it again
 						turns.move(player, click_pos.x, click_pos.y);
 						
-						// Restore cursor to same screen position AFTER camera moves
+						// Restore cursor to same screen position AFTER camera moves (only in keyboard mode)
 						if (keyboardMode) {
 							window.cursorWorldPos.x = camera.x + screenOffsetX;
 							window.cursorWorldPos.y = camera.y + screenOffsetY;
 							window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
 							window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
-							update();
+							
+							// Manually redraw the canvas to update cursor position without triggering turns.check again
+							canvas.init();
+							valid = [];
+							canvas.clear();
+							canvas.grid();
+							canvas.walls();
+							canvas.items();
+							canvas.drawOnionskin();
+							canvas.player();
+							canvas.enemy();
+							
+							populate.reset();
+							populate.enemies();
+							populate.player();
+							
+							// Recalculate movement range for the new turn
+							if (entities[currentEntityIndex] === player && action.value === "move") {
+								calc.move(player);
+							}
+							
+							// Draw path if in move mode
+							if (action.value === "move" && window.cursorWorldPos) {
+								const endX = window.cursorWorldPos.x;
+								const endY = window.cursorWorldPos.y;
+								
+								const isValid = valid.find(v => v.x === endX && v.y === endY);
+								
+								if (isValid && endX >= 0 && endX < size && endY >= 0 && endY < size) {
+									const graph = new Graph(pts, {diagonal: true});
+									const pathResult = astar.search(graph, graph.grid[player.x][player.y], graph.grid[endX][endY]);
+									if (pathResult && pathResult.length > 0) {
+										canvas.path(pathResult);
+									}
+								}
+							}
+							
+							canvas.cursor();
+							updateTurnOrder();
+							updateInventory();
+							updateEquipment();
+							updatePeekButton();
 						}
 					}
 				}
