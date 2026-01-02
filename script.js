@@ -61,7 +61,7 @@ function exitPeekMode() {
 	if (peekStep === 1) player.range = savedPlayerRange;
 	
 	isPeekMode = false;
-	peekStep = 0;
+	peekStep = 1;
 	action.disabled = false;
 	action.value = "move";
 	

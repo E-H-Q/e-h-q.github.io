@@ -230,6 +230,10 @@ var input = {
 				}
 			}
 		}
+		if (event.keyCode === 80) { // P - Peek mode
+			event.preventDefault();
+			activatePeekMode()
+		}
 	},
 	
 	mouse: function(event) {
