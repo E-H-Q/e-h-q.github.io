@@ -72,6 +72,10 @@ var turns = {
 		}
 
 		if (currentEntity === player && action.value === "move") calc.move(player);
+		if (currentEntity === player && action.value === "attack") {	
+			const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
+			if (targetingTiles.length > 0) canvas.los(targetingTiles);
+		}
 		if (currentEntity === player) this.checkEnemyLOS();
 	},
 	

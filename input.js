@@ -65,10 +65,10 @@ var input = {
 			
 			update();
 			
-			if (action.value === "attack") {
+		/*	if (action.value === "attack") {
 				const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
 				if (targetingTiles.length > 0) canvas.los(targetingTiles);
-			}
+			} */
 			
 			return;
 		}
@@ -127,8 +127,8 @@ var input = {
 						window.cursorWorldPos = {x: target.x, y: target.y};
 						update();
 						
-						const targetingTiles = calculateEntityTargeting(player, target.x, target.y);
-						canvas.los(targetingTiles);
+						//const targetingTiles = calculateEntityTargeting(player, target.x, target.y);
+						//canvas.los(targetingTiles);
 					}
 				} else if (action.value === "move") {
 					const visibleItems = mapItems.filter(item => {
@@ -214,10 +214,10 @@ var input = {
 			if (keyboardMode && window.cursorWorldPos) {
 				update();
 				
-				if (action.value === "attack") {
+				/*if (action.value === "attack") {
 					const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
 					if (targetingTiles.length > 0) canvas.los(targetingTiles);
-				}
+				}*/
 			} else {
 				update();
 				
@@ -290,10 +290,12 @@ var input = {
 			const endY = camera.y + gridY;
 			
 			update();
+			/*
 			const targetingTiles = calculateEntityTargeting(player, endX, endY);
 			if (targetingTiles.length > 0) {
-				canvas.los(targetingTiles);
+				//canvas.los(targetingTiles);
 			}
+			*/
 		} else {
 			update();
 		}
@@ -454,10 +456,10 @@ var input = {
 					
 					update();
 					
-					if (action.value === "attack") {
+					/*if (action.value === "attack") {
 						const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
 						canvas.los(targetingTiles);
-					}
+					}*/
 				}
 				break;
 				
