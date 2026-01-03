@@ -215,7 +215,8 @@ var turns = {
 		
 		for (let step of path) {
 			const isDiagonal = (step.x !== finalX && step.y !== finalY);
-			const stepCost = isDiagonal ? 1.5 : 1;
+			//const stepCost = isDiagonal ? 1.5 : 1;
+			const stepCost = isDiagonal ? 1 : 1; // allows enemy to move diagonally when range is 1?
 			
 			if (distanceMoved + stepCost <= entity.range) {
 				const occupied = entities.some(e => 

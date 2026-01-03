@@ -18,7 +18,7 @@ const EntitySystem = {
 		if (specialMode === 'peek' || entity.range === 1) {
 			const adjacentTiles = helper.getAdjacentTiles(entity.x, entity.y, true)
 				.filter(tile => !helper.tileBlocked(tile.x, tile.y));
-			return adjacentTiles;
+			return adjacentTiles.map(tile => ({x: tile.x, y: tile.y, path: [tile]}));
 		}
 		
 		circle(entity.y, entity.x, entity.range);
