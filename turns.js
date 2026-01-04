@@ -32,25 +32,21 @@ var turns = {
 			canvas.items();
 			canvas.player();
 			canvas.enemy();
-			//canvas.cursor();
 		}
 
 		const currentEntity = entities[currentEntityIndex];
 		
 		if (currentEntity !== player && currentEntityTurnsRemaining > 0) {
+			// Calculate once for both display and logic
 			const dist = calc.distance(currentEntity.x, player.x, currentEntity.y, player.y);
 			const effectiveRange = getEntityAttackRange(currentEntity);
-			
-			// Check if enemy will attack this turn
 			const canSeePlayer = EntitySystem.hasLOS(currentEntity, player.x, player.y, false);
 			const willAttack = canSeePlayer && dist <= effectiveRange;
 			
-			// Only show movement range if NOT attacking
+			// Display: show movement or attack range
 			if (!willAttack) {
 				calc.move(currentEntity);
-			}
-			
-			if (dist <= effectiveRange) {
+			} else {
 				const targetingTiles = calculateEntityTargeting(currentEntity, player.x, player.y);
 				canvas.los(targetingTiles);
 			}
@@ -61,11 +57,12 @@ var turns = {
 			
 			if (enemyHasSeenPlayer && enemyInViewport) {
 				setTimeout(() => {
-					this.enemyTurn(currentEntity);
+					// Pass pre-calculated values to avoid recalculation
+					this.enemyTurn(currentEntity, canSeePlayer, dist, effectiveRange);
 					update();
 				}, timeout);
 			} else {
-				this.enemyTurn(currentEntity);
+				this.enemyTurn(currentEntity, canSeePlayer, dist, effectiveRange);
 				update();
 			}
 			return;
@@ -99,21 +96,24 @@ var turns = {
 		});
 	},
 	
-	enemyTurn: function(entity) {
+	enemyTurn: function(entity, canSeePlayer, dist, effectiveRange) {
 		if (entity.hp < 1) {
 			currentEntityTurnsRemaining = 0;
 			return;
 		}
 
-		const dist = calc.distance(entity.x, player.x, entity.y, player.y);
-		const canSeePlayer = EntitySystem.hasLOS(entity, player.x, player.y, false);
-		const effectiveRange = getEntityAttackRange(entity);
+		// Use pre-calculated values if provided (from check()), otherwise calculate
+		if (canSeePlayer === undefined) {
+			dist = calc.distance(entity.x, player.x, entity.y, player.y);
+			canSeePlayer = EntitySystem.hasLOS(entity, player.x, player.y, false);
+			effectiveRange = getEntityAttackRange(entity);
+		}
 		
 		if (canSeePlayer) {
 			entity.seenX = player.x;
 			entity.seenY = player.y;
 			
-			if (dist <= effectiveRange && EntitySystem.hasLOS(entity, player.x, player.y, false)) {
+			if (dist <= effectiveRange) {
 				const targets = getTargetedEntities(entity, player.x, player.y);
 				
 				const hadTargets = targets.length > 0;
@@ -223,7 +223,10 @@ var turns = {
 					e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y
 				);
 				
-				if (!occupied) {
+				// Check if step is a wall
+				const isWall = walls.some(w => w.x === step.x && w.y === step.y);
+				
+				if (!occupied && !isWall) {
 					finalX = step.x;
 					finalY = step.y;
 					distanceMoved += stepCost;
