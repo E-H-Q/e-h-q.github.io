@@ -52,7 +52,7 @@ var itemTypes = {
 		type: "equipment",
 		slot: "weapon",
 		aimStyle: "cone",
-		spread: 3,
+		spread: 5,
 		effects: [
 			{stat: "damage", value: 5}
 		],
@@ -130,25 +130,17 @@ function getDestroyableWallsInTiles(tiles, originX, originY, canDestroy) {
 	if (!canDestroy) return [];
 	
 	const wallsToDestroy = [];
-	const checkedTiles = new Set();
+	const checkedWalls = new Set();
 	
+	// Check each cone tile to see if there's a wall on it
 	for (let tile of tiles) {
-		const tileKey = `${tile.x},${tile.y}`;
-		if (checkedTiles.has(tileKey)) continue;
-		checkedTiles.add(tileKey);
+		const wallKey = `${tile.x},${tile.y}`;
+		if (checkedWalls.has(wallKey)) continue;
 		
-		const rayPath = line({x: originX, y: originY}, {x: tile.x, y: tile.y});
-		
-		for (let i = 1; i < rayPath.length; i++) {
-			const point = rayPath[i];
-			const isWall = walls.find(w => w.x === point.x && w.y === point.y);
-			if (isWall) {
-				const wallKey = `${point.x},${point.y}`;
-				if (!wallsToDestroy.some(w => `${w.x},${w.y}` === wallKey)) {
-					wallsToDestroy.push({x: point.x, y: point.y});
-				}
-				break;
-			}
+		const isWall = walls.find(w => w.x === tile.x && w.y === tile.y);
+		if (isWall) {
+			checkedWalls.add(wallKey);
+			wallsToDestroy.push({x: tile.x, y: tile.y});
 		}
 	}
 	
@@ -209,12 +201,17 @@ function calculateEntityTargeting(entity, endX, endY) {
 
 	if (aimStyle === "cone") {
 		const spread = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.spread || 3 : 3;
-		const coneEndpoint = path[path.length - 1];
-		let tiles = calculateCone(path, entity.x, entity.y, coneEndpoint.x, coneEndpoint.y, effectiveRange, spread);
+		
+		// Calculate cone using the blocked path (respects walls)
+		let tiles = calculateCone(path, entity.x, entity.y, endX, endY, effectiveRange, spread);
 
 		if (canDestroy) {
+			// Only add destroyable walls when breaching is available
 			const wallsToDestroy = getDestroyableWallsInTiles(tiles, entity.x, entity.y, canDestroy);
-			return [...tiles, ...wallsToDestroy];
+			// Deduplicate using Set with coordinate strings
+			const tileSet = new Set(tiles.map(t => `${t.x},${t.y}`));
+			const uniqueWalls = wallsToDestroy.filter(w => !tileSet.has(`${w.x},${w.y}`));
+			return [...tiles, ...uniqueWalls];
 		}
 		return tiles;
 	} else if (aimStyle === "area") {
@@ -238,7 +235,10 @@ function calculateEntityTargeting(entity, endX, endY) {
 		const allTiles = [...path, ...uniqueAreaTiles];
 		if (canDestroy) {
 			const wallsToDestroy = getDestroyableWallsInTiles(allTiles, center.x, center.y, canDestroy);
-			return [...allTiles, ...wallsToDestroy];
+			// Deduplicate walls
+			const tileSet = new Set(allTiles.map(t => `${t.x},${t.y}`));
+			const uniqueWalls = wallsToDestroy.filter(w => !tileSet.has(`${w.x},${w.y}`));
+			return [...allTiles, ...uniqueWalls];
 		}
 		return allTiles;
 	} else if (aimStyle === "pierce") {
@@ -300,8 +300,7 @@ function getTargetedEntities(attacker, endX, endY) {
 		if (path.length === 0) return [];
 
 		const spread = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType]?.spread || 3 : 3;
-		const coneEndpoint = path[path.length - 1];
-		return getEntitiesInCone(path, attacker.x, attacker.y, coneEndpoint.x, coneEndpoint.y, effectiveRange, spread);
+		return getEntitiesInCone(path, attacker.x, attacker.y, endX, endY, effectiveRange, spread);
 	}
 
 	for (let entity of entities) {

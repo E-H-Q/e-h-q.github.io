@@ -69,12 +69,9 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 	spread = spread || 3;
 	const coneTiles = new Set();
 	
-	// Use raw line instead of LOS-blocked path for center direction
-	const rawCenterPath = line({x: startX, y: startY}, {x: endX, y: endY});
-	let centerPath = rawCenterPath.slice(1); // Remove start position
-	if (centerPath.length > maxRange) {
-		centerPath = centerPath.slice(0, maxRange);
-	}
+	// Use the provided path (which is already LOS-blocked) as center
+	// This ensures the center ray doesn't go through walls
+	let centerPath = path.length > 0 ? path : [];
 	
 	// Add center path tiles
 	for (let point of centerPath) {
@@ -96,28 +93,34 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 	const perpX = -dy / distance;
 	const perpY = dx / distance;
 	
-	const tilesPerSide = Math.floor(spread / 2);
+	// Spread value is the total width, so each side gets (spread - 1) / 2 rays
+	const tilesPerSide = Math.floor((spread - 1) / 2);
 	const allSidePaths = [];
 	
 	// Generate side rays
 	for (let side of [-1, 1]) {
 		for (let offset = 1; offset <= tilesPerSide; offset++) {
-			// Scale offset based on distance to create cone shape
-			const spreadAmount = offset * (1 + distance / maxRange * 0.5);
+			// Calculate the side ray endpoint directly from shooter position
+			// This creates parallel rays instead of a spreading cone
+			const dirX = dx / distance;
+			const dirY = dy / distance;
 			
-			const offsetX = Math.round(endX + perpX * spreadAmount * side);
-			const offsetY = Math.round(endY + perpY * spreadAmount * side);
+			// Extend ray to max range in the forward direction
+			const rayEndX = Math.round(startX + dirX * maxRange + perpX * offset * side);
+			const rayEndY = Math.round(startY + dirY * maxRange + perpY * offset * side);
 			
-			if (hasPermissiveLOS(startX, startY, offsetX, offsetY)) {
-				const sideLook = {
-					start: { x: startX, y: startY },
-					end: { x: offsetX, y: offsetY }
-				};
-				let sidePath = calc.los(sideLook);
-				
+			// Use strict LOS (calc.los) instead of permissive LOS
+			const sideLook = {
+				start: { x: startX, y: startY },
+				end: { x: rayEndX, y: rayEndY }
+			};
+			let sidePath = calc.los(sideLook);
+			
+			// Only include this ray if it has valid LOS
+			if (sidePath.length > 1) {
 				if (sidePath.length > maxRange + 1) {
 					sidePath = sidePath.slice(1, maxRange + 1);
-				} else if (sidePath.length > 1) {
+				} else {
 					sidePath = sidePath.slice(1);
 				}
 				
@@ -155,7 +158,11 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 			
 			const fillLine = line({x: pt1.x, y: pt1.y}, {x: pt2.x, y: pt2.y});
 			for (let pt of fillLine) {
-				coneTiles.add(`${pt.x},${pt.y}`);
+				// Only add non-wall tiles to cone (walls will be added separately if canDestroy)
+				const isWall = walls.find(w => w.x === pt.x && w.y === pt.y);
+				if (!isWall) {
+					coneTiles.add(`${pt.x},${pt.y}`);
+				}
 			}
 		}
 	}
