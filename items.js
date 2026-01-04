@@ -52,7 +52,7 @@ var itemTypes = {
 		type: "equipment",
 		slot: "weapon",
 		aimStyle: "cone",
-		spread: 5,
+		spread: 3,
 		effects: [
 			{stat: "damage", value: 5}
 		],
