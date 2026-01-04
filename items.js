@@ -335,7 +335,6 @@ function spawnItem(itemType, x, y) {
 
 function giveItem(entity, itemType) {
 	if (!entity.inventory) entity.inventory = [];
-
 	const itemDef = itemTypes[itemType];
 	
 	// Try to stack if it's a stackable consumable
