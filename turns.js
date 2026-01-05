@@ -25,6 +25,11 @@ var turns = {
 				x: currentEntity.x - Math.round(viewportSize / 2) + 1,
 				y: currentEntity.y - Math.round(viewportSize / 2) + 1
 			};
+			
+			// Center cursor on current entity (enemy or player)
+			window.cursorWorldPos = {x: currentEntity.x, y: currentEntity.y};
+			cursorVisible = true;
+			
 			canvas.init();
 			canvas.clear();
 			canvas.grid();
@@ -143,21 +148,33 @@ var turns = {
 	
 	enemyRandomMove: function(entity) {
 		const moves = [[-1,-1],[0,-1],[1,-1],[-1,0],[0,0],[1,0],[-1,1],[0,1],[1,1]];
-		const [dx, dy] = moves[Math.floor(Math.random() * 9)];
 		
-		const newX = entity.x + dx;
-		const newY = entity.y + dy;
-		
-		if (newX < 0 || newY < 0 || newX >= size || newY >= size) {
-			currentEntityTurnsRemaining--;
-			return;
+		// Shuffle moves array to randomize order
+		for (let i = moves.length - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			[moves[i], moves[j]] = [moves[j], moves[i]];
 		}
 		
-		if (pts[newX]?.[newY] !== 0) {
-			entity.x = newX;
-			entity.y = newY;
-			if (typeof pickupItem !== 'undefined') pickupItem(entity, entity.x, entity.y);
+		// Try each direction until we find a valid one
+		for (let [dx, dy] of moves) {
+			const newX = entity.x + dx;
+			const newY = entity.y + dy;
+			
+			// Check bounds
+			if (newX < 0 || newY < 0 || newX >= size || newY >= size) continue;
+			
+			// Check if tile is blocked by wall or entity
+			const isWall = walls.some(w => w.x === newX && w.y === newY);
+			const isOccupied = entities.some(e => e !== entity && e.hp > 0 && e.x === newX && e.y === newY);
+			
+			if (!isWall && !isOccupied) {
+				entity.x = newX;
+				entity.y = newY;
+				if (typeof pickupItem !== 'undefined') pickupItem(entity, entity.x, entity.y);
+				break; // Successfully moved, exit loop
+			}
 		}
+		
 		currentEntityTurnsRemaining--;
 	},
 	
