@@ -130,17 +130,25 @@ function getDestroyableWallsInTiles(tiles, originX, originY, canDestroy) {
 	if (!canDestroy) return [];
 	
 	const wallsToDestroy = [];
-	const checkedWalls = new Set();
+	const checkedTiles = new Set();
 	
-	// Check each cone tile to see if there's a wall on it
 	for (let tile of tiles) {
-		const wallKey = `${tile.x},${tile.y}`;
-		if (checkedWalls.has(wallKey)) continue;
+		const tileKey = `${tile.x},${tile.y}`;
+		if (checkedTiles.has(tileKey)) continue;
+		checkedTiles.add(tileKey);
 		
-		const isWall = walls.find(w => w.x === tile.x && w.y === tile.y);
-		if (isWall) {
-			checkedWalls.add(wallKey);
-			wallsToDestroy.push({x: tile.x, y: tile.y});
+		const rayPath = line({x: originX, y: originY}, {x: tile.x, y: tile.y});
+		
+		for (let i = 1; i < rayPath.length; i++) {
+			const point = rayPath[i];
+			const isWall = walls.find(w => w.x === point.x && w.y === point.y);
+			if (isWall) {
+				const wallKey = `${point.x},${point.y}`;
+				if (!wallsToDestroy.some(w => `${w.x},${w.y}` === wallKey)) {
+					wallsToDestroy.push({x: point.x, y: point.y});
+				}
+				break;
+			}
 		}
 	}
 	
@@ -206,9 +214,22 @@ function calculateEntityTargeting(entity, endX, endY) {
 		let tiles = calculateCone(path, entity.x, entity.y, endX, endY, effectiveRange, spread);
 
 		if (canDestroy) {
-			// Only add destroyable walls when breaching is available
-			const wallsToDestroy = getDestroyableWallsInTiles(tiles, entity.x, entity.y, canDestroy);
-			// Deduplicate using Set with coordinate strings
+			// For cone: only add walls that are ON cone tiles, not along rays
+			const wallsToDestroy = [];
+			const checkedWalls = new Set();
+			
+			for (let tile of tiles) {
+				const isWall = walls.find(w => w.x === tile.x && w.y === tile.y);
+				if (isWall) {
+					const wallKey = `${tile.x},${tile.y}`;
+					if (!checkedWalls.has(wallKey)) {
+						checkedWalls.add(wallKey);
+						wallsToDestroy.push({x: tile.x, y: tile.y});
+					}
+				}
+			}
+			
+			// Deduplicate using Set
 			const tileSet = new Set(tiles.map(t => `${t.x},${t.y}`));
 			const uniqueWalls = wallsToDestroy.filter(w => !tileSet.has(`${w.x},${w.y}`));
 			return [...tiles, ...uniqueWalls];
@@ -235,10 +256,7 @@ function calculateEntityTargeting(entity, endX, endY) {
 		const allTiles = [...path, ...uniqueAreaTiles];
 		if (canDestroy) {
 			const wallsToDestroy = getDestroyableWallsInTiles(allTiles, center.x, center.y, canDestroy);
-			// Deduplicate walls
-			const tileSet = new Set(allTiles.map(t => `${t.x},${t.y}`));
-			const uniqueWalls = wallsToDestroy.filter(w => !tileSet.has(`${w.x},${w.y}`));
-			return [...allTiles, ...uniqueWalls];
+			return [...allTiles, ...wallsToDestroy];
 		}
 		return allTiles;
 	} else if (aimStyle === "pierce") {
