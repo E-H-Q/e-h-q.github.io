@@ -41,6 +41,7 @@ var itemTypes = {
 		type: "equipment",
 		slot: "weapon",
 		aimStyle: "direct",
+		maxAmmo: 6,
 		effects: [
 			{stat: "damage", value: 3},
 			{stat: "attack_range", value: 4}
@@ -53,6 +54,7 @@ var itemTypes = {
 		slot: "weapon",
 		aimStyle: "cone",
 		spread: 3,
+		maxAmmo: 2,
 		effects: [
 			{stat: "damage", value: 5}
 		],
@@ -74,6 +76,7 @@ var itemTypes = {
 		aimStyle: "area",
 		areaRadius: 2,
 		canDestroy: true,
+		maxAmmo: 1,
 		effects: [{stat: "damage", value: 25},
 			{stat: "attack_range", value: 3}
 		],
@@ -85,6 +88,7 @@ var itemTypes = {
 		slot: "weapon",
 		aimStyle: "pierce",
 		burst: 3,
+		maxAmmo: 3,
 		effects: [{stat: "damage", value: 3},
 			{stat: "attack_range", value: 1}
 		],
@@ -164,6 +168,59 @@ function getEntityAttackRange(entity) {
 	}
 
 	return entity.attack_range;
+}
+
+function hasAmmo(entity) {
+	if (!entity.equipment?.weapon) return true;
+	const weapon = entity.equipment.weapon;
+	const weaponDef = itemTypes[weapon.itemType];
+	
+	if (weaponDef.maxAmmo === undefined) return true;
+	
+	// Initialize ammo if not set
+	if (weapon.currentAmmo === undefined) {
+		weapon.currentAmmo = weaponDef.maxAmmo;
+	}
+	
+	return weapon.currentAmmo > 0;
+}
+
+function consumeAmmo(entity) {
+	if (!entity.equipment?.weapon) return;
+	const weapon = entity.equipment.weapon;
+	const weaponDef = itemTypes[weapon.itemType];
+	
+	if (weaponDef.maxAmmo === undefined) return;
+	
+	if (weapon.currentAmmo === undefined) {
+		weapon.currentAmmo = weaponDef.maxAmmo;
+	}
+	
+	weapon.currentAmmo = Math.max(0, weapon.currentAmmo - 1);
+}
+
+function reloadWeapon(entity) {
+	if (!entity.equipment?.weapon) return false;
+	const weapon = entity.equipment.weapon;
+	const weaponDef = itemTypes[weapon.itemType];
+	
+	if (weaponDef.maxAmmo === undefined) {
+		console.log(entity.name + "'s weapon doesn't need reloading!");
+		return false;
+	}
+	
+	if (weapon.currentAmmo === undefined) {
+		weapon.currentAmmo = weaponDef.maxAmmo;
+	}
+	
+	if (weapon.currentAmmo >= weaponDef.maxAmmo) {
+		console.log(entity.name + "'s weapon is already fully loaded!");
+		return false;
+	}
+	
+	weapon.currentAmmo = weaponDef.maxAmmo;
+	console.log(entity.name + " reloaded their " + weaponDef.name + "!");
+	return true;
 }
 
 function calculateEntityTargeting(entity, endX, endY) {
@@ -377,6 +434,11 @@ function giveItem(entity, itemType) {
 		newItem.quantity = 1;
 	}
 	
+	// Initialize ammo for weapons
+	if (itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
+		newItem.currentAmmo = itemDef.maxAmmo;
+	}
+	
 	entity.inventory.push(newItem);
 	console.log(entity.name + " received " + itemDef.name);
 
@@ -438,7 +500,13 @@ function pickupItem(entity, x, y) {
 		if (entity !== player && itemDef.type === "equipment" && shouldEnemyEquip(entity, itemDef)) {
 			if (!entity.equipment) entity.equipment = {};
 			if (entity.equipment[itemDef.slot]) unequipItem(entity, itemDef.slot);
-			entity.equipment[itemDef.slot] = {itemType: mostRecent.item.itemType, id: mostRecent.item.id};
+			
+			const pickedItem = {itemType: mostRecent.item.itemType, id: mostRecent.item.id};
+			if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
+				pickedItem.currentAmmo = itemDef.maxAmmo;
+			}
+			
+			entity.equipment[itemDef.slot] = pickedItem;
 			applyEquipmentEffects(entity, itemDef, true);
 			console.log(entity.name + " equipped " + itemDef.name);
 			mapItems.splice(mostRecent.index, 1);
@@ -466,6 +534,11 @@ function pickupItem(entity, x, y) {
 		const newItem = {itemType: mostRecent.item.itemType, id: mostRecent.item.id};
 		if (itemDef.type === "consumable") {
 			newItem.quantity = 1;
+		}
+		
+		// Initialize ammo for weapons
+		if (itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
+			newItem.currentAmmo = itemDef.maxAmmo;
 		}
 		
 		entity.inventory.push(newItem);

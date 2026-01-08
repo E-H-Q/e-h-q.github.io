@@ -119,15 +119,16 @@ var turns = {
 			entity.seenY = player.y;
 			
 			if (dist <= effectiveRange) {
-				const targets = getTargetedEntities(entity, player.x, player.y);
-				
-				const hadTargets = targets.length > 0;
-				for (let target of targets) {
-					EntitySystem.attack(entity, target);
+				// Check if enemy needs to reload before attacking
+				if (!hasAmmo(entity)) {
+					if (reloadWeapon(entity)) {
+						currentEntityTurnsRemaining--;
+					}
+					return;
 				}
-				const destroyedWalls = EntitySystem.destroyWalls(entity, player.x, player.y);
 				
-				if (hadTargets || destroyedWalls) {
+				// Use unified attack system
+				if (EntitySystem.attack(entity, player.x, player.y)) {
 					currentEntityTurnsRemaining--;
 				}
 			} else {

@@ -90,25 +90,59 @@ const EntitySystem = {
 		return this.hasLOS(entity, target.x, target.y, entity === player);
 	},
 	
-	attack: function(attacker, target) {
-		const hitRoll = calc.roll(6);
-		
-		if (hitRoll >= 4) {
-			const baseDmg = calc.roll(6) + (attacker.damage || 0);
-			const armor = target.armor || 0;
-			const dmgRoll = Math.max(1, baseDmg - armor);
-			
-			target.hp -= dmgRoll;
-			if (target.seenX !== undefined) {
-				target.seenX = attacker.x;
-				target.seenY = attacker.y;
+	attack: function(attacker, targetX, targetY) {
+		// Check ammo before attacking
+		if (!hasAmmo(attacker)) {
+			if (attacker === player) {
+				console.log("Out of ammo! Press R to reload.");
 			}
-			
-			console.log(attacker.name + " hits " + target.name + " for " + dmgRoll + " DMG!");
-			if (target.hp <= 0) this.dropAllItems(target);
+			return false;
+		}
+		
+		const weaponDef = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType] : null;
+		const targets = getTargetedEntities(attacker, targetX, targetY);
+		const enemies = targets.filter(e => e !== attacker && e.hp > 0);
+		
+		let attackedAnyone = false;
+		
+		// Perform burst attacks on all targets
+		const burstCount = weaponDef?.burst || 1;
+		for (let burst = 0; burst < burstCount; burst++) {
+			for (let enemy of enemies) {
+				if (enemy.hp > 0) {
+					const hitRoll = calc.roll(6);
+					
+					if (hitRoll >= 4) {
+						const baseDmg = calc.roll(6) + (attacker.damage || 0);
+						const armor = enemy.armor || 0;
+						const dmgRoll = Math.max(1, baseDmg - armor);
+						
+						enemy.hp -= dmgRoll;
+						if (enemy.seenX !== undefined) {
+							enemy.seenX = attacker.x;
+							enemy.seenY = attacker.y;
+						}
+						
+						console.log(attacker.name + " hits " + enemy.name + " for " + dmgRoll + " DMG!");
+						if (enemy.hp <= 0) this.dropAllItems(enemy);
+					} else {
+						console.log(attacker.name + " attacks and misses " + enemy.name + "...");
+					}
+					
+					attackedAnyone = true;
+				}
+			}
+		}
+		
+		// Try to destroy walls
+		const destroyedWalls = this.destroyWalls(attacker, targetX, targetY);
+		
+		// Consume ammo once per attack action if we attacked anyone or destroyed walls
+		if (attackedAnyone || destroyedWalls) {
+			consumeAmmo(attacker);
 			return true;
 		}
-		console.log(attacker.name + " attacks and misses " + target.name + "...");
+		
 		return false;
 	},
 	
@@ -126,10 +160,10 @@ const EntitySystem = {
 			const wallIndex = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
 			if (wallIndex >= 0) {
 				const wallEntity = {name: "wall", hp: 1, x: tile.x, y: tile.y, armor: 0};
-				if (this.attack(attacker, wallEntity)) {
-					walls.splice(wallIndex, 1);
-					destroyedAny = true;
-				}
+				// Don't use EntitySystem.attack for walls, just remove them directly
+				walls.splice(wallIndex, 1);
+				console.log(attacker.name + " destroyed a wall!");
+				destroyedAny = true;
 			}
 		});
 		return destroyedAny;

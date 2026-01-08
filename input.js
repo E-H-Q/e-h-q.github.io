@@ -65,11 +65,6 @@ var input = {
 			
 			update();
 			
-		/*	if (action.value === "attack") {
-				const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
-				if (targetingTiles.length > 0) canvas.los(targetingTiles);
-			} */
-			
 			return;
 		}
 		
@@ -96,6 +91,25 @@ var input = {
 			edit.checked = !edit.checked;
 			if (edit.checked && !isZoomedOut) input.handleZoom(true);
 			document.getElementById('size-input-container').style.display = edit.checked ? 'inline-block' : 'none';
+			return;
+		}
+		
+		if (event.keyCode === 82) { // R - Reload
+			event.preventDefault();
+			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
+				if (reloadWeapon(player)) {
+					exitPeekMode();
+					currentEntityTurnsRemaining--;
+					
+					if (currentEntityTurnsRemaining <= 0) {
+						currentEntityIndex++;
+						if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+						currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+					}
+					
+					update();
+				}
+			}
 			return;
 		}
 		
@@ -126,9 +140,6 @@ var input = {
 						const target = visibleEnemies[window.targetIndex];
 						window.cursorWorldPos = {x: target.x, y: target.y};
 						update();
-						
-						//const targetingTiles = calculateEntityTargeting(player, target.x, target.y);
-						//canvas.los(targetingTiles);
 					}
 				} else if (action.value === "move") {
 					const visibleItems = mapItems.filter(item => {
@@ -213,11 +224,6 @@ var input = {
 			// In keyboard mode, keep cursor position and render immediately
 			if (keyboardMode && window.cursorWorldPos) {
 				update();
-				
-				/*if (action.value === "attack") {
-					const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
-					if (targetingTiles.length > 0) canvas.los(targetingTiles);
-				}*/
 			} else {
 				update();
 				
@@ -290,12 +296,6 @@ var input = {
 			const endY = camera.y + gridY;
 			
 			update();
-			/*
-			const targetingTiles = calculateEntityTargeting(player, endX, endY);
-			if (targetingTiles.length > 0) {
-				//canvas.los(targetingTiles);
-			}
-			*/
 		} else {
 			update();
 		}
@@ -390,8 +390,11 @@ var input = {
 				break;
 				
 			case "attack":
-				const targetsInArea = getTargetedEntities(player, click_pos.x, click_pos.y);
-				const enemies = targetsInArea.filter(e => e !== player && e.hp > 0);
+				// Check ammo FIRST before doing any calculations
+				if (!hasAmmo(player)) {
+					console.log("Out of ammo! Press R to reload.");
+					return;
+				}
 				
 				const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
 				
@@ -405,46 +408,24 @@ var input = {
 				
 				if (dist > effectiveRange || !hasLOS) return;
 				
+				const targetsInArea = getTargetedEntities(player, click_pos.x, click_pos.y);
+				const enemies = targetsInArea.filter(e => e !== player && e.hp > 0);
 				const hasWalls = canDestroy && targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y));
 				const hasTargets = targetingTiles.length > 0 && (enemies.length > 0 || hasWalls);
 				
 				if (!hasTargets) return;
 
 				if (isPeekMode && peekStep === 2) {
-					const hadTargets = enemies.length > 0;
-					
-					const burstCount = weaponDef?.burst || 1;
-					for (let burst = 0; burst < burstCount; burst++) {
-						for (let enemy of enemies) {
-							if (enemy.hp > 0) {
-								EntitySystem.attack(player, enemy);
-							}
-						}
-					}
-					
-					const destroyedWalls = EntitySystem.destroyWalls(player, click_pos.x, click_pos.y);
-					
-					if (hadTargets || destroyedWalls) {
+					// Use unified attack system
+					if (EntitySystem.attack(player, click_pos.x, click_pos.y)) {
 						currentEntityTurnsRemaining--;
 					}
 					player.x = peekStartX;
 					player.y = peekStartY;
 					exitPeekMode();
 				} else {
-					const hadTargets = enemies.length > 0;
-					
-					const burstCount = weaponDef?.burst || 1;
-					for (let burst = 0; burst < burstCount; burst++) {
-						for (let enemy of enemies) {
-							if (enemy.hp > 0) {
-								EntitySystem.attack(player, enemy);
-							}
-						}
-					}
-					
-					const destroyedWalls = EntitySystem.destroyWalls(player, click_pos.x, click_pos.y);
-					
-					if (hadTargets || destroyedWalls) {
+					// Use unified attack system
+					if (EntitySystem.attack(player, click_pos.x, click_pos.y)) {
 						currentEntityTurnsRemaining--;
 					}
 					
@@ -455,11 +436,6 @@ var input = {
 					}
 					
 					update();
-					
-					/*if (action.value === "attack") {
-						const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
-						canvas.los(targetingTiles);
-					}*/
 				}
 				break;
 				

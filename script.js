@@ -189,9 +189,17 @@ function updateEquipment() {
 				effectsStr += 'Attacks destroy terrain';
 			}
 			
+			// Add ammo display for weapons
+			let ammoStr = '';
+			if (slot === "weapon" && itemDef.maxAmmo !== undefined) {
+				const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
+				ammoStr = '<br><span style="color: ' + (currentAmmo === 0 ? '#ff0000' : '#ffff00') + ';">Ammo: ' + currentAmmo + '/' + itemDef.maxAmmo + '</span>';
+			}
+			
 			html += '<div class="equipment-item" onclick="unequipSlot(\'' + slot + '\')">' +
 			        slot.toUpperCase() + ': ' + itemDef.displayName + '<br>' +
-			        ' <span style="color: #0f0;">(' + effectsStr + ')</span>' +
+			        '<span style="color: #0f0;">(' + effectsStr + ')</span>' +
+			        ammoStr +
 			        '<br><span style="font-size: 10px; color: #888;">Click to unequip</span></div>';
 		} else {
 			html += '<div style="padding: 5px; margin: 3px 0; color: #888;">' +
