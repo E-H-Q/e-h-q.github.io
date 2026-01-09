@@ -106,12 +106,14 @@ const EntitySystem = {
 		
 		let attackedAnyone = false;
 		
-		// Break glass walls in the attack path first
-		const glassDestroyed = this.breakGlassInPath(attacker, targetX, targetY);
-		
 		// Perform burst attacks on all targets
 		const burstCount = weaponDef?.burst || 1;
 		for (let burst = 0; burst < burstCount; burst++) {
+			// Destroy walls (including glass) for each burst
+			if (this.destroyWalls(attacker, targetX, targetY)) {
+				attackedAnyone = true;
+			}
+			
 			for (let enemy of enemies) {
 				if (enemy.hp > 0) {
 					const hitRoll = calc.roll(6);
@@ -138,11 +140,8 @@ const EntitySystem = {
 			}
 		}
 		
-		// Try to destroy solid walls
-		const destroyedWalls = this.destroyWalls(attacker, targetX, targetY);
-		
-		// Consume ammo once per attack action if we attacked anyone or destroyed walls
-		if (attackedAnyone || destroyedWalls || glassDestroyed) {
+		// Consume ammo once per attack action
+		if (attackedAnyone) {
 			consumeAmmo(attacker);
 			return true;
 		}
@@ -150,55 +149,38 @@ const EntitySystem = {
 		return false;
 	},
 	
-	breakGlassInPath: function(attacker, targetX, targetY) {
-		const weaponDef = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType] : null;
-		const accessoryDef = attacker.equipment?.accessory ? itemTypes[attacker.equipment.accessory.itemType] : null;
-		const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
-		
-		const targetingTiles = calculateEntityTargeting(attacker, targetX, targetY);
-		let brokeSomething = false;
-		
-		targetingTiles.forEach(tile => {
-			const wallIndex = walls.findIndex(w => w.x === tile.x && w.y === tile.y && w.type === 'glass');
-			if (wallIndex >= 0) {
-				const wall = walls[wallIndex];
-				
-				if (canDestroy) {
-					walls.splice(wallIndex, 1);
-					console.log(attacker.name + " shattered glass!");
-					brokeSomething = true;
-				} else if (wall.damaged) {
-					walls.splice(wallIndex, 1);
-					console.log(attacker.name + " shattered glass!");
-					brokeSomething = true;
-				} else {
-					wall.damaged = true;
-					console.log(attacker.name + " cracked the glass!");
-					brokeSomething = true;
-				}
-			}
-		});
-		
-		return brokeSomething;
-	},
-	
 	destroyWalls: function(attacker, targetX, targetY) {
 		const weaponDef = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType] : null;
 		const accessoryDef = attacker.equipment?.accessory ? itemTypes[attacker.equipment.accessory.itemType] : null;
 		const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
 		
-		if (!canDestroy) return false;
-		
-		let destroyedAny = false;
 		const targetingTiles = calculateEntityTargeting(attacker, targetX, targetY);
+		let destroyedAny = false;
+		
 		targetingTiles.forEach(tile => {
-			const wallIndex = walls.findIndex(w => w.x === tile.x && w.y === tile.y && w.type !== 'glass');
+			const wallIndex = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
 			if (wallIndex >= 0) {
-				walls.splice(wallIndex, 1);
-				console.log(attacker.name + " destroyed a wall!");
-				destroyedAny = true;
+				const wall = walls[wallIndex];
+				
+				if (wall.type === 'glass') {
+					if (canDestroy || wall.damaged) {
+						walls.splice(wallIndex, 1);
+						console.log(attacker.name + " destroyed glass!");
+						destroyedAny = true;
+					} else {
+						wall.damaged = true;
+						destroyedAny = true;
+					}
+				} else {
+					if (canDestroy) {
+						walls.splice(wallIndex, 1);
+						console.log(attacker.name + " destroyed a wall!");
+						destroyedAny = true;
+					}
+				}
 			}
 		});
+		
 		return destroyedAny;
 	},
 	

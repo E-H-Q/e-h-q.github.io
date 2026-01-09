@@ -221,7 +221,7 @@ var calc = {
 	los: function(look) {
 		const path = line(look.start, look.end);
 		
-		// Find the earliest wall in the path (glass blocks attacks)
+		// Find the earliest wall in the path
 		let earliestWallIndex = path.length;
 		for (let wall of walls) {
 			const wallIndex = path.findIndex(el => el.x === wall.x && el.y === wall.y);
