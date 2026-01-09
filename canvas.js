@@ -48,9 +48,24 @@ var canvas = {
 	},
 	
 	walls: () => {
-		ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
 		walls.forEach(wall => {
-			ctx.fillRect((wall.x - camera.x) * tileSize, (wall.y - camera.y) * tileSize, tileSize, tileSize);
+			const screenX = (wall.x - camera.x) * tileSize;
+			const screenY = (wall.y - camera.y) * tileSize;
+			
+			if (wall.type === 'glass') {
+				ctx.fillStyle = "rgba(0, 100, 255, 0.5)";
+				ctx.fillRect(screenX, screenY, tileSize, tileSize);
+				
+				if (wall.damaged) {
+					const img = document.getElementById("broken");
+					if (img && img.complete) {
+						ctx.drawImage(img, screenX, screenY, tileSize, tileSize);
+					}
+				}
+			} else {
+				ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
+				ctx.fillRect(screenX, screenY, tileSize, tileSize);
+			}
 		});
 	},
 	

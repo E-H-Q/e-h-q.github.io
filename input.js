@@ -8,7 +8,6 @@ var cursorVisible = false;
 
 var input = {
 	init: function() {
-		// Initialize cursor position
 		window.cursorWorldPos = null;
 		cursorVisible = false;
 	},
@@ -29,15 +28,12 @@ var input = {
 	
 	keyboard: function(event) {
 		if (event.type !== 'keydown' && event.keyCode !== 16) return;
-		// Guard: only allow zoom during player turn
 		if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
 		
 		if ([37, 38, 39, 40].includes(event.keyCode)) { // ARROW KEYS
 			event.preventDefault();
 			
-			if (!keyboardMode) {
-				window.cursorWorldPos = {x: player.x, y: player.y};
-			}
+			if (!keyboardMode) window.cursorWorldPos = {x: player.x, y: player.y};
 			
 			keyboardMode = true;
 			cursorVisible = true;
@@ -50,21 +46,12 @@ var input = {
 				case 40: window.cursorWorldPos.y++; break;
 			}
 			
-			// Clamp to viewport bounds
-			const minX = camera.x;
-			const maxX = camera.x + viewportSize - 1;
-			const minY = camera.y;
-			const maxY = camera.y + viewportSize - 1;
-			
-			window.cursorWorldPos.x = Math.max(minX, Math.min(maxX, window.cursorWorldPos.x));
-			window.cursorWorldPos.y = Math.max(minY, Math.min(maxY, window.cursorWorldPos.y));
-			
-			// Also clamp to map bounds as fallback
+			window.cursorWorldPos.x = Math.max(camera.x, Math.min(camera.x + viewportSize - 1, window.cursorWorldPos.x));
+			window.cursorWorldPos.y = Math.max(camera.y, Math.min(camera.y + viewportSize - 1, window.cursorWorldPos.y));
 			window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
 			window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
 			
 			update();
-			
 			return;
 		}
 		
@@ -167,8 +154,7 @@ var input = {
 		if (event.keyCode === 190) {
 			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining > 0) {
 				if (typeof pickupItem !== 'undefined') {
-					pickupItem(entities[currentEntityIndex],
-					entities[currentEntityIndex].x, entities[currentEntityIndex].y);
+					pickupItem(entities[currentEntityIndex], entities[currentEntityIndex].x, entities[currentEntityIndex].y);
 				}
 				currentEntityTurnsRemaining--;
 				console.log(player.name + " waits...");
@@ -183,11 +169,10 @@ var input = {
 			return;
 		}
 		
-		// Number keys 1-9 and 0 for inventory slots
 		if (event.keyCode >= 48 && event.keyCode <= 57) {
 			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
-				let slotIndex = event.keyCode - 49; // 49 is keyCode for '1'
-				if (event.keyCode === 48) slotIndex = 9; // 0 key maps to slot 10
+				let slotIndex = event.keyCode - 49;
+				if (event.keyCode === 48) slotIndex = 9;
 				
 				if (slotIndex >= 0 && slotIndex < player.inventory.length) {
 					if (typeof useItem !== 'undefined') {
@@ -199,7 +184,6 @@ var input = {
 		}
 		
 		if (event.keyCode === 16) { // SHIFT
-			
 			if (event.type === 'keydown') {
 				if (!isZoomedOut) {
 					input.handleZoom(true);
@@ -221,7 +205,6 @@ var input = {
 			window.targetIndex = 0;
 			window.itemTargetIndex = 0;
 			
-			// In keyboard mode, keep cursor position and render immediately
 			if (keyboardMode && window.cursorWorldPos) {
 				update();
 			} else {
@@ -262,7 +245,6 @@ var input = {
 		const gridX = Math.floor(canvasX / tileSize);
 		const gridY = Math.floor(canvasY / tileSize);
 		
-		// Update cursor world position
 		window.cursorWorldPos = {
 			x: camera.x + gridX,
 			y: camera.y + gridY
@@ -280,12 +262,15 @@ var input = {
 			if (!lastTile || lastTile.x !== click_pos.x || lastTile.y !== click_pos.y) {
 				lastTile = {x: click_pos.x, y: click_pos.y};
 				
+				const tileType = document.getElementById('tile-type').value;
 				const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
+				
 				if (dup < 0) {
-					walls.push(new calc.coordinate(click_pos.x, click_pos.y));
+					walls.push({x: click_pos.x, y: click_pos.y, type: tileType});
 				} else {
 					walls.splice(dup, 1);
 				}
+				
 				update();
 			}
 			return;
@@ -310,7 +295,6 @@ var input = {
 			y: window.cursorWorldPos.y
 		};
 
-
 		switch (action.value) {
 			case "move":
 				const validClick = valid.find(v => v.x === click_pos.x && v.y === click_pos.y);
@@ -326,24 +310,20 @@ var input = {
 						currentEntityTurnsRemaining--;
 						update();
 					} else {
-						// Store screen offset BEFORE move in keyboard mode
 						let screenOffsetX, screenOffsetY;
 						if (keyboardMode) {
 							screenOffsetX = window.cursorWorldPos.x - camera.x;
 							screenOffsetY = window.cursorWorldPos.y - camera.y;
 						}
 						
-						// turns.move already calls update() internally, so we don't need to call it again
 						turns.move(player, click_pos.x, click_pos.y);
 						
-						// Restore cursor to same screen position AFTER camera moves (only in keyboard mode)
 						if (keyboardMode) {
 							window.cursorWorldPos.x = camera.x + screenOffsetX;
 							window.cursorWorldPos.y = camera.y + screenOffsetY;
 							window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
 							window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
 							
-							// Manually redraw the canvas to update cursor position without triggering turns.check again
 							canvas.init();
 							valid = [];
 							canvas.clear();
@@ -358,12 +338,10 @@ var input = {
 							populate.enemies();
 							populate.player();
 							
-							// Recalculate movement range for the new turn
 							if (entities[currentEntityIndex] === player && action.value === "move") {
 								calc.move(player);
 							}
 							
-							// Draw path if in move mode
 							if (action.value === "move" && window.cursorWorldPos) {
 								const endX = window.cursorWorldPos.x;
 								const endY = window.cursorWorldPos.y;
@@ -390,33 +368,36 @@ var input = {
 				break;
 				
 			case "attack":
-				// Check ammo FIRST before doing any calculations
 				if (!hasAmmo(player)) {
 					console.log("Out of ammo! Press R to reload.");
 					return;
 				}
 				
-				const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
-				
-				const accessoryDef = player.equipment?.accessory ? itemTypes[player.equipment.accessory.itemType] : null;
-				const weaponDef = player.equipment?.weapon ? itemTypes[player.equipment.weapon.itemType] : null;
-				const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
-				
 				const effectiveRange = getEntityAttackRange(player);
 				const dist = calc.distance(player.x, click_pos.x, player.y, click_pos.y);
+				
+				// Use permissive LOS that sees through glass
 				const hasLOS = hasPermissiveLOS(player.x, player.y, click_pos.x, click_pos.y);
 				
 				if (dist > effectiveRange || !hasLOS) return;
 				
+				const targetingTiles = calculateEntityTargeting(player, click_pos.x, click_pos.y);
+				const accessoryDef = player.equipment?.accessory ? itemTypes[player.equipment.accessory.itemType] : null;
+				const weaponDef = player.equipment?.weapon ? itemTypes[player.equipment.weapon.itemType] : null;
+				const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
+				
 				const targetsInArea = getTargetedEntities(player, click_pos.x, click_pos.y);
 				const enemies = targetsInArea.filter(e => e !== player && e.hp > 0);
-				const hasWalls = canDestroy && targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y));
-				const hasTargets = targetingTiles.length > 0 && (enemies.length > 0 || hasWalls);
+				const hasWalls = canDestroy && targetingTiles.some(t => {
+					const w = walls.find(w => w.x === t.x && w.y === t.y);
+					return w && w.type !== 'glass';
+				});
+				const hasGlass = targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'glass'));
+				const hasTargets = targetingTiles.length > 0 && (enemies.length > 0 || hasWalls || hasGlass);
 				
 				if (!hasTargets) return;
 
 				if (isPeekMode && peekStep === 2) {
-					// Use unified attack system
 					if (EntitySystem.attack(player, click_pos.x, click_pos.y)) {
 						currentEntityTurnsRemaining--;
 					}
@@ -424,7 +405,6 @@ var input = {
 					player.y = peekStartY;
 					exitPeekMode();
 				} else {
-					// Use unified attack system
 					if (EntitySystem.attack(player, click_pos.x, click_pos.y)) {
 						currentEntityTurnsRemaining--;
 					}
@@ -472,12 +452,15 @@ var input = {
 				if (click_pos.x >= 0 && click_pos.y >= 0 && click_pos.x < size && click_pos.y < size) {
 					lastTile = {x: click_pos.x, y: click_pos.y};
 					
+					const tileType = document.getElementById('tile-type').value;
 					const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
+					
 					if (dup < 0) {
-						walls.push(new calc.coordinate(click_pos.x, click_pos.y));
+						walls.push({x: click_pos.x, y: click_pos.y, type: tileType});
 					} else {
 						walls.splice(dup, 1);
 					}
+					
 					update();
 				}
 			}

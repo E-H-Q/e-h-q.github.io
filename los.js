@@ -51,7 +51,8 @@ function hasPermissiveLOS(startX, startY, endX, endY) {
 		let blocked = false;
 		for (let i = 1; i < path.length - 1; i++) {
 			const point = path[i];
-			if (walls.find(w => w.x === point.x && w.y === point.y)) {
+			const wall = walls.find(w => w.x === point.x && w.y === point.y);
+			if (wall && wall.type !== 'glass') {
 				blocked = true;
 				break;
 			}
@@ -70,7 +71,6 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 	const coneTiles = new Set();
 	
 	// Use the provided path (which is already LOS-blocked) as center
-	// This ensures the center ray doesn't go through walls
 	let centerPath = path.length > 0 ? path : [];
 	
 	// Add center path tiles
@@ -100,8 +100,6 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 	// Generate side rays
 	for (let side of [-1, 1]) {
 		for (let offset = 1; offset <= tilesPerSide; offset++) {
-			// Calculate the side ray endpoint directly from shooter position
-			// This creates parallel rays instead of a spreading cone
 			const dirX = dx / distance;
 			const dirY = dy / distance;
 			
@@ -109,12 +107,17 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 			const rayEndX = Math.round(startX + dirX * maxRange + perpX * offset * side);
 			const rayEndY = Math.round(startY + dirY * maxRange + perpY * offset * side);
 			
-			// Use strict LOS (calc.los) instead of permissive LOS
-			const sideLook = {
-				start: { x: startX, y: startY },
-				end: { x: rayEndX, y: rayEndY }
-			};
-			let sidePath = calc.los(sideLook);
+			// Build path that sees through glass
+			let sidePath = line({x: startX, y: startY}, {x: rayEndX, y: rayEndY});
+			
+			// Stop at solid walls only
+			for (let i = 1; i < sidePath.length; i++) {
+				const wall = walls.find(w => w.x === sidePath[i].x && w.y === sidePath[i].y);
+				if (wall && wall.type !== 'glass') {
+					sidePath = sidePath.slice(0, i);
+					break;
+				}
+			}
 			
 			// Only include this ray if it has valid LOS
 			if (sidePath.length > 1) {
@@ -158,11 +161,8 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 			
 			const fillLine = line({x: pt1.x, y: pt1.y}, {x: pt2.x, y: pt2.y});
 			for (let pt of fillLine) {
-				// Only add non-wall tiles to cone (walls will be added separately if canDestroy)
-				const isWall = walls.find(w => w.x === pt.x && w.y === pt.y);
-				if (!isWall) {
-					coneTiles.add(`${pt.x},${pt.y}`);
-				}
+				// Add all tiles including glass
+				coneTiles.add(`${pt.x},${pt.y}`);
 			}
 		}
 	}

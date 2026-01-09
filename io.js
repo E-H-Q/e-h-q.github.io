@@ -24,37 +24,36 @@ function load_map() {
 		const load = event.target.result;
 
 		var lines = load.split('\n');
-		size = JSON.parse(lines[0]); // will need to be modified for sizeX and sizeY when they exist
-		resizePtsArray(); // Resize pts array to match new map size
-		var loaded_walls = lines[1]; // reads the second line (map data)
-		var loaded_enemies = lines[2]; // reads the third line (enemy/entity data)
-		var loaded_player = lines[3]; // reads the fourth line (player position data)
-		var loaded_items = lines[4]; // reads the fifth line (items data)
+		size = JSON.parse(lines[0]);
+		resizePtsArray();
+		var loaded_walls = lines[1];
+		var loaded_enemies = lines[2];
+		var loaded_player = lines[3];
+		var loaded_items = lines[4];
 
-		//walls = [];
 		if (!loaded_walls) {
 			console.log("Failed to load map!");
 			return;
 		} else {
 			walls = JSON.parse(loaded_walls);
+			
+			// Convert old wall format to new format
+			walls = walls.map(wall => wall.type ? wall : {x: wall.x, y: wall.y, type: 'wall'});
+			
 			if (loaded_enemies) {
 				allEnemies = JSON.parse(loaded_enemies);
 			} else {
 				allEnemies = [];
 			}
 			
-			// Load player position if available
 			if (loaded_player) {
 				player = JSON.parse(loaded_player);
 				
-				// Reapply equipment effects after loading using helper function
 				if (player.equipment) {
-					// Reset to base stats
-					player.attack_range = 4; // Default player attack range
+					player.attack_range = 4;
 					player.damage = 0;
 					player.armor = 0;
 					
-					// Reapply all equipped items
 					for (let slot in player.equipment) {
 						if (player.equipment[slot]) {
 							const itemDef = itemTypes[player.equipment[slot].itemType];
@@ -68,11 +67,9 @@ function load_map() {
 				updatePlayer();
 			}
 			
-			// Load items if available
 			if (loaded_items) {
 				try {
 					mapItems = JSON.parse(loaded_items);
-					// Update nextItemId to be higher than any loaded item id
 					if (mapItems.length > 0) {
 						const maxId = Math.max(...mapItems.map(item => item.id));
 						nextItemId = maxId + 1;
@@ -86,9 +83,7 @@ function load_map() {
 				mapItems = [];
 			}
 			
-			// Check enemy LOS after loading
 			turns.checkEnemyLOS();
-			
 			update();
 		}
 	};

@@ -228,69 +228,31 @@ function calculateEntityTargeting(entity, endX, endY) {
 	const canDestroy = canEntityDestroyWalls(entity);
 	const effectiveRange = getEntityAttackRange(entity);
 
-	// Get normal LOS path (stops at walls)
-	let path = calc.los({start: {x: entity.x, y: entity.y}, end: {x: endX, y: endY}});
+	// Get path that sees through glass
+	let path = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
+	
+	// Stop at solid walls only
+	for (let i = 1; i < path.length; i++) {
+		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+		if (wall && wall.type !== 'glass') {
+			path = path.slice(0, i);
+			break;
+		}
+	}
+	
+	// Limit to range
 	if (path.length > effectiveRange + 1) {
 		path = path.slice(1, effectiveRange + 1);
 	} else {
 		path = path.slice(1);
 	}
 
-	// If path is blocked and can destroy, include the wall
-	if (canDestroy) {
-		const rawPath = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
-		const limitedRawPath = rawPath.length > effectiveRange + 1 ? 
-			rawPath.slice(1, effectiveRange + 1) : rawPath.slice(1);
-
-		for (let i = 0; i < limitedRawPath.length; i++) {
-			const tile = limitedRawPath[i];
-			const isWall = walls.find(w => w.x === tile.x && w.y === tile.y);
-			if (isWall) {
-				path = limitedRawPath.slice(0, i + 1);
-				break;
-			}
-		}
-	}
-
-	// Return empty if path is blocked (for all aim styles) UNLESS we can destroy and target is in range
-	if (path.length === 0) {
-		if (canDestroy) {
-			const dist = calc.distance(entity.x, endX, entity.y, endY);
-			const isWall = walls.find(w => w.x === endX && w.y === endY);
-			if (dist <= effectiveRange && isWall) {
-				return [{x: endX, y: endY}];
-			}
-		}
-		return [];
-	}
+	// Return empty if no valid path
+	if (path.length === 0) return [];
 
 	if (aimStyle === "cone") {
 		const spread = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.spread || 3 : 3;
-		
-		// Calculate cone using the blocked path (respects walls)
 		let tiles = calculateCone(path, entity.x, entity.y, endX, endY, effectiveRange, spread);
-
-		if (canDestroy) {
-			// For cone: only add walls that are ON cone tiles, not along rays
-			const wallsToDestroy = [];
-			const checkedWalls = new Set();
-			
-			for (let tile of tiles) {
-				const isWall = walls.find(w => w.x === tile.x && w.y === tile.y);
-				if (isWall) {
-					const wallKey = `${tile.x},${tile.y}`;
-					if (!checkedWalls.has(wallKey)) {
-						checkedWalls.add(wallKey);
-						wallsToDestroy.push({x: tile.x, y: tile.y});
-					}
-				}
-			}
-			
-			// Deduplicate using Set
-			const tileSet = new Set(tiles.map(t => `${t.x},${t.y}`));
-			const uniqueWalls = wallsToDestroy.filter(w => !tileSet.has(`${w.x},${w.y}`));
-			return [...tiles, ...uniqueWalls];
-		}
 		return tiles;
 	} else if (aimStyle === "area") {
 		const areaRadius = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.areaRadius || 2 : 2;
@@ -306,20 +268,24 @@ function calculateEntityTargeting(entity, endX, endY) {
 				}
 			}
 		}
+		
+		// Add glass walls in the explosion radius
+		walls.forEach(wall => {
+			if (wall.type === 'glass') {
+				const dist = Math.max(Math.abs(wall.x - center.x), Math.abs(wall.y - center.y));
+				if (dist <= areaRadius) {
+					areaTiles.push({x: wall.x, y: wall.y});
+				}
+			}
+		});
 
 		const pathSet = new Set(path.map(p => `${p.x},${p.y}`));
 		const uniqueAreaTiles = areaTiles.filter(tile => !pathSet.has(`${tile.x},${tile.y}`));
 
-		const allTiles = [...path, ...uniqueAreaTiles];
-		if (canDestroy) {
-			const wallsToDestroy = getDestroyableWallsInTiles(allTiles, center.x, center.y, canDestroy);
-			return [...allTiles, ...wallsToDestroy];
-		}
-		return allTiles;
+		return [...path, ...uniqueAreaTiles];
 	} else if (aimStyle === "pierce") {
 		return path;
 	} else if (aimStyle === "melee") {
-		// Melee only targets adjacent tiles
 		return path;
  	}
 
@@ -331,7 +297,17 @@ function getTargetedEntities(attacker, endX, endY) {
 	const effectiveRange = getEntityAttackRange(attacker);
 
 	if (aimStyle === "standard" || aimStyle === "melee") {
-		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
+		let path = line({x: attacker.x, y: attacker.y}, {x: endX, y: endY});
+		
+		// Stop at solid walls only
+		for (let i = 1; i < path.length; i++) {
+			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+			if (wall && wall.type !== 'glass') {
+				path = path.slice(0, i);
+				break;
+			}
+		}
+		
 		path = path.length > effectiveRange + 1 ? path.slice(1, effectiveRange + 1) : path.slice(1);
 
 		for (let tile of path) {
@@ -343,7 +319,17 @@ function getTargetedEntities(attacker, endX, endY) {
 		}
 		return [];
 	} else if (aimStyle === "area") {
-		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
+		let path = line({x: attacker.x, y: attacker.y}, {x: endX, y: endY});
+		
+		// Stop at solid walls only
+		for (let i = 1; i < path.length; i++) {
+			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+			if (wall && wall.type !== 'glass') {
+				path = path.slice(0, i);
+				break;
+			}
+		}
+		
 		if (path.length === 0) return [];
 
 		path = path.length > effectiveRange + 1 ? path.slice(1, effectiveRange + 1) : path.slice(1);
@@ -365,11 +351,31 @@ function getTargetedEntities(attacker, endX, endY) {
 
 		return getEntitiesInArea(areaTiles);
 	} else if (aimStyle === "pierce") {
-		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
+		let path = line({x: attacker.x, y: attacker.y}, {x: endX, y: endY});
+		
+		// Stop at solid walls only
+		for (let i = 1; i < path.length; i++) {
+			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+			if (wall && wall.type !== 'glass') {
+				path = path.slice(0, i);
+				break;
+			}
+		}
+		
 		path = path.length > effectiveRange + 1 ? path.slice(1, effectiveRange + 1) : path.slice(1);
 		return getEntitiesInPath(path);
 	} else if (aimStyle === "cone") {
-		let path = calc.los({start: {x: attacker.x, y: attacker.y}, end: {x: endX, y: endY}});
+		let path = line({x: attacker.x, y: attacker.y}, {x: endX, y: endY});
+		
+		// Stop at solid walls only
+		for (let i = 1; i < path.length; i++) {
+			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+			if (wall && wall.type !== 'glass') {
+				path = path.slice(0, i);
+				break;
+			}
+		}
+		
 		path = path.length > effectiveRange + 1 ? path.slice(1, effectiveRange + 1) : path.slice(1);
 
 		if (path.length === 0) return [];
