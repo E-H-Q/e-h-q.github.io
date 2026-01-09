@@ -10,7 +10,6 @@ var turns = {
 			music.play();
 			music.loop = false;
 			music.playbackRate = 1.5;
-			c.style = "pointer-events: none;";
 			console.log("YOU DIED\n");
 			return;
 		}
@@ -25,10 +24,6 @@ var turns = {
 				x: currentEntity.x - Math.round(viewportSize / 2) + 1,
 				y: currentEntity.y - Math.round(viewportSize / 2) + 1
 			};
-			
-			// Center cursor on current entity (enemy or player)
-			window.cursorWorldPos = {x: currentEntity.x, y: currentEntity.y};
-			cursorVisible = true;
 			
 			canvas.init();
 			canvas.clear();
