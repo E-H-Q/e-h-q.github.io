@@ -152,7 +152,10 @@ var input = {
 		}
 		
 		if (event.keyCode === 190) {
-			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining > 0) {
+			if (isPeekMode) {
+				exitPeekMode();
+				return;
+			} else if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining > 0) {
 				if (typeof pickupItem !== 'undefined') {
 					pickupItem(entities[currentEntityIndex], entities[currentEntityIndex].x, entities[currentEntityIndex].y);
 				}

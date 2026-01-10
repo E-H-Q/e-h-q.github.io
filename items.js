@@ -649,7 +649,12 @@ function useItem(entity, inventoryIndex) {
 		} else {
 			entity.inventory.splice(inventoryIndex, 1);
 		}
+
 		currentEntityTurnsRemaining--; // Use a turn phase for consumables
+		if (isPeekMode) {
+			exitPeekMode();
+			return;
+		}
 	} else if (itemDef.type === "equipment") {
 		equipItem(entity, inventoryIndex);
 		//if (entity === player && typeof currentEntityTurnsRemaining !== 'undefined') currentEntityTurnsRemaining++;
