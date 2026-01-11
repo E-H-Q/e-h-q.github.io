@@ -42,14 +42,16 @@ function updatePeekButton() {
 
 function activatePeekMode() {
 	if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining >= 2) {
-		isPeekMode = true;
-		peekStep = 1;
-		peekStartX = player.x;
-		peekStartY = player.y;
-		savedPlayerRange = player.range;
-		player.range = 1;
-		action.value = "move";
-		action.disabled = false;
+		if (!isPeekMode) {
+			isPeekMode = true;
+			peekStep = 1;
+			peekStartX = player.x;
+			peekStartY = player.y;
+			savedPlayerRange = player.range;
+			player.range = Math.floor(player.range / 2);
+			action.value = "move";
+			action.disabled = false;
+		}
 		
 		update();
 	}

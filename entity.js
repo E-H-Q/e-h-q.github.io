@@ -16,7 +16,61 @@ const EntitySystem = {
 	},
 	
 	calculateMovement: function(entity, specialMode = null) {
-		if (specialMode === 'peek' || entity.range === 1) {
+		if (specialMode === 'peek') {
+			const peekRange = Math.floor(savedPlayerRange / 2);
+			
+			if (peekRange === 1) {
+				const adjacentTiles = helper.getAdjacentTiles(entity.x, entity.y, true)
+					.filter(tile => !helper.tileBlocked(tile.x, tile.y));
+				return adjacentTiles.map(tile => ({x: tile.x, y: tile.y, path: [tile]}));
+			}
+			
+			// For peek mode, calculate limited range movement
+			circle(entity.y, entity.x, peekRange);
+			convert();
+			if (!pts) return [];
+			
+			const graph = new Graph(pts, {diagonal: true});
+			entities.forEach(e => {
+				if (e !== entity && e.hp > 0 && pts[e.x]?.[e.y] !== undefined) pts[e.x][e.y] = 0;
+			});
+			
+			const validMoves = [];
+			const minX = Math.max(0, entity.x - peekRange - 1);
+			const maxX = Math.min(pts.length - 1, entity.x + peekRange + 1);
+			const minY = Math.max(0, entity.y - peekRange - 1);
+			const maxY = Math.min(pts.length - 1, entity.y + peekRange + 1);
+			
+			for (let i = minX; i <= maxX; i++) {
+				for (let j = minY; j <= maxY; j++) {
+					if (pts[i][j] === 1) {
+						const res = astar.search(graph, graph.grid[entity.x][entity.y], graph.grid[i][j]);
+						if (res.length > 0) {
+							let pathCost = 0;
+							let diagonalCount = 0;
+							
+							for (let k = 0; k < res.length; k++) {
+								const prev = k === 0 ? {x: entity.x, y: entity.y} : res[k - 1];
+								const curr = res[k];
+								const isDiagonal = (prev.x !== curr.x && prev.y !== curr.y);
+								
+								if (isDiagonal) {
+									diagonalCount++;
+									pathCost += (diagonalCount % 2 === 0) ? 2 : 1;
+								} else {
+									pathCost += 1;
+								}
+							}
+							
+							if (pathCost <= peekRange) validMoves.push({x: i, y: j, path: res});
+						}
+					}
+				}
+			}
+			return validMoves;
+		}
+		
+		if (entity.range === 1) {
 			const adjacentTiles = helper.getAdjacentTiles(entity.x, entity.y, true)
 				.filter(tile => !helper.tileBlocked(tile.x, tile.y));
 			return adjacentTiles.map(tile => ({x: tile.x, y: tile.y, path: [tile]}));
