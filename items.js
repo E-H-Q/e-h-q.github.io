@@ -5,36 +5,35 @@ var nextItemId = 0;
 var maxInventorySlots = 10;
 var maxStackSize = 10;
 
-var itemTypes = {
+// Consumables data
+const consumablesData = {
     healthPotion: {
         name: "Health Potion",
         type: "consumable",
         effect: "heal",
         value: 10,
-        displayName: "HP Potion",
+        displayName: "HP Potion"
     },
     speedPotion: {
         name: "Speed Potion",
         type: "consumable",
         effect: "speed",
         value: 2,
-        displayName: "Speed Potion",
-    },
-    scope: {
-        name: "Scope",
+        displayName: "Speed Potion"
+    }
+};
+
+// Weapons data
+const weaponsData = {
+    knife: {
+        name: "Knife",
         type: "equipment",
-        slot: "accessory",
+        slot: "weapon",
+        aimStyle: "melee",
         effects: [
-            {stat: "attack_range", value: 4}
+            {stat: "damage", value: 7}
         ],
-        displayName: "Scope"
-    },
-    breachingKit: {
-        name: "Breaching Kit",
-        type: "equipment",
-        slot: "accessory",
-        grantsDestroy: true,
-        displayName: "Breaching Kit"
+        displayName: "+7 Knife"
     },
     rifle: {
         name: "Rifle",
@@ -60,6 +59,37 @@ var itemTypes = {
         ],
         displayName: "+5 Shotgun"
     },
+    rocketLauncher: {
+        name: "Rocket Launcher",
+        type: "equipment",
+        slot: "weapon",
+        aimStyle: "area",
+        areaRadius: 2,
+        canDestroy: true,
+        maxAmmo: 1,
+        effects: [
+            {stat: "damage", value: 25},
+            {stat: "attack_range", value: 3}
+        ],
+        displayName: "Rocket Launcher"
+    },
+    machinegun: {
+        name: "Machine Gun",
+        type: "equipment",
+        slot: "weapon",
+        aimStyle: "pierce",
+        burst: 3,
+        maxAmmo: 3,
+        effects: [
+            {stat: "damage", value: 3},
+            {stat: "attack_range", value: 1}
+        ],
+        displayName: "Machine Gun"
+    }
+};
+
+// Equipment data (armor & accessories)
+const equipmentData = {
     kevlarVest: {
         name: "Kevlar Vest",
         type: "equipment",
@@ -69,42 +99,27 @@ var itemTypes = {
         ],
         displayName: "Kevlar Vest"
     },
-    rocketLauncher: {
-        name: "Rocket Launcher",
+    scope: {
+        name: "Scope",
         type: "equipment",
-        slot: "weapon",
-        aimStyle: "area",
-        areaRadius: 2,
-        canDestroy: true,
-        maxAmmo: 1,
-        effects: [{stat: "damage", value: 25},
-            {stat: "attack_range", value: 3}
-        ],
-            displayName: "Rocket Launcher"
-    },
-    machinegun: {
-        name: "Machine Gun",
-        type: "equipment",
-        slot: "weapon",
-        aimStyle: "pierce",
-        burst: 3,
-        maxAmmo: 3,
-        effects: [{stat: "damage", value: 3},
-            {stat: "attack_range", value: 1}
-        ],
-            displayName: "Machine Gun"
-    },
-    knife: {
-        name: "Knife",
-        type: "equipment",
-        slot: "weapon",
-        aimStyle: "melee",
+        slot: "accessory",
         effects: [
-            {stat: "damage", value: 7}
+            {stat: "attack_range", value: 4}
         ],
-        displayName: "+7 Knife"
+        displayName: "Scope"
+    },
+    breachingKit: {
+        name: "Breaching Kit",
+        type: "equipment",
+        slot: "accessory",
+        grantsDestroy: true,
+        displayName: "Breaching Kit"
     }
 };
+
+// Combine all item types
+var itemTypes = {...consumablesData, ...weaponsData, ...equipmentData};
+var itemsLoaded = true;
 
 const itemLabels = {
     healthPotion: "HP+",
@@ -226,10 +241,8 @@ function calculateEntityTargeting(entity, endX, endY) {
     const canDestroy = canEntityDestroyWalls(entity);
     const effectiveRange = getEntityAttackRange(entity);
 
-    // Full line of sight (goes through glass)
     let path = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
     
-    // For normal targeting: stop at solid walls unless we can destroy
     if (!canDestroy) {
         for (let i = 1; i < path.length; i++) {
             const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
@@ -240,7 +253,6 @@ function calculateEntityTargeting(entity, endX, endY) {
         }
     }
     
-    // Limit to effective range
     if (path.length > effectiveRange + 1) {
         path = path.slice(1, effectiveRange + 1);
     } else {
@@ -441,7 +453,6 @@ function giveItem(entity, itemType) {
 	if (!entity.inventory) entity.inventory = [];
 	const itemDef = itemTypes[itemType];
 	
-	// Try to stack if it's a stackable consumable
 	if (itemDef.type === "consumable") {
 		for (let item of entity.inventory) {
 			if (item.itemType === itemType && (item.quantity || 1) < maxStackSize) {
@@ -453,7 +464,6 @@ function giveItem(entity, itemType) {
 		}
 	}
 	
-	// Check inventory limit
 	if (entity === player && entity.inventory.length >= maxInventorySlots) {
 		console.log("Inventory full!");
 		return false;
@@ -464,7 +474,6 @@ function giveItem(entity, itemType) {
 		newItem.quantity = 1;
 	}
 	
-	// Initialize ammo for weapons
 	if (itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
 		newItem.currentAmmo = itemDef.maxAmmo;
 	}
@@ -509,10 +518,21 @@ function updateItemDropdown() {
 	itemDropdown.innerHTML = '';
 
 	for (let key in itemTypes) {
-		if (itemTypes[key].type === category) {
+		const itemDef = itemTypes[key];
+		let matches = false;
+		
+		if (category === "consumables" && itemDef.type === "consumable") {
+			matches = true;
+		} else if (category === "weapons" && itemDef.type === "equipment" && itemDef.slot === "weapon") {
+			matches = true;
+		} else if (category === "equipment" && itemDef.type === "equipment" && itemDef.slot !== "weapon") {
+			matches = true;
+		}
+		
+		if (matches) {
 			const option = document.createElement('option');
 			option.value = key;
-			option.textContent = itemTypes[key].name;
+			option.textContent = itemDef.name;
 			itemDropdown.appendChild(option);
 		}
 	}
@@ -543,7 +563,6 @@ function pickupItem(entity, x, y) {
 			return true;
 		}
 
-		// Try to stack if stackable
 		if (itemDef.type === "consumable") {
 			for (let item of entity.inventory) {
 				if (item.itemType === mostRecent.item.itemType && (item.quantity || 1) < maxStackSize) {
@@ -555,7 +574,6 @@ function pickupItem(entity, x, y) {
 			}
 		}
 		
-		// Check inventory limit
 		if (entity === player && entity.inventory.length >= maxInventorySlots) {
 			console.log("Inventory full!");
 			return false;
@@ -566,7 +584,6 @@ function pickupItem(entity, x, y) {
 			newItem.quantity = 1;
 		}
 		
-		// Initialize ammo for weapons
 		if (itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
 			newItem.currentAmmo = itemDef.maxAmmo;
 		}
@@ -643,21 +660,19 @@ function useItem(entity, inventoryIndex) {
 			console.log(entity.name + " feels themselves moving faster!");
 		}
 		
-		// Handle stack quantity
 		if (item.quantity && item.quantity > 1) {
 			item.quantity--;
 		} else {
 			entity.inventory.splice(inventoryIndex, 1);
 		}
 
-		currentEntityTurnsRemaining--; // Use a turn phase for consumables
+		currentEntityTurnsRemaining--;
 		if (isPeekMode) {
 			exitPeekMode();
 			return;
 		}
 	} else if (itemDef.type === "equipment") {
 		equipItem(entity, inventoryIndex);
-		//if (entity === player && typeof currentEntityTurnsRemaining !== 'undefined') currentEntityTurnsRemaining++;
 	}
 
 	update();

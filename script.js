@@ -1,6 +1,16 @@
 // SCRIPT.JS: RUNS ALL THE FUNCTIONS IN THIER CORRECT ORDER ***THIS FILE RUNS THE WHOLE THING***
 
-input.init(); // sets up the cursor
+input.init();
+
+document.getElementById("content").classList.remove("hidden");
+action.selectedIndex = 0;
+
+document.getElementById('item_category').value = 'consumables';
+updateItemDropdown();
+
+document.getElementById('map-size').value = size;
+
+update();
 
 function updateMapSize() {
 	const newSize = parseInt(document.getElementById('map-size').value);
@@ -78,11 +88,9 @@ function updateTurnOrder() {
 	for (let i = 0; i < entities.length; i++) {
 		const entity = entities[i];
 		
-		// Only show enemies in turn order if they are aware of the player
 		if (entity !== player) {
 			const hasSeenPlayer = (entity.seenX !== 0 || entity.seenY !== 0);
 			
-			// Don't show unaware enemies in turn order
 			if (!hasSeenPlayer) {
 				continue;
 			}
@@ -191,7 +199,6 @@ function updateEquipment() {
 				effectsStr += 'Attacks destroy terrain';
 			}
 			
-			// Add ammo display for weapons
 			let ammoStr = '';
 			if (slot === "weapon" && itemDef.maxAmmo !== undefined) {
 				const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
@@ -275,7 +282,6 @@ function update() {
 	populate.player();
 	turns.check();
 	
-	// Draw path in move mode when it's the player's turn
 	if (currentEntity === player && action.value === "move" && window.cursorWorldPos) {
 		const endX = window.cursorWorldPos.x;
 		const endY = window.cursorWorldPos.y;
@@ -292,7 +298,6 @@ function update() {
 			}
 		}
 	}
-	// Draw cursor last so it's on top
 	canvas.cursor();
 	
 	updateTurnOrder();
@@ -304,11 +309,7 @@ function update() {
 	elem.scrollTop = elem.scrollHeight;
 }
 
-document.getElementById("content").classList.remove("hidden");
 action.selectedIndex = 0;
-
-document.getElementById('item_category').value = 'consumable';
-updateItemDropdown();
 
 function handleMouseMove(event) {
 	if (currentEntityIndex >= 0 && entities[currentEntityIndex] !== player) {
@@ -317,7 +318,6 @@ function handleMouseMove(event) {
 	input.mouse(event);
 }
 
-// Canvas event listeners
 c.onmousemove = handleMouseMove;
 c.addEventListener("click", input.click);
 c.addEventListener("mousedown", input.mousedown);
@@ -328,7 +328,3 @@ document.addEventListener("keyup", input.keyboard);
 
 var div_for_coords = document.createElement("div");
 document.body.appendChild(div_for_coords);
-
-document.getElementById('map-size').value = size;
-
-update();
