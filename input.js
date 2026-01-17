@@ -27,6 +27,7 @@ var input = {
 	},
 	
 	keyboard: function(event) {
+		if (player.hp < 1) return;
 		if (event.type !== 'keydown' && event.keyCode !== 16) return;
 		if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
 		
@@ -166,6 +167,11 @@ var input = {
 					currentEntityIndex++;
 					if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 					currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+					
+					// Process inventory grenades when passing turn
+					if (typeof processInventoryGrenades !== 'undefined') {
+						processInventoryGrenades(player);
+					}
 				}
 				update();
 			}
@@ -292,6 +298,7 @@ var input = {
 	},
 	
 	click: function() {
+		if (player.hp < 1) return;
 		if (edit.checked) return;
 		if (!window.cursorWorldPos) return;
 		
@@ -329,45 +336,7 @@ var input = {
 							window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
 							window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
 							
-							canvas.init();
-							valid = [];
-							canvas.clear();
-							canvas.grid();
-							canvas.walls();
-							canvas.items();
-							canvas.drawOnionskin();
-							canvas.player();
-							canvas.enemy();
-							
-							populate.reset();
-							populate.enemies();
-							populate.player();
-							
-							if (entities[currentEntityIndex] === player && action.value === "move") {
-								calc.move(player);
-							}
-							
-							if (action.value === "move" && window.cursorWorldPos) {
-								const endX = window.cursorWorldPos.x;
-								const endY = window.cursorWorldPos.y;
-								
-								const isValid = valid.find(v => v.x === endX && v.y === endY);
-								
-								if (isValid && endX >= 0 && endX < size && endY >= 0 && endY < size) {
-									const graph = new Graph(pts, {diagonal: true});
-									const pathResult = astar.search(graph, graph.grid[player.x][player.y], graph.grid[endX][endY]);
-									if (pathResult && pathResult.length > 0) {
-										canvas.path(pathResult);
-									}
-								}
-							}
-							
-							canvas.cursor();
-							canvas.drawGrenades(); // LOTS OF RE-RUN FUNCTIONS HARDCODED BC OF KEYBOARD MODE! NOT GOOD!!!
-							updateTurnOrder();
-							updateInventory();
-							updateEquipment();
-							updatePeekButton();
+							update();
 						}
 					}
 				}

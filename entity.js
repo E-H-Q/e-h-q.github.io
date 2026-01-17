@@ -190,7 +190,7 @@ const EntitySystem = {
 							detonateGrenade(enemy);
 						}
 						
-						if (enemy.hp <= 0) this.dropAllItems(enemy);
+						if (enemy.hp <= 0 && !enemy.isGrenade) this.dropAllItems(enemy);
 					} else {
 						console.log(attacker.name + " attacks and misses " + enemy.name + "...");
 					}

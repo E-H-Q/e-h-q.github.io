@@ -24,7 +24,7 @@ var turns = {
 			// Process inventory grenades when turn changes
 			if (currentEntity && typeof processInventoryGrenades !== 'undefined') {
    				processInventoryGrenades(currentEntity);
-			} // only working when non-player entities are present?
+			}
 			
 			camera = {
 				x: currentEntity.x - Math.round(viewportSize / 2) + 1,
@@ -273,6 +273,11 @@ var turns = {
 				currentEntityIndex++;
 				if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 				currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+				
+				// Process inventory grenades when player's turn ends
+				if (typeof processInventoryGrenades !== 'undefined') {
+					processInventoryGrenades(player);
+				}
 			}
 			
 			if (entity === player) this.checkEnemyLOS();
