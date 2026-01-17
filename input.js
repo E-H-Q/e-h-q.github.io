@@ -363,6 +363,7 @@ var input = {
 							}
 							
 							canvas.cursor();
+							canvas.drawGrenades(); // LOTS OF RE-RUN FUNCTIONS HARDCODED BC OF KEYBOARD MODE! NOT GOOD!!!
 							updateTurnOrder();
 							updateInventory();
 							updateEquipment();

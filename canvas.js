@@ -130,7 +130,6 @@ var canvas = {
 				ctx.fillStyle = "#FFFFFF";
 				ctx.font = (tileSize / 3) + "px monospace";
 				ctx.textAlign = "center";
-				ctx.textBaseline = "top";
 				ctx.fillText("Gnade", 
 					(screenX * tileSize) + (tileSize / 2), 
 					(screenY * tileSize) + 2);
@@ -139,7 +138,6 @@ var canvas = {
 				ctx.fillStyle = "#FF0000";
 				ctx.font = "bold " + (tileSize / 2) + "px monospace";
 				ctx.textAlign = "center";
-				ctx.textBaseline = "middle";
 				ctx.fillText(entity.turnsRemaining.toString(), 
 					(screenX * tileSize) + (tileSize / 2), 
 					(screenY * tileSize) + (tileSize * 0.65));
@@ -189,6 +187,7 @@ var canvas = {
 		if (!isZoomedOut) {
 			ctx.fillStyle = "rgba(255, 255, 255, 1)";
 			ctx.font = '16px serif';
+			ctx.textAlign = 'left';
 			ctx.fillText(entity.hp, screenX, screenY + tileSize);
 		}
 		// Draw "?" if enemy is unaware
@@ -197,7 +196,7 @@ var canvas = {
 			ctx.font = 'bold 12px serif';
 			ctx.textAlign = 'center';
 			ctx.fillText("?", screenX + tileSize * 0.75, screenY + tileSize * 0.25);
-			ctx.textAlign = 'left';
+		//	ctx.textAlign = 'left';
 		}
 	},
 	

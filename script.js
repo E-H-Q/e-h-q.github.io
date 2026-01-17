@@ -331,8 +331,8 @@ function update() {
 			}
 		}
 	}
-	canvas.drawGrenades();
 	canvas.cursor();
+	canvas.drawGrenades();
 	
 	updateTurnOrder();
 	updateInventory();
