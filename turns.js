@@ -20,6 +20,12 @@ var turns = {
 			currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 			
 			const currentEntity = entities[currentEntityIndex];
+			
+			// Process inventory grenades when turn changes
+			if (currentEntity && typeof processInventoryGrenades !== 'undefined') {
+   				processInventoryGrenades(currentEntity);
+			} // only working when non-player entities are present?
+			
 			camera = {
 				x: currentEntity.x - Math.round(viewportSize / 2) + 1,
 				y: currentEntity.y - Math.round(viewportSize / 2) + 1
@@ -30,20 +36,33 @@ var turns = {
 			canvas.grid();
 			canvas.walls();
 			canvas.items();
+			canvas.drawGrenades();
 			canvas.player();
 			canvas.enemy();
 		}
 
 		const currentEntity = entities[currentEntityIndex];
 		
-		if (currentEntity !== player && currentEntityTurnsRemaining > 0) {
-			// Calculate once for both display and logic
+		// Grenade turn logic
+		if (currentEntity.isGrenade && currentEntityTurnsRemaining > 0) {
+			currentEntity.turnsRemaining--;
+			console.log("Grenade countdown: " + currentEntity.turnsRemaining);
+			
+			if (currentEntity.turnsRemaining <= 0) {
+				detonateGrenade(currentEntity);
+			}
+			
+			currentEntityTurnsRemaining--;
+			update();
+			return;
+		}
+		
+		if (currentEntity !== player && !currentEntity.isGrenade && currentEntityTurnsRemaining > 0) {
 			const dist = calc.distance(currentEntity.x, player.x, currentEntity.y, player.y);
 			const effectiveRange = getEntityAttackRange(currentEntity);
 			const canSeePlayer = EntitySystem.hasLOS(currentEntity, player.x, player.y, false);
 			const willAttack = canSeePlayer && dist <= effectiveRange;
 			
-			// Display: show movement or attack range
 			if (!willAttack) {
 				calc.move(currentEntity);
 			} else {
@@ -57,7 +76,6 @@ var turns = {
 			
 			if (enemyHasSeenPlayer && enemyInViewport) {
 				setTimeout(() => {
-					// Pass pre-calculated values to avoid recalculation
 					this.enemyTurn(currentEntity, canSeePlayer, dist, effectiveRange);
 					update();
 				}, timeout);
@@ -102,7 +120,6 @@ var turns = {
 			return;
 		}
 
-		// Use pre-calculated values if provided (from check()), otherwise calculate
 		if (canSeePlayer === undefined) {
 			dist = calc.distance(entity.x, player.x, entity.y, player.y);
 			canSeePlayer = EntitySystem.hasLOS(entity, player.x, player.y, false);
@@ -114,7 +131,6 @@ var turns = {
 			entity.seenY = player.y;
 			
 			if (dist <= effectiveRange) {
-				// Check if enemy needs to reload before attacking
 				if (!hasAmmo(entity)) {
 					if (reloadWeapon(entity)) {
 						currentEntityTurnsRemaining--;
@@ -122,7 +138,6 @@ var turns = {
 					return;
 				}
 				
-				// Use unified attack system
 				if (EntitySystem.attack(entity, player.x, player.y)) {
 					currentEntityTurnsRemaining--;
 				}
@@ -145,21 +160,17 @@ var turns = {
 	enemyRandomMove: function(entity) {
 		const moves = [[-1,-1],[0,-1],[1,-1],[-1,0],[0,0],[1,0],[-1,1],[0,1],[1,1]];
 		
-		// Shuffle moves array to randomize order
 		for (let i = moves.length - 1; i > 0; i--) {
 			const j = Math.floor(Math.random() * (i + 1));
 			[moves[i], moves[j]] = [moves[j], moves[i]];
 		}
 		
-		// Try each direction until we find a valid one
 		for (let [dx, dy] of moves) {
 			const newX = entity.x + dx;
 			const newY = entity.y + dy;
 			
-			// Check bounds
 			if (newX < 0 || newY < 0 || newX >= size || newY >= size) continue;
 			
-			// Check if tile is blocked by wall or entity
 			const isWall = walls.some(w => w.x === newX && w.y === newY);
 			const isOccupied = entities.some(e => e !== entity && e.hp > 0 && e.x === newX && e.y === newY);
 			
@@ -167,7 +178,7 @@ var turns = {
 				entity.x = newX;
 				entity.y = newY;
 				if (typeof pickupItem !== 'undefined') pickupItem(entity, entity.x, entity.y);
-				break; // Successfully moved, exit loop
+				break;
 			}
 		}
 		
@@ -228,15 +239,13 @@ var turns = {
 		
 		for (let step of path) {
 			const isDiagonal = (step.x !== finalX && step.y !== finalY);
-			//const stepCost = isDiagonal ? 1.5 : 1;
-			const stepCost = isDiagonal ? 1 : 1; // allows enemy to move diagonally when range is 1?
+			const stepCost = isDiagonal ? 1 : 1;
 			
 			if (distanceMoved + stepCost <= entity.range) {
 				const occupied = entities.some(e => 
 					e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y
 				);
 				
-				// Check if step is a wall
 				const isWall = walls.some(w => w.x === step.x && w.y === step.y);
 				
 				if (!occupied && !isWall) {
@@ -270,7 +279,6 @@ var turns = {
 			update();
 		}
 
-		// Important for cursor continuity - only for mouse mode
 		if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
 		
 		if (!keyboardMode && mouse_pos.clientX && mouse_pos.clientY) {

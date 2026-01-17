@@ -119,14 +119,24 @@ function updateInventory() {
 			const item = player.inventory[i];
 			const itemDef = itemTypes[item.itemType];
 			const itemTypeLabel = itemDef.type === "equipment" ? " [equip]" : "";
-			const quantityLabel = item.quantity > 1 ? "(" + item.quantity + ") " : "";
+			
+			let displayName = itemDef.displayName;
+			let quantityLabel = "";
+			
+			// Special handling for live grenades
+			if (item.isLive && itemDef.effect === "grenade") {
+				displayName = "LIVE: (" + item.turnsRemaining + "/" + itemDef.fuse + ")";
+			} else if (item.quantity > 1) {
+				quantityLabel = "(" + item.quantity + ") ";
+			}
+			
 			const slotNumber = i === 9 ? 0 : i + 1;
 			html += '<div style="padding: 5px; margin: 3px 0; border: 1px solid #fff; cursor: pointer;" ' +
 			        'onclick="useInventoryItem(' + i + ')" ' +
 			        'oncontextmenu="dropInventoryItem(event, ' + i + ')" ' +
 			        'onmouseover="this.style.backgroundColor=\'#333\'" ' +
 			        'onmouseout="this.style.backgroundColor=\'transparent\'">' +
-			        slotNumber + '. ' + quantityLabel + itemDef.displayName + itemTypeLabel + '</div>';
+			        slotNumber + '. ' + quantityLabel + displayName + itemTypeLabel + '</div>';
 		}
 	}
 	
@@ -151,19 +161,42 @@ function dropInventoryItem(event, inventoryIndex) {
 			const quantity = item.quantity || 1;
 			
 			if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
-				for (var i = 0; i < quantity; i++) {
-					const droppedItem = {
+				// Special handling for live grenades - create grenade entity
+				if (item.isLive && itemDef.effect === "grenade") {
+					const grenadeEntity = {
+						name: "Grenade",
+						hp: 1,
 						x: player.x,
 						y: player.y,
-						itemType: item.itemType,
-						id: nextItemId++
+						range: 0,
+						attack_range: 0,
+						turns: 1,
+						isGrenade: true,
+						turnsRemaining: item.turnsRemaining,
+						seenX: 0,
+						seenY: 0,
+						inventory: []
 					};
-					mapItems.push(droppedItem);
+					
+					allEnemies.push(grenadeEntity);
+					console.log(player.name + " dropped a LIVE grenade with " + item.turnsRemaining + " turns remaining!");
+					player.inventory.splice(inventoryIndex, 1);
+				} else {
+					// Normal drop behavior
+					for (var i = 0; i < quantity; i++) {
+						const droppedItem = {
+							x: player.x,
+							y: player.y,
+							itemType: item.itemType,
+							id: nextItemId++
+						};
+						mapItems.push(droppedItem);
+					}
+					console.log(player.name + " dropped " + quantity + " " + itemDef.name);
+					player.inventory.splice(inventoryIndex, 1);
 				}
-				console.log(player.name + " dropped " + quantity + " " + itemDef.name);
 			}
 			
-			player.inventory.splice(inventoryIndex, 1);
 			update();
 		}
 	}
@@ -298,6 +331,7 @@ function update() {
 			}
 		}
 	}
+	canvas.drawGrenades();
 	canvas.cursor();
 	
 	updateTurnOrder();
@@ -312,6 +346,7 @@ function update() {
 action.selectedIndex = 0;
 
 function handleMouseMove(event) {
+	if (player.hp < 1) return;
 	if (currentEntityIndex >= 0 && entities[currentEntityIndex] !== player) {
 		return;
 	}

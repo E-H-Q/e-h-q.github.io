@@ -184,6 +184,12 @@ const EntitySystem = {
 						}
 						
 						console.log(attacker.name + " hits " + enemy.name + " for " + dmgRoll + " DMG!");
+						
+						// Check if enemy is a grenade and trigger detonation
+						if (enemy.isGrenade && enemy.hp <= 0) {
+							detonateGrenade(enemy);
+						}
+						
 						if (enemy.hp <= 0) this.dropAllItems(enemy);
 					} else {
 						console.log(attacker.name + " attacks and misses " + enemy.name + "...");

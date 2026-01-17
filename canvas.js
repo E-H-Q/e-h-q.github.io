@@ -92,6 +92,61 @@ var canvas = {
 			}
 		});
 	},
+
+	drawGrenades: () => {
+		if (!mapItems) return;
+		for (let entity of entities) {
+		if (entity.isGrenade && entity.hp > 0) {
+			const screenX = entity.x - camera.x;
+			const screenY = entity.y - camera.y;
+			
+			if (screenX >= 0 && screenX < viewportSize && screenY >= 0 && screenY < viewportSize) {
+				const itemDef = itemTypes.grenade;
+				
+				// Save pts array before modifying it
+				const savedPts = pts.map(row => [...row]);
+				
+				// Draw explosion radius preview using circle function
+				circle(entity.y, entity.x, itemDef.damageRadius);
+				convert();
+				
+				ctx.fillStyle = "rgba(255, 0, 0, 0.2)";
+				for (let x = Math.max(0, entity.x - itemDef.damageRadius - 1); x <= Math.min(size - 1, entity.x + itemDef.damageRadius + 1); x++) {
+					for (let y = Math.max(0, entity.y - itemDef.damageRadius - 1); y <= Math.min(size - 1, entity.y + itemDef.damageRadius + 1); y++) {
+						if (pts[x] && pts[x][y] === 1) {
+							const sX = x - camera.x;
+							const sY = y - camera.y;
+							if (sX >= 0 && sX < viewportSize && sY >= 0 && sY < viewportSize) {
+								ctx.fillRect(sX * tileSize, sY * tileSize, tileSize, tileSize);
+							}
+						}
+					}
+				}
+				
+				// Restore pts array
+				pts = savedPts;
+				
+				// Draw "Gnade" label
+				ctx.fillStyle = "#FFFFFF";
+				ctx.font = (tileSize / 3) + "px monospace";
+				ctx.textAlign = "center";
+				ctx.textBaseline = "top";
+				ctx.fillText("Gnade", 
+					(screenX * tileSize) + (tileSize / 2), 
+					(screenY * tileSize) + 2);
+				
+				// Draw turns remaining in red below
+				ctx.fillStyle = "#FF0000";
+				ctx.font = "bold " + (tileSize / 2) + "px monospace";
+				ctx.textAlign = "center";
+				ctx.textBaseline = "middle";
+				ctx.fillText(entity.turnsRemaining.toString(), 
+					(screenX * tileSize) + (tileSize / 2), 
+					(screenY * tileSize) + (tileSize * 0.65));
+				}
+			}
+		}
+	},
 	
 	range: (res, entity) => {
 		if (res.length > 0 && res.length <= entity.range + 1) {
@@ -181,8 +236,10 @@ var canvas = {
 	},
 	
 	enemy: () => {
-		allEnemies.forEach(enemy => {
-			if (enemy.hp >= 1) canvas.drawEntity(enemy, "rgba(125, 125, 0, 0.5)", "enemy");
-		});
-	}
+        allEnemies.forEach(enemy => {
+            // Skip drawing grenades here - they're drawn separately
+            if (enemy.isGrenade) return;
+            if (enemy.hp >= 1) canvas.drawEntity(enemy, "rgba(125, 125, 0, 0.5)", "enemy");
+        });
+    }
 };

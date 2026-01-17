@@ -20,6 +20,16 @@ const consumablesData = {
         effect: "speed",
         value: 2,
         displayName: "Speed Potion"
+    },
+    grenade: {
+        name: "Grenade",
+        type: "consumable",
+        effect: "grenade",
+        damageRadius: 2,
+        damage: 15,
+        canDestroy: true,
+        fuse: 2,
+        displayName: "Grenade"
     }
 };
 
@@ -124,6 +134,7 @@ var itemsLoaded = true;
 const itemLabels = {
     healthPotion: "HP+",
     speedPotion: "SP+",
+    grenade: "Gnade",
     scope: "Scope",
     rifle: "Rifle",
     kevlarVest: "Vest",
@@ -655,15 +666,42 @@ function useItem(entity, inventoryIndex) {
 		if (itemDef.effect === "heal") {
 			entity.hp += itemDef.value;
 			console.log(entity.name + " heals for " + itemDef.value + "HP!");
+			
+			if (item.quantity && item.quantity > 1) {
+				item.quantity--;
+			} else {
+				entity.inventory.splice(inventoryIndex, 1);
+			}
 		} else if (itemDef.effect === "speed") {
 			entity.range += itemDef.value;
 			console.log(entity.name + " feels themselves moving faster!");
-		}
-		
-		if (item.quantity && item.quantity > 1) {
-			item.quantity--;
-		} else {
-			entity.inventory.splice(inventoryIndex, 1);
+			
+			if (item.quantity && item.quantity > 1) {
+				item.quantity--;
+			} else {
+				entity.inventory.splice(inventoryIndex, 1);
+			}
+		} else if (itemDef.effect === "grenade") {
+			// Separate one grenade from stack and activate it
+			if (item.quantity && item.quantity > 1) {
+				item.quantity--;
+			} else {
+				entity.inventory.splice(inventoryIndex, 1);
+			}
+			
+			// Create new live grenade item in inventory
+			const liveGrenade = {
+				itemType: 'grenade',
+				id: nextItemId++,
+				isLive: true,
+				turnsRemaining: itemDef.fuse,
+				quantity: 1
+			};
+			entity.inventory.push(liveGrenade);
+			
+			console.log(entity.name + " activated a grenade! " + itemDef.fuse + " turns until detonation!");
+			update();
+			return true;
 		}
 
 		currentEntityTurnsRemaining--;
@@ -677,4 +715,77 @@ function useItem(entity, inventoryIndex) {
 
 	update();
 	return true;
+}
+
+function detonateGrenade(grenade, x, y) {
+	const itemDef = itemTypes.grenade;
+	const explodeX = x !== undefined ? x : grenade.x;
+	const explodeY = y !== undefined ? y : grenade.y;
+	
+	console.log("GRENADE EXPLODES at " + explodeX + ", " + explodeY + "!");
+	
+	circle(explodeY, explodeX, itemDef.damageRadius);
+	convert();
+	
+	const explosionTiles = [];
+	for (let tx = Math.max(0, explodeX - itemDef.damageRadius - 1); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius + 1); tx++) {
+		for (let ty = Math.max(0, explodeY - itemDef.damageRadius - 1); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius + 1); ty++) {
+			if (pts[tx] && pts[tx][ty] === 1) {
+				explosionTiles.push({x: tx, y: ty});
+			}
+		}
+	}
+	
+	// Damage entities
+	for (let tile of explosionTiles) {
+		for (let entity of entities) {
+			if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0 && !entity.isGrenade) {
+				const armor = entity.armor || 0;
+				const dmg = Math.max(1, itemDef.damage - armor);
+				entity.hp -= dmg;
+				console.log(entity.name + " takes " + dmg + " damage from explosion!");
+			}
+		}
+	}
+	
+	// Destroy walls in explosion radius
+	if (itemDef.canDestroy) {
+    	for (let tx = Math.max(0, explodeX - itemDef.damageRadius); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius); tx++) {
+    	    for (let ty = Math.max(0, explodeY - itemDef.damageRadius); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius); ty++) {
+    	        const dist = Math.sqrt((tx - explodeX) ** 2 + (ty - explodeY) ** 2);
+    	        if (dist <= itemDef.damageRadius) {
+    	            for (let i = walls.length - 1; i >= 0; i--) {
+    	                if (walls[i].x === tx && walls[i].y === ty) {
+    	                    //console.log("Grenade destroyed wall at " + tx + ", " + ty);
+    	                    walls.splice(i, 1);
+    	                    break;
+    	                }
+    	            }
+    	        }
+    	    }
+    	}
+	}
+	
+	if (grenade && grenade.hp !== undefined) {
+		grenade.hp = 0;
+	}
+}
+
+function processInventoryGrenades(entity) {
+	if (!entity.inventory) return;
+	
+	for (let i = entity.inventory.length - 1; i >= 0; i--) {
+		const item = entity.inventory[i];
+		const itemDef = itemTypes[item.itemType];
+		
+		if (item.isLive && itemDef && itemDef.effect === "grenade") {
+			item.turnsRemaining--;
+			console.log(entity.name + "'s inventory grenade: " + item.turnsRemaining + " turns remaining");
+			
+			if (item.turnsRemaining <= 0) {
+				entity.inventory.splice(i, 1);
+				detonateGrenade(null, entity.x, entity.y);
+			}
+		}
+	}
 }

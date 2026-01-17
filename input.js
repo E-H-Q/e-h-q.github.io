@@ -82,7 +82,7 @@ var input = {
 		}
 		
 		if (event.keyCode === 82) { // R - Reload
-			event.preventDefault();
+			//event.preventDefault();
 			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
 				if (reloadWeapon(player)) {
 					exitPeekMode();
@@ -223,12 +223,14 @@ var input = {
 			}
 		}
 		if (event.keyCode === 80) { // P - Peek mode
-			event.preventDefault();
+			//event.preventDefault();
 			activatePeekMode()
 		}
 	},
 	
 	mouse: function(event) {
+		if (player.hp < 1) return;
+		
 		if (keyboardMode) {
 			keyboardMode = false;
 			document.body.style.cursor = '';
