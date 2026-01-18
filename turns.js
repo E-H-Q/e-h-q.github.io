@@ -36,7 +36,7 @@ var turns = {
 			canvas.grid();
 			canvas.walls();
 			canvas.items();
-			canvas.drawGrenades();
+			//canvas.drawGrenades();
 			canvas.player();
 			canvas.enemy();
 		}

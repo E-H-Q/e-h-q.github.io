@@ -65,7 +65,12 @@ var input = {
 		}
 		
 		if (event.keyCode === 27) {
-			if (isPeekMode) {
+			if (window.throwingGrenadeIndex !== undefined) {
+				window.throwingGrenadeIndex = undefined;
+				action.value = "move";
+				console.log("Grenade throw cancelled");
+				update();
+			} else if (isPeekMode) {
 				exitPeekMode();
 			} else if (edit.checked) {
 				edit.checked = false;
@@ -343,6 +348,30 @@ var input = {
 				break;
 				
 			case "attack":
+				// Check if throwing grenade
+				if (window.throwingGrenadeIndex !== undefined) {
+					if (throwItem(player, window.throwingGrenadeIndex, click_pos.x, click_pos.y)) {
+						window.throwingGrenadeIndex = undefined;
+						currentEntityTurnsRemaining--;
+						
+						if (isPeekMode) {
+							if (peekStep === 2) {
+								player.x = peekStartX;
+								player.y = peekStartY;
+							}
+							exitPeekMode();
+						} else if (currentEntityTurnsRemaining <= 0) {
+							currentEntityIndex++;
+							if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+							currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+						}
+						
+						action.value = "move";
+						update();
+					}
+					return;
+				}
+				
 				if (!hasAmmo(player)) {
 					console.log("Out of ammo! Press R to reload.");
 					return;

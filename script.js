@@ -125,7 +125,7 @@ function updateInventory() {
 			
 			// Special handling for live grenades
 			if (item.isLive && itemDef.effect === "grenade") {
-				displayName = "LIVE: (" + item.turnsRemaining + "/" + itemDef.fuse + ")";
+				displayName = "*!!!* Grenade: (" + item.turnsRemaining + "/" + itemDef.fuse + ")";
 			} else if (item.quantity > 1) {
 				quantityLabel = "(" + item.quantity + ") ";
 			}

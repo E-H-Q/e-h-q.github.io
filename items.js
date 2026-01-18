@@ -29,6 +29,7 @@ const consumablesData = {
         damage: 15,
         canDestroy: true,
         fuse: 2,
+        //throwRange: 5,
         displayName: "Grenade"
     }
 };
@@ -439,6 +440,54 @@ function getTargetedEntities(attacker, endX, endY) {
     return [];
 }
 
+function throwItem(entity, inventoryIndex, targetX, targetY) {
+    if (inventoryIndex < 0 || inventoryIndex >= entity.inventory.length) return false;
+    const item = entity.inventory[inventoryIndex];
+    const itemDef = itemTypes[item.itemType];
+    
+    if (!item.isLive || itemDef.effect !== "grenade") return false;
+    
+    //const throwRange = itemDef.throwRange || 5;
+    const throwRange = entity.attack_range;
+    const dist = calc.distance(entity.x, targetX, entity.y, targetY);
+    
+    if (dist > throwRange) return false;
+    
+    let path = line({x: entity.x, y: entity.y}, {x: targetX, y: targetY});
+    for (let i = 1; i < path.length; i++) {
+        const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+        if (wall && wall.type !== 'glass') {
+            path = path.slice(0, i);
+            break;
+        }
+    }
+    
+    if (path.length === 0) return false;
+    
+    const landingSpot = path[Math.min(path.length - 1, throwRange)];
+    
+    const grenadeEntity = {
+        name: "Grenade",
+        hp: 1,
+        x: landingSpot.x,
+        y: landingSpot.y,
+        range: 0,
+        attack_range: 0,
+        turns: 1,
+        isGrenade: true,
+        turnsRemaining: item.turnsRemaining,
+        seenX: 0,
+        seenY: 0,
+        inventory: []
+    };
+    
+    allEnemies.push(grenadeEntity);
+    entity.inventory.splice(inventoryIndex, 1);
+    console.log(entity.name + " threw a grenade to (" + landingSpot.x + ", " + landingSpot.y + ")!");
+    
+    return true;
+}
+
 function spawnItem(itemType, x, y) {
 	x = x || player.x;
 	y = y || player.y;
@@ -682,26 +731,33 @@ function useItem(entity, inventoryIndex) {
 				entity.inventory.splice(inventoryIndex, 1);
 			}
 		} else if (itemDef.effect === "grenade") {
-			// Separate one grenade from stack and activate it
-			if (item.quantity && item.quantity > 1) {
-				item.quantity--;
+			if (item.isLive) {
+				window.throwingGrenadeIndex = inventoryIndex;
+				action.value = "attack";
+				console.log("Select target to throw grenade (range: " + entity.attack_range + ")");
+				update();
+				return true;
 			} else {
-				entity.inventory.splice(inventoryIndex, 1);
+				if (item.quantity && item.quantity > 1) {
+					item.quantity--;
+				} else {
+					entity.inventory.splice(inventoryIndex, 1);
+				}
+				
+				const liveGrenade = {
+					itemType: 'grenade',
+					id: nextItemId++,
+					isLive: true,
+					turnsRemaining: itemDef.fuse,
+					quantity: 1
+				};
+				entity.inventory.push(liveGrenade);
+				
+				//console.log(entity.name + " pulled the pin! " + itemDef.fuse + " rounds until detonation!");
+				console.log(entity.name + " pulled the pin! Use/click to throw!");
+				update();
+				return true;
 			}
-			
-			// Create new live grenade item in inventory
-			const liveGrenade = {
-				itemType: 'grenade',
-				id: nextItemId++,
-				isLive: true,
-				turnsRemaining: itemDef.fuse,
-				quantity: 1
-			};
-			entity.inventory.push(liveGrenade);
-			
-			console.log(entity.name + " pulled the pin! " + itemDef.fuse + " rounds until detonation!");
-			update();
-			return true;
 		}
 
 		currentEntityTurnsRemaining--;
