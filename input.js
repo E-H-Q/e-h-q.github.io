@@ -59,6 +59,8 @@ var input = {
 		if (event.keyCode === 13) { // ENTER
 			event.preventDefault();
 			if (keyboardMode && currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
+				// Only execute click action, don't decrement turns here
+				// The click handler will manage turn decrements
 				input.click();
 			}
 			return;
@@ -327,22 +329,7 @@ var input = {
 						currentEntityTurnsRemaining--;
 						update();
 					} else {
-						let screenOffsetX, screenOffsetY;
-						if (keyboardMode) {
-							screenOffsetX = window.cursorWorldPos.x - camera.x;
-							screenOffsetY = window.cursorWorldPos.y - camera.y;
-						}
-						
 						turns.move(player, click_pos.x, click_pos.y);
-						
-						if (keyboardMode) {
-							window.cursorWorldPos.x = camera.x + screenOffsetX;
-							window.cursorWorldPos.y = camera.y + screenOffsetY;
-							window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
-							window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
-							
-							update();
-						}
 					}
 				}
 				break;
@@ -352,6 +339,15 @@ var input = {
 				if (window.throwingGrenadeIndex !== undefined) {
 					if (throwItem(player, window.throwingGrenadeIndex, click_pos.x, click_pos.y)) {
 						window.throwingGrenadeIndex = undefined;
+						
+						const wasKeyboardMode = keyboardMode;
+						let screenOffsetX, screenOffsetY;
+						
+						if (wasKeyboardMode && window.cursorWorldPos) {
+							screenOffsetX = window.cursorWorldPos.x - camera.x;
+							screenOffsetY = window.cursorWorldPos.y - camera.y;
+						}
+						
 						currentEntityTurnsRemaining--;
 						
 						if (isPeekMode) {
@@ -359,15 +355,36 @@ var input = {
 								player.x = peekStartX;
 								player.y = peekStartY;
 							}
-							exitPeekMode();
-						} else if (currentEntityTurnsRemaining <= 0) {
-							currentEntityIndex++;
-							if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-							currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+							// Exit peek mode without calling update
+							isPeekMode = false;
+							peekStep = 1;
+							action.disabled = false;
+							console.log("Exited peek mode.");
 						}
 						
 						action.value = "move";
 						update();
+						
+						if (wasKeyboardMode && window.cursorWorldPos) {
+							window.cursorWorldPos.x = camera.x + screenOffsetX;
+							window.cursorWorldPos.y = camera.y + screenOffsetY;
+							window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
+							window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
+							
+							canvas.clear();
+							canvas.grid();
+							canvas.walls();
+							canvas.items();
+							canvas.drawOnionskin();
+							canvas.player();
+							canvas.enemy();
+							canvas.cursor();
+							canvas.drawGrenades();
+							
+							if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "move") {
+								calc.move(player);
+							}
+						}
 					}
 					return;
 				}
@@ -401,25 +418,59 @@ var input = {
 				
 				if (!hasTargets) return;
 
+				const wasKeyboardMode = keyboardMode;
+				let screenOffsetX, screenOffsetY;
+				
+				if (wasKeyboardMode && window.cursorWorldPos) {
+					screenOffsetX = window.cursorWorldPos.x - camera.x;
+					screenOffsetY = window.cursorWorldPos.y - camera.y;
+				}
+
 				if (isPeekMode && peekStep === 2) {
 					if (EntitySystem.attack(player, click_pos.x, click_pos.y)) {
 						currentEntityTurnsRemaining--;
 					}
 					player.x = peekStartX;
 					player.y = peekStartY;
-					exitPeekMode();
+					
+					// Exit peek mode without calling update
+					isPeekMode = false;
+					peekStep = 1;
+					action.disabled = false;
+					action.value = "move";
+					console.log("Exited peek mode.");
 				} else {
 					if (EntitySystem.attack(player, click_pos.x, click_pos.y)) {
 						currentEntityTurnsRemaining--;
 					}
 					
-					if (currentEntityTurnsRemaining <= 0) {
-						currentEntityIndex++;
-						if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-						currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+					update();
+				}
+				
+				if (wasKeyboardMode && window.cursorWorldPos) {
+					window.cursorWorldPos.x = camera.x + screenOffsetX;
+					window.cursorWorldPos.y = camera.y + screenOffsetY;
+					window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
+					window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
+					
+					canvas.clear();
+					canvas.grid();
+					canvas.walls();
+					canvas.items();
+					canvas.drawOnionskin();
+					canvas.player();
+					canvas.enemy();
+					canvas.cursor();
+					canvas.drawGrenades();
+					
+					if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "move") {
+						calc.move(player);
 					}
 					
-					update();
+					if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "attack") {
+						const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
+						if (targetingTiles.length > 0) canvas.los(targetingTiles);
+					}
 				}
 				break;
 				

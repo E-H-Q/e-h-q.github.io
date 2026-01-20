@@ -29,7 +29,6 @@ const consumablesData = {
         damage: 15,
         canDestroy: true,
         fuse: 2,
-        //throwRange: 5,
         displayName: "Grenade"
     }
 };
@@ -248,6 +247,49 @@ function reloadWeapon(entity) {
     return true;
 }
 
+function calculateGrenadeTargeting(entity, endX, endY) {
+    const itemDef = itemTypes.grenade;
+    const throwRange = entity.attack_range;
+    
+    let path = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
+    
+    for (let i = 1; i < path.length; i++) {
+        const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+        if (wall && wall.type !== 'glass') {
+            path = path.slice(0, i);
+            break;
+        }
+    }
+    
+    if (path.length > throwRange + 1) {
+        path = path.slice(1, throwRange + 1);
+    } else {
+        path = path.slice(1);
+    }
+    
+    if (path.length === 0) return [];
+    
+    const center = path[path.length - 1];
+    const areaRadius = itemDef.damageRadius;
+    
+    circle(center.y, center.x, areaRadius);
+    convert();
+    
+    const areaTiles = [];
+    for (let x = Math.max(0, center.x - areaRadius - 1); x <= Math.min(size - 1, center.x + areaRadius + 1); x++) {
+        for (let y = Math.max(0, center.y - areaRadius - 1); y <= Math.min(size - 1, center.y + areaRadius + 1); y++) {
+            if (pts[x] && pts[x][y] === 1) {
+                areaTiles.push({x, y});
+            }
+        }
+    }
+    
+    const pathSet = new Set(path.map(p => `${p.x},${p.y}`));
+    const uniqueAreaTiles = areaTiles.filter(tile => !pathSet.has(`${tile.x},${tile.y}`));
+    
+    return [...path, ...uniqueAreaTiles];
+}
+
 function calculateEntityTargeting(entity, endX, endY) {
     const aimStyle = getWeaponAimStyle(entity);
     const canDestroy = canEntityDestroyWalls(entity);
@@ -447,7 +489,6 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
     
     if (!item.isLive || itemDef.effect !== "grenade") return false;
     
-    //const throwRange = itemDef.throwRange || 5;
     const throwRange = entity.attack_range;
     const dist = calc.distance(entity.x, targetX, entity.y, targetY);
     
@@ -753,7 +794,6 @@ function useItem(entity, inventoryIndex) {
 				};
 				entity.inventory.push(liveGrenade);
 				
-				//console.log(entity.name + " pulled the pin! " + itemDef.fuse + " rounds until detonation!");
 				console.log(entity.name + " pulled the pin! Use/click to throw!");
 				update();
 				return true;
@@ -780,51 +820,78 @@ function detonateGrenade(grenade, x, y) {
 	
 	console.log("Grenade explodes at " + explodeX + ", " + explodeY + "!");
 	
-	// Destroy ALL walls in radius (not just those on explosion tiles)
-	if (itemDef.canDestroy) {
-		for (let tx = Math.max(0, explodeX - itemDef.damageRadius); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius); tx++) {
-			for (let ty = Math.max(0, explodeY - itemDef.damageRadius); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius); ty++) {
-				const dist = Math.sqrt((tx - explodeX) ** 2 + (ty - explodeY) ** 2);
-				if (dist <= itemDef.damageRadius) {
-					for (let i = walls.length - 1; i >= 0; i--) {
-						if (walls[i].x === tx && walls[i].y === ty) {
-							walls.splice(i, 1);
-							break;
-						}
+	// Show explosion visual with delay
+	setTimeout(() => {
+		// Draw explosion effect
+		const savedPts = pts.map(row => [...row]);
+		circle(explodeY, explodeX, itemDef.damageRadius);
+		convert();
+		
+		ctx.fillStyle = "rgba(255, 0, 0, 0.6)";
+		for (let x = Math.max(0, explodeX - itemDef.damageRadius - 1); x <= Math.min(size - 1, explodeX + itemDef.damageRadius + 1); x++) {
+			for (let y = Math.max(0, explodeY - itemDef.damageRadius - 1); y <= Math.min(size - 1, explodeY + itemDef.damageRadius + 1); y++) {
+				if (pts[x] && pts[x][y] === 1) {
+					const sX = x - camera.x;
+					const sY = y - camera.y;
+					if (sX >= 0 && sX < viewportSize && sY >= 0 && sY < viewportSize) {
+						ctx.fillRect(sX * tileSize, sY * tileSize, tileSize, tileSize);
 					}
 				}
 			}
 		}
-	}
-	
-	// Calculate explosion area for entity damage
-	circle(explodeY, explodeX, itemDef.damageRadius);
-	convert();
-	
-	const explosionTiles = [];
-	for (let tx = Math.max(0, explodeX - itemDef.damageRadius - 1); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius + 1); tx++) {
-		for (let ty = Math.max(0, explodeY - itemDef.damageRadius - 1); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius + 1); ty++) {
-			if (pts[tx] && pts[tx][ty] === 1) {
-				explosionTiles.push({x: tx, y: ty});
+		pts = savedPts;
+		
+		// Apply damage after brief visual delay
+		setTimeout(() => {
+			// Mark grenade as dead FIRST to prevent turn system issues
+			if (grenade && grenade.hp !== undefined) {
+				grenade.hp = 0;
 			}
-		}
-	}
-	
-	// Damage entities
-	for (let tile of explosionTiles) {
-		for (let entity of entities) {
-			if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0 && !entity.isGrenade) {
-				const armor = entity.armor || 0;
-				const dmg = Math.max(1, itemDef.damage - armor);
-				entity.hp -= dmg;
-				console.log(entity.name + " takes " + dmg + " damage!");
+			
+			// Destroy ALL walls in radius
+			if (itemDef.canDestroy) {
+				for (let tx = Math.max(0, explodeX - itemDef.damageRadius); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius); tx++) {
+					for (let ty = Math.max(0, explodeY - itemDef.damageRadius); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius); ty++) {
+						const dist = Math.sqrt((tx - explodeX) ** 2 + (ty - explodeY) ** 2);
+						if (dist <= itemDef.damageRadius) {
+							for (let i = walls.length - 1; i >= 0; i--) {
+								if (walls[i].x === tx && walls[i].y === ty) {
+									walls.splice(i, 1);
+									break;
+								}
+							}
+						}
+					}
+				}
 			}
-		}
-	}
-	
-	if (grenade && grenade.hp !== undefined) {
-		grenade.hp = 0;
-	}
+			
+			// Calculate explosion area for entity damage
+			circle(explodeY, explodeX, itemDef.damageRadius);
+			convert();
+			
+			const explosionTiles = [];
+			for (let tx = Math.max(0, explodeX - itemDef.damageRadius - 1); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius + 1); tx++) {
+				for (let ty = Math.max(0, explodeY - itemDef.damageRadius - 1); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius + 1); ty++) {
+					if (pts[tx] && pts[tx][ty] === 1) {
+						explosionTiles.push({x: tx, y: ty});
+					}
+				}
+			}
+			
+			// Damage entities
+			for (let tile of explosionTiles) {
+				for (let entity of entities) {
+					if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0 && !entity.isGrenade) {
+						const armor = entity.armor || 0;
+						const dmg = Math.max(1, itemDef.damage - armor);
+						entity.hp -= dmg;
+						console.log(entity.name + " takes " + dmg + " damage!");
+					}
+				}
+			}
+			update(); // might cause turn skipping bug down the line?
+		}, 250);
+	}, 0);
 }
 
 function processInventoryGrenades(entity) {
@@ -836,7 +903,6 @@ function processInventoryGrenades(entity) {
 		
 		if (item.isLive && itemDef && itemDef.effect === "grenade") {
 			item.turnsRemaining--;
-			//console.log(entity.name + "'s grenade has " + item.turnsRemaining + " rounds left");
 			
 			if (item.turnsRemaining <= 0) {
 				entity.inventory.splice(i, 1);

@@ -331,8 +331,15 @@ function update() {
 			}
 		}
 	}
-	canvas.cursor();
+	// Show grenade throw area preview
+	if (currentEntity === player && action.value === "attack" && window.cursorWorldPos && window.throwingGrenadeIndex !== undefined) {
+		const grenadeTargeting = calculateGrenadeTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
+		if (grenadeTargeting.length > 0) {
+			canvas.los(grenadeTargeting);
+		}
+	}
 	canvas.drawGrenades();
+	canvas.cursor();
 	
 	updateTurnOrder();
 	updateInventory();

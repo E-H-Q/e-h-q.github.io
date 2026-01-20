@@ -15,15 +15,16 @@ var turns = {
 		}
 
 		if (currentEntityTurnsRemaining <= 0) {
+			const previousEntity = entities[currentEntityIndex];
 			currentEntityIndex++;
 			if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 			currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 			
 			const currentEntity = entities[currentEntityIndex];
 			
-			// Process inventory grenades when turn changes
-			if (currentEntity && typeof processInventoryGrenades !== 'undefined') {
-   				processInventoryGrenades(currentEntity);
+			// Process inventory grenades when turn changes (only for the entity whose turn just ended)
+			if (previousEntity && typeof processInventoryGrenades !== 'undefined') {
+   				processInventoryGrenades(previousEntity);
 			}
 			
 			camera = {
@@ -266,22 +267,48 @@ var turns = {
 	},
 	
 	move: function(entity, x, y) {
+		const wasKeyboardMode = keyboardMode;
+		let screenOffsetX, screenOffsetY;
+		
+		if (wasKeyboardMode && window.cursorWorldPos) {
+			screenOffsetX = window.cursorWorldPos.x - camera.x;
+			screenOffsetY = window.cursorWorldPos.y - camera.y;
+		}
+		
 		if (EntitySystem.moveEntity(entity, x, y)) {
 			currentEntityTurnsRemaining--;
 			
-			if (entity === player && currentEntityTurnsRemaining <= 0) {
-				currentEntityIndex++;
-				if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-				currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
-				
-				// Process inventory grenades when player's turn ends
-				if (typeof processInventoryGrenades !== 'undefined') {
-					processInventoryGrenades(player);
-				}
-			}
-			
 			if (entity === player) this.checkEnemyLOS();
 			update();
+		}
+		
+		if (wasKeyboardMode && window.cursorWorldPos) {
+			window.cursorWorldPos.x = camera.x + screenOffsetX;
+			window.cursorWorldPos.y = camera.y + screenOffsetY;
+			window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
+			window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
+			
+			// Redraw canvas to show updated cursor position without calling full update()
+			canvas.clear();
+			canvas.grid();
+			canvas.walls();
+			canvas.items();
+			canvas.drawOnionskin();
+			canvas.player();
+			canvas.enemy();
+			canvas.cursor();
+			canvas.drawGrenades();
+			
+			// Show valid moves if it's still the player's turn
+			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "move") {
+				calc.move(player);
+			}
+			
+			// Show targeting if in attack mode
+			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "attack") {
+				const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
+				if (targetingTiles.length > 0) canvas.los(targetingTiles);
+			}
 		}
 
 		if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;

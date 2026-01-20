@@ -101,31 +101,6 @@ var canvas = {
 			const screenY = entity.y - camera.y;
 			
 			if (screenX >= 0 && screenX < viewportSize && screenY >= 0 && screenY < viewportSize) {
-				const itemDef = itemTypes.grenade;
-				
-				// Save pts array before modifying it
-				const savedPts = pts.map(row => [...row]);
-				
-				// Draw explosion radius preview using circle function
-				circle(entity.y, entity.x, itemDef.damageRadius);
-				convert();
-				
-				ctx.fillStyle = "rgba(255, 0, 0, 0.2)";
-				for (let x = Math.max(0, entity.x - itemDef.damageRadius - 1); x <= Math.min(size - 1, entity.x + itemDef.damageRadius + 1); x++) {
-					for (let y = Math.max(0, entity.y - itemDef.damageRadius - 1); y <= Math.min(size - 1, entity.y + itemDef.damageRadius + 1); y++) {
-						if (pts[x] && pts[x][y] === 1) {
-							const sX = x - camera.x;
-							const sY = y - camera.y;
-							if (sX >= 0 && sX < viewportSize && sY >= 0 && sY < viewportSize) {
-								ctx.fillRect(sX * tileSize, sY * tileSize, tileSize, tileSize);
-							}
-						}
-					}
-				}
-				
-				// Restore pts array
-				pts = savedPts;
-				
 				// Draw "Gnade" label
 				ctx.fillStyle = "#FFFFFF";
 				ctx.font = (tileSize / 3) + "px monospace";
