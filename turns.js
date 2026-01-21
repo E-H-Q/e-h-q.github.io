@@ -296,7 +296,6 @@ var turns = {
 			canvas.drawOnionskin();
 			canvas.player();
 			canvas.enemy();
-			canvas.cursor();
 			canvas.drawGrenades();
 			
 			// Show valid moves if it's still the player's turn
@@ -309,6 +308,9 @@ var turns = {
 				const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
 				if (targetingTiles.length > 0) canvas.los(targetingTiles);
 			}
+			
+			// Draw cursor AFTER movement/targeting overlays
+			canvas.cursor();
 		}
 
 		if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;

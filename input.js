@@ -462,7 +462,6 @@ var input = {
 					canvas.drawOnionskin();
 					canvas.player();
 					canvas.enemy();
-					canvas.cursor();
 					canvas.drawGrenades();
 					
 					if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "move") {
@@ -473,6 +472,9 @@ var input = {
 						const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
 						if (targetingTiles.length > 0) canvas.los(targetingTiles);
 					}
+					
+					// Draw cursor AFTER movement/targeting overlays
+					canvas.cursor();
 				}
 				break;
 				
