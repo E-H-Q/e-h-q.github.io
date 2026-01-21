@@ -439,6 +439,8 @@ var input = {
 					action.disabled = false;
 					action.value = "move";
 					console.log("Exited peek mode.");
+					
+					update();
 				} else {
 					if (EntitySystem.attack(player, click_pos.x, click_pos.y)) {
 						currentEntityTurnsRemaining--;
