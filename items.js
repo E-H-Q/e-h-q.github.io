@@ -651,17 +651,20 @@ function updateItemDropdown() {
 function pickupItem(entity, x, y) {
 	if (!entity.inventory) return false;
 
-	const itemsAtLocation = mapItems.map((item, index) => item.x === x && item.y === y ? {index, item} : null).filter(Boolean);
+	// CRITICAL FIX: Get all items at this location
+	const itemsAtLocation = mapItems.filter(item => item.x === x && item.y === y);
 
 	if (itemsAtLocation.length > 0) {
+		// Pick up the most recent item (last in array)
 		const mostRecent = itemsAtLocation[itemsAtLocation.length - 1];
-		const itemDef = itemTypes[mostRecent.item.itemType];
+		const itemDef = itemTypes[mostRecent.itemType];
 
+		// For enemies, auto-equip equipment
 		if (entity !== player && itemDef.type === "equipment" && shouldEnemyEquip(entity, itemDef)) {
 			if (!entity.equipment) entity.equipment = {};
 			if (entity.equipment[itemDef.slot]) unequipItem(entity, itemDef.slot);
 			
-			const pickedItem = {itemType: mostRecent.item.itemType, id: mostRecent.item.id};
+			const pickedItem = {itemType: mostRecent.itemType, id: mostRecent.itemType};
 			if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
 				pickedItem.currentAmmo = itemDef.maxAmmo;
 			}
@@ -669,30 +672,65 @@ function pickupItem(entity, x, y) {
 			entity.equipment[itemDef.slot] = pickedItem;
 			applyEquipmentEffects(entity, itemDef, true);
 			console.log(entity.name + " equipped " + itemDef.name);
-			mapItems.splice(mostRecent.index, 1);
+			
+			// Remove the picked item from map
+			const itemIndex = mapItems.indexOf(mostRecent);
+			if (itemIndex >= 0) mapItems.splice(itemIndex, 1);
+			
 			return true;
 		}
 
+		// CRITICAL FIX: For consumables, pick up entire stack at this location
 		if (itemDef.type === "consumable") {
-			for (let item of entity.inventory) {
-				if (item.itemType === mostRecent.item.itemType && (item.quantity || 1) < maxStackSize) {
-					item.quantity = (item.quantity || 1) + 1;
-					console.log(entity.name + " picked up another " + itemDef.name);
-					mapItems.splice(mostRecent.index, 1);
+			// Count how many of this item type are at this location
+			const stackAtLocation = itemsAtLocation.filter(item => item.itemType === mostRecent.itemType);
+			const stackSize = stackAtLocation.length;
+			
+			// Try to add to existing stack in inventory (ignoring maxStackSize limit)
+			let addedToExisting = false;
+			for (let invItem of entity.inventory) {
+				if (invItem.itemType === mostRecent.itemType) {
+					const currentQty = invItem.quantity || 1;
+					invItem.quantity = currentQty + stackSize;
+					console.log(entity.name + " picked up " + stackSize + " " + itemDef.name + (stackSize > 1 ? "s" : ""));
+					
+					// Remove all picked items from map
+					for (let i = 0; i < stackSize; i++) {
+						const itemIndex = mapItems.findIndex(item => item.x === x && item.y === y && item.itemType === mostRecent.itemType);
+						if (itemIndex >= 0) mapItems.splice(itemIndex, 1);
+					}
+					
 					return true;
 				}
 			}
+			
+			// If no existing stack, create new inventory slot with entire stack
+			if (entity === player && entity.inventory.length >= maxInventorySlots) {
+				console.log("Inventory full!");
+				return false;
+			}
+			
+			const newItem = {itemType: mostRecent.itemType, id: nextItemId++, quantity: stackSize};
+			entity.inventory.push(newItem);
+			console.log(entity.name + " picked up " + stackSize + " " + itemDef.name + (stackSize > 1 ? "s" : ""));
+			
+			// Remove all items from map
+			for (let i = 0; i < stackSize; i++) {
+				const itemIndex = mapItems.findIndex(item => item.x === x && item.y === y && item.itemType === mostRecent.itemType);
+				if (itemIndex >= 0) mapItems.splice(itemIndex, 1);
+			}
+			
+			return true;
 		}
 		
+		// For equipment, check inventory space
 		if (entity === player && entity.inventory.length >= maxInventorySlots) {
 			console.log("Inventory full!");
 			return false;
 		}
 
-		const newItem = {itemType: mostRecent.item.itemType, id: mostRecent.item.id};
-		if (itemDef.type === "consumable") {
-			newItem.quantity = 1;
-		}
+		// Pick up equipment
+		const newItem = {itemType: mostRecent.itemType, id: mostRecent.id};
 		
 		if (itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
 			newItem.currentAmmo = itemDef.maxAmmo;
@@ -700,7 +738,10 @@ function pickupItem(entity, x, y) {
 		
 		entity.inventory.push(newItem);
 		console.log(entity.name + " picked up " + itemDef.name);
-		mapItems.splice(mostRecent.index, 1);
+		
+		const itemIndex = mapItems.indexOf(mostRecent);
+		if (itemIndex >= 0) mapItems.splice(itemIndex, 1);
+		
 		return true;
 	}
 	return false;
