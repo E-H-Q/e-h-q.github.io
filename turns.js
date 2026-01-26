@@ -115,6 +115,18 @@ var turns = {
 		});
 	},
 	
+	hasStrictLOS: function(x1, y1, x2, y2) {
+		const path = line({x: x1, y: y1}, {x: x2, y: y2});
+		
+		for (let i = 1; i < path.length - 1; i++) {
+			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+			if (wall && wall.type !== 'glass') {
+				return false;
+			}
+		}
+		return true;
+	},
+	
 	enemyTurn: function(entity, canSeePlayer, dist, effectiveRange) {
 		if (entity.hp < 1) {
 			currentEntityTurnsRemaining = 0;
@@ -139,8 +151,23 @@ var turns = {
 					return;
 				}
 				
+				// CRITICAL FIX: Store whether walls were destroyed
+				const wallCountBefore = walls.length;
+				
 				if (EntitySystem.attack(entity, player.x, player.y)) {
 					currentEntityTurnsRemaining--;
+					
+					// If walls were destroyed, recalculate LOS and distance
+					if (walls.length < wallCountBefore) {
+						dist = calc.distance(entity.x, player.x, entity.y, player.y);
+						canSeePlayer = EntitySystem.hasLOS(entity, player.x, player.y, false);
+						effectiveRange = getEntityAttackRange(entity);
+						
+						// If enemy can still see player but is now out of range, move toward them
+						if (canSeePlayer && dist > effectiveRange && currentEntityTurnsRemaining > 0) {
+							this.enemyMoveToward(entity, player.x, player.y);
+						}
+					}
 				}
 			} else {
 				this.enemyMoveToward(entity, player.x, player.y);
@@ -191,6 +218,16 @@ var turns = {
 	},
 	
 	enemyMoveToward: function(entity, targetX, targetY) {
+		// CRITICAL FIX: Always rebuild pathfinding grid with current wall state
+		populate.reset();
+		
+		// Mark walls as impassable
+		walls.forEach(wall => {
+			if (pts[wall.x]?.[wall.y] !== undefined) {
+				pts[wall.x][wall.y] = 0;
+			}
+		});
+		
 		if (!pts) {
 			currentEntityTurnsRemaining--;
 			return;
@@ -205,6 +242,7 @@ var turns = {
 		
 		const diagonalGraph = new Graph(pts, { diagonal: true });
 		
+		// Mark other entities as impassable (except target position)
 		entities.forEach(e => {
 			if (e !== entity && e.hp > 0 && !(e.x === targetX && e.y === targetY)) {
 				if (diagonalGraph.grid[e.x]?.[e.y]) {
