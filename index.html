@@ -162,6 +162,15 @@
 						<input id="file" type="file" onchange="load_map()"/>
 					</div>
 					<div id="controls-row">
+						<fieldset id="dungeon-settings">
+							<legend>Dungeon Settings</legend>
+							<label>Rooms: <input type="number" id="dungeon_rooms" value="15" min="5" max="30" autocomplete="off" style="width: 50px;"></label><br>
+							<label>Hallways: <input type="number" id="dungeon_hallways" value="14" min="5" max="50" autocomplete="off" style="width: 50px;"></label><br>
+							<label>Min Size: <input type="number" id="dungeon_min_size" value="7" min="2" max="10" autocomplete="off" style="width: 50px;"></label><br>
+							<label>Max Size: <input type="number" id="dungeon_max_size" value="13" min="3" max="15" autocomplete="off" style="width: 50px;"></label><br>
+							<label>Cover %: <input type="number" id="dungeon_cover" value="20" min="0" max="50" autocomplete="off" style="width: 50px;"></label><br>
+							<button onclick="generateDungeon()" style="margin-top: 5px;">GENERATE</button>
+						</fieldset>
 						<fieldset id="enemy-settings">
 							<legend>Enemy Settings</legend>
 							<label>Name: <input type="text" id="spawn_name" value="enemy" autocomplete="off" style="width: 80px;"></label><br>

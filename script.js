@@ -279,6 +279,173 @@ function killEntity(index) {
 	}
 }
 
+function generateDungeon() {
+	const numRooms = parseInt(document.getElementById('dungeon_rooms').value) || 15;
+	const numHallways = parseInt(document.getElementById('dungeon_hallways').value) || 14;
+	const minSize = parseInt(document.getElementById('dungeon_min_size').value) || 7;
+	const maxSize = parseInt(document.getElementById('dungeon_max_size').value) || 13;
+	const coverPercent = parseInt(document.getElementById('dungeon_cover').value) || 20;
+	
+	randomFloor(numRooms, numHallways, minSize, maxSize, coverPercent);
+}
+
+function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPercent) {
+	// Clear existing walls and items
+	walls = [];
+	mapItems = [];
+	allEnemies = [];
+	
+	const rooms = [];
+	const maxAttempts = 500;
+	
+	// Generate rooms with random placement
+	for (let i = 0; i < numRooms; i++) {
+		let placed = false;
+		
+		for (let attempt = 0; attempt < maxAttempts && !placed; attempt++) {
+			const w = Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1)) + minRoomSize;
+			const h = Math.floor(Math.random() * (maxRoomSize - minRoomSize + 1)) + minRoomSize;
+			const x = Math.floor(Math.random() * (size - w - 4)) + 2;
+			const y = Math.floor(Math.random() * (size - h - 4)) + 2;
+			
+			const newRoom = {x, y, w, h};
+			
+			// Check if room overlaps with existing rooms (with 1 tile buffer)
+			let overlap = false;
+			for (let room of rooms) {
+				if (!(newRoom.x + newRoom.w + 1 < room.x || newRoom.x > room.x + room.w + 1 ||
+				      newRoom.y + newRoom.h + 1 < room.y || newRoom.y > room.y + room.h + 1)) {
+					overlap = true;
+					break;
+				}
+			}
+			
+			if (!overlap) {
+				rooms.push(newRoom);
+				placed = true;
+			}
+		}
+	}
+	
+	// Fill map with walls
+	for (let x = 0; x < size; x++) {
+		for (let y = 0; y < size; y++) {
+			walls.push({x, y, type: 'wall'});
+		}
+	}
+	
+	// Carve out rooms
+	for (let room of rooms) {
+		for (let x = room.x; x < room.x + room.w; x++) {
+			for (let y = room.y; y < room.y + room.h; y++) {
+				const idx = walls.findIndex(w => w.x === x && w.y === y);
+				if (idx >= 0) walls.splice(idx, 1);
+			}
+		}
+	}
+	
+	// Create multiple hallways connecting random rooms
+	for (let i = 0; i < numHallways && rooms.length > 1; i++) {
+		const r1 = rooms[Math.floor(Math.random() * rooms.length)];
+		const r2 = rooms[Math.floor(Math.random() * rooms.length)];
+		
+		if (r1 === r2) continue;
+		
+		const c1x = Math.floor(r1.x + r1.w / 2);
+		const c1y = Math.floor(r1.y + r1.h / 2);
+		const c2x = Math.floor(r2.x + r2.w / 2);
+		const c2y = Math.floor(r2.y + r2.h / 2);
+		
+		// L-shaped corridor
+		if (Math.random() > 0.5) {
+			// Horizontal then vertical
+			const xStart = Math.min(c1x, c2x);
+			const xEnd = Math.max(c1x, c2x);
+			for (let x = xStart; x <= xEnd; x++) {
+				let idx = walls.findIndex(w => w.x === x && w.y === c1y);
+				if (idx >= 0) walls.splice(idx, 1);
+			}
+			const yStart = Math.min(c1y, c2y);
+			const yEnd = Math.max(c1y, c2y);
+			for (let y = yStart; y <= yEnd; y++) {
+				let idx = walls.findIndex(w => w.x === c2x && w.y === y);
+				if (idx >= 0) walls.splice(idx, 1);
+			}
+		} else {
+			// Vertical then horizontal
+			const yStart = Math.min(c1y, c2y);
+			const yEnd = Math.max(c1y, c2y);
+			for (let y = yStart; y <= yEnd; y++) {
+				let idx = walls.findIndex(w => w.x === c1x && w.y === y);
+				if (idx >= 0) walls.splice(idx, 1);
+			}
+			const xStart = Math.min(c1x, c2x);
+			const xEnd = Math.max(c1x, c2x);
+			for (let x = xStart; x <= xEnd; x++) {
+				let idx = walls.findIndex(w => w.x === x && w.y === c2y);
+				if (idx >= 0) walls.splice(idx, 1);
+			}
+		}
+	}
+	
+	// Add cover (pillars and L-shaped wall clusters) to rooms
+	if (coverPercent > 0) {
+		for (let room of rooms) {
+			// Calculate how many cover pieces to add based on room size and percentage
+			const roomArea = (room.w - 2) * (room.h - 2); // Interior area
+			const numCoverPieces = Math.floor((roomArea * coverPercent) / 100 / 2); // Divide by 2 since L-shapes take ~2 tiles
+			
+			for (let i = 0; i < numCoverPieces; i++) {
+				// Randomly choose between pillar or L-shape
+				if (Math.random() > 0.5) {
+					// Single pillar
+					const px = room.x + 1 + Math.floor(Math.random() * (room.w - 2));
+					const py = room.y + 1 + Math.floor(Math.random() * (room.h - 2));
+					
+					// Check if location is not already a wall
+					if (!walls.find(w => w.x === px && w.y === py)) {
+						walls.push({x: px, y: py, type: 'wall'});
+					}
+				} else {
+					// 2x2 L-shaped cluster
+					const px = room.x + 1 + Math.floor(Math.random() * (room.w - 3));
+					const py = room.y + 1 + Math.floor(Math.random() * (room.h - 3));
+					
+					// Random L-shape orientation (4 possible rotations)
+					const orientation = Math.floor(Math.random() * 4);
+					const lShapes = [
+						[{x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}], // ┐
+						[{x: 0, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}], // ┌
+						[{x: 1, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}], // ┘
+						[{x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: 1}]  // └
+					];
+					
+					const shape = lShapes[orientation];
+					for (let tile of shape) {
+						const wx = px + tile.x;
+						const wy = py + tile.y;
+						
+						// Check if location is valid and not already a wall
+						if (wx >= room.x + 1 && wx < room.x + room.w - 1 &&
+						    wy >= room.y + 1 && wy < room.y + room.h - 1 &&
+						    !walls.find(w => w.x === wx && w.y === wy)) {
+							walls.push({x: wx, y: wy, type: 'wall'});
+						}
+					}
+				}
+			}
+		}
+	}
+	
+	// Place player in first room
+	if (rooms.length > 0) {
+		player.x = Math.floor(rooms[0].x + rooms[0].w / 2);
+		player.y = Math.floor(rooms[0].y + rooms[0].h / 2);
+	}
+	
+	update();
+}
+
 function update() {
 	allEnemies = allEnemies.filter(enemy => enemy.hp >= 1);
 	
@@ -304,8 +471,8 @@ function update() {
 	valid = [];
 	canvas.clear();
 	canvas.grid();
-	canvas.walls();
 	canvas.items();
+	canvas.walls();
 	canvas.drawOnionskin();
 	canvas.player();
 	canvas.enemy();
