@@ -16,9 +16,44 @@ var turns = {
 
 		if (currentEntityTurnsRemaining <= 0) {
 			const previousEntity = entities[currentEntityIndex];
-			currentEntityIndex++;
-			if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-			currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+			
+			// OPTIMIZATION: Batch skip all out-of-viewport enemies
+			const viewportMargin = 5;
+			const minX = camera.x - viewportMargin;
+			const maxX = camera.x + viewportSize + viewportMargin;
+			const minY = camera.y - viewportMargin;
+			const maxY = camera.y + viewportSize + viewportMargin;
+			
+			// Skip ahead to next entity that needs processing
+			const startIndex = currentEntityIndex;
+			let skipped = 0;
+			while (true) {
+				currentEntityIndex++;
+				if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+				
+				// Prevent infinite loop - if we've checked all entities, break
+				skipped++;
+				if (skipped > entities.length) {
+					break;
+				}
+				
+				const nextEntity = entities[currentEntityIndex];
+				currentEntityTurnsRemaining = nextEntity.turns;
+				
+				// If it's the player or a grenade, process them
+				if (nextEntity === player || nextEntity.isGrenade) {
+					break;
+				}
+				
+				const inExtendedViewport = nextEntity.x >= minX && nextEntity.x <= maxX && 
+				                           nextEntity.y >= minY && nextEntity.y <= maxY;
+				
+				if (inExtendedViewport) {
+					break;
+				}
+				
+				// Out of viewport - continue skipping
+			}
 			
 			const currentEntity = entities[currentEntityIndex];
 			

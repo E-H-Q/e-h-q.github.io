@@ -248,8 +248,19 @@ const EntitySystem = {
 		if (typeof mapItems === 'undefined' || typeof nextItemId === 'undefined') return;
 		
 		entity.inventory?.forEach(item => {
-			mapItems.push({x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++});
-			console.log(entity.name + " dropped " + itemTypes[item.itemType].name);
+			const itemDef = itemTypes[item.itemType];
+			
+			// For consumables with quantities, drop each one individually
+			if (itemDef.type === "consumable" && item.quantity && item.quantity > 1) {
+				for (let i = 0; i < item.quantity; i++) {
+					mapItems.push({x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++});
+				}
+				console.log(entity.name + " dropped " + item.quantity + " " + itemDef.name + (item.quantity > 1 ? "s" : ""));
+			} else {
+				// Single item or equipment
+				mapItems.push({x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++});
+				console.log(entity.name + " dropped " + itemDef.name);
+			}
 		});
 		entity.inventory = [];
 		
