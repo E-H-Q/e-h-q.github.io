@@ -45,6 +45,12 @@ var turns = {
 					break;
 				}
 				
+				// If enemy has seen the player (seenX/seenY is set), they need to take their turn
+				const hasSeenPlayer = (nextEntity.seenX !== 0 || nextEntity.seenY !== 0);
+				if (hasSeenPlayer) {
+					break;
+				}
+				
 				const inExtendedViewport = nextEntity.x >= minX && nextEntity.x <= maxX && 
 				                           nextEntity.y >= minY && nextEntity.y <= maxY;
 				
@@ -52,7 +58,7 @@ var turns = {
 					break;
 				}
 				
-				// Out of viewport - continue skipping
+				// Out of viewport and hasn't seen player - continue skipping
 			}
 			
 			const currentEntity = entities[currentEntityIndex];
