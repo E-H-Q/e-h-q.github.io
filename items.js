@@ -324,7 +324,10 @@ function calculateEntityTargeting(entity, endX, endY) {
         return [];
     }
 
-    if (aimStyle === "cone") {
+    if (aimStyle === "direct") {
+        // Direct targeting shows entire LOS path
+        return path;
+    } else if (aimStyle === "cone") {
         const spread = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.spread || 3 : 3;
         
         let tiles = calculateCone(path, entity.x, entity.y, endX, endY, effectiveRange, spread);
@@ -387,7 +390,40 @@ function getTargetedEntities(attacker, endX, endY) {
     const aimStyle = getWeaponAimStyle(attacker);
     const effectiveRange = getEntityAttackRange(attacker);
 
-    if (aimStyle === "standard" || aimStyle === "melee") {
+    if (aimStyle === "direct") {
+        let path = line({x: attacker.x, y: attacker.y}, {x: endX, y: endY});
+        
+        // Stop at solid walls
+        for (let i = 1; i < path.length; i++) {
+            const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+            if (wall && wall.type !== 'glass') {
+                path = path.slice(0, i);
+                break;
+            }
+        }
+        
+        // Limit to range
+        path = path.length > effectiveRange + 1 ? path.slice(1, effectiveRange + 1) : path.slice(1);
+        
+        // Check if cursor position has an entity
+        const cursorEntity = entities.find(e => e.x === endX && e.y === endY && e.hp > 0);
+        
+        if (cursorEntity) {
+            // Cursor is on an entity - only target that entity if it's in the path
+            const inPath = path.some(p => p.x === cursorEntity.x && p.y === cursorEntity.y);
+            return inPath ? [cursorEntity] : [];
+        }
+        
+        // No entity under cursor - find first entity in path (standard behavior)
+        for (let tile of path) {
+            for (let entity of entities) {
+                if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0) {
+                    return [entity];
+                }
+            }
+        }
+        return [];
+    } else if (aimStyle === "standard" || aimStyle === "melee") {
         let path = line({x: attacker.x, y: attacker.y}, {x: endX, y: endY});
         
         for (let i = 1; i < path.length; i++) {
