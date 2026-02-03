@@ -68,6 +68,11 @@ var turns = {
    				processInventoryGrenades(previousEntity);
 			}
 			
+			// Update enemy LOS states when transitioning to player turn
+			if (currentEntity === player) {
+				this.checkEnemyLOS();
+			}
+			
 			camera = {
 				x: currentEntity.x - Math.round(viewportSize / 2) + 1,
 				y: currentEntity.y - Math.round(viewportSize / 2) + 1
@@ -149,9 +154,16 @@ var turns = {
 		allEnemies.forEach(enemy => {
 			if (enemy.hp < 1) return;
 			
+			// Check if enemy can see player
 			if (EntitySystem.hasLOS(enemy, player.x, player.y, false)) {
+				// Enemy can see player - update last seen position
 				enemy.seenX = player.x;
 				enemy.seenY = player.y;
+			} else {
+				// Enemy cannot see player
+				// If enemy hasn't seen player before (seenX/Y are 0), keep them at 0
+				// If enemy has seen player before, keep the last known position (don't clear it here)
+				// The position will be cleared in enemyTurn() when they reach it
 			}
 		});
 	},
@@ -358,38 +370,43 @@ var turns = {
 			currentEntityTurnsRemaining--;
 			
 			if (entity === player) this.checkEnemyLOS();
+			
+			// Store keyboard mode state BEFORE calling update()
+			const needsKeyboardRedraw = wasKeyboardMode && window.cursorWorldPos;
+			
 			update();
-		}
-		
-		if (wasKeyboardMode && window.cursorWorldPos) {
-			window.cursorWorldPos.x = camera.x + screenOffsetX;
-			window.cursorWorldPos.y = camera.y + screenOffsetY;
-			window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
-			window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
 			
-			// Redraw canvas to show updated cursor position without calling full update()
-			canvas.clear();
-			canvas.grid();
-			canvas.walls();
-			canvas.items();
-			canvas.drawOnionskin();
-			canvas.player();
-			canvas.enemy();
-			canvas.drawGrenades();
-			
-			// Show valid moves if it's still the player's turn
-			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "move") {
-				calc.move(player);
+			// After update(), if in keyboard mode, redraw with correct cursor position
+			if (needsKeyboardRedraw) {
+				window.cursorWorldPos.x = camera.x + screenOffsetX;
+				window.cursorWorldPos.y = camera.y + screenOffsetY;
+				window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
+				window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
+				
+				// Redraw canvas to show updated cursor position
+				canvas.clear();
+				canvas.grid();
+				canvas.walls();
+				canvas.items();
+				canvas.drawOnionskin();
+				canvas.player();
+				canvas.enemy();
+				canvas.drawGrenades();
+				
+				// Show valid moves if it's still the player's turn
+				if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "move") {
+					calc.move(player);
+				}
+				
+				// Show targeting if in attack mode
+				if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "attack") {
+					const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
+					if (targetingTiles.length > 0) canvas.los(targetingTiles);
+				}
+				
+				// Draw cursor AFTER movement/targeting overlays
+				canvas.cursor();
 			}
-			
-			// Show targeting if in attack mode
-			if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "attack") {
-				const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
-				if (targetingTiles.length > 0) canvas.los(targetingTiles);
-			}
-			
-			// Draw cursor AFTER movement/targeting overlays
-			canvas.cursor();
 		}
 
 		if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
