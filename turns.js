@@ -17,6 +17,12 @@ var turns = {
 		if (currentEntityTurnsRemaining <= 0) {
 			const previousEntity = entities[currentEntityIndex];
 			
+			// Save cursor viewport position when player's turn ends
+			if (previousEntity === player && window.cursorWorldPos) {
+				window.savedPlayerCursorViewportX = window.cursorWorldPos.x - camera.x;
+				window.savedPlayerCursorViewportY = window.cursorWorldPos.y - camera.y;
+			}
+			
 			// OPTIMIZATION: Batch skip all out-of-viewport enemies
 			const viewportMargin = 5;
 			const minX = camera.x - viewportMargin;
@@ -78,6 +84,17 @@ var turns = {
 				y: currentEntity.y - Math.round(viewportSize / 2) + 1
 			};
 			
+			// Restore cursor to same viewport position when player's turn begins
+			if (currentEntity === player && window.savedPlayerCursorViewportX !== undefined) {
+				window.cursorWorldPos = {
+					x: camera.x + window.savedPlayerCursorViewportX,
+					y: camera.y + window.savedPlayerCursorViewportY
+				};
+				// Clamp to world bounds
+				window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
+				window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
+			}
+			
 			canvas.init();
 			canvas.clear();
 			canvas.grid();
@@ -133,7 +150,24 @@ var turns = {
 			return;
 		}
 
-		if (currentEntity === player && action.value === "move") calc.move(player);
+		if (currentEntity === player && action.value === "move") {
+			calc.move(player);
+			
+			// Draw path to cursor if valid
+			if (window.cursorWorldPos) {
+				const endX = window.cursorWorldPos.x;
+				const endY = window.cursorWorldPos.y;
+				const isValid = valid.find(v => v.x === endX && v.y === endY);
+				
+				if (isValid && endX >= 0 && endX < size && endY >= 0 && endY < size) {
+					const graph = new Graph(pts, {diagonal: true});
+					const pathResult = astar.search(graph, graph.grid[player.x][player.y], graph.grid[endX][endY]);
+					if (pathResult && pathResult.length > 0) {
+						canvas.path(pathResult);
+					}
+				}
+			}
+		}
 		if (currentEntity === player && action.value === "attack") {	
 			const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
 			if (targetingTiles.length > 0) canvas.los(targetingTiles);

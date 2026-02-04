@@ -414,7 +414,10 @@ function getTargetedEntities(attacker, endX, endY) {
             return inPath ? [cursorEntity] : [];
         }
         
-        // No entity under cursor - find first entity in path (standard behavior)
+        // Check if cursor is on a wall
+        const cursorOnWall = walls.find(w => w.x === endX && w.y === endY);
+        
+        // If cursor is on wall OR no entity under cursor - find first entity in path
         for (let tile of path) {
             for (let entity of entities) {
                 if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0) {

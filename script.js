@@ -475,6 +475,12 @@ function update() {
 	canvas.walls();
 	canvas.drawOnionskin();
 	canvas.player();
+	
+	// Update enemy LOS states BEFORE drawing them
+	if (currentEntity === player && typeof turns !== 'undefined' && turns.checkEnemyLOS) {
+		turns.checkEnemyLOS();
+	}
+	
 	canvas.enemy();
 
 	populate.reset();
@@ -482,22 +488,6 @@ function update() {
 	populate.player();
 	turns.check();
 	
-	if (currentEntity === player && action.value === "move" && window.cursorWorldPos) {
-		const endX = window.cursorWorldPos.x;
-		const endY = window.cursorWorldPos.y;
-		
-		const isValid = valid.find(v => v.x === endX && v.y === endY);
-		
-		if (isValid && endX >= 0 && endX < size && endY >= 0 && endY < size) {
-			const graph = new Graph(pts, {diagonal: true});
-				
-			const pathResult = astar.search(graph, graph.grid[player.x][player.y], graph.grid[endX][endY]);
-	
-			if (pathResult && pathResult.length > 0) {
-				canvas.path(pathResult);
-			}
-		}
-	}
 	// Show grenade throw area preview
 	if (currentEntity === player && action.value === "attack" && window.cursorWorldPos && window.throwingGrenadeIndex !== undefined) {
 		const grenadeTargeting = calculateGrenadeTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
