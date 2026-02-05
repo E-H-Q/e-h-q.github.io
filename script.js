@@ -123,7 +123,6 @@ function updateInventory() {
 			let displayName = itemDef.displayName;
 			let quantityLabel = "";
 			
-			// Special handling for live grenades
 			if (item.isLive && itemDef.effect === "grenade") {
 				displayName = "*!!!* Grenade: (" + item.turnsRemaining + "/" + itemDef.fuse + ")";
 			} else if (item.quantity > 1) {
@@ -161,7 +160,6 @@ function dropInventoryItem(event, inventoryIndex) {
 			const quantity = item.quantity || 1;
 			
 			if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
-				// Special handling for live grenades - create grenade entity
 				if (item.isLive && itemDef.effect === "grenade") {
 					const grenadeEntity = {
 						name: "Grenade",
@@ -182,7 +180,6 @@ function dropInventoryItem(event, inventoryIndex) {
 					console.log(player.name + " dropped a LIVE grenade with " + item.turnsRemaining + " turns remaining!");
 					player.inventory.splice(inventoryIndex, 1);
 				} else {
-					// Normal drop behavior
 					for (var i = 0; i < quantity; i++) {
 						const droppedItem = {
 							x: player.x,
@@ -290,7 +287,6 @@ function generateDungeon() {
 }
 
 function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPercent) {
-	// Clear existing walls and items
 	walls = [];
 	mapItems = [];
 	allEnemies = [];
@@ -298,7 +294,6 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 	const rooms = [];
 	const maxAttempts = 500;
 	
-	// Generate rooms with random placement
 	for (let i = 0; i < numRooms; i++) {
 		let placed = false;
 		
@@ -310,7 +305,6 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 			
 			const newRoom = {x, y, w, h};
 			
-			// Check if room overlaps with existing rooms (with 1 tile buffer)
 			let overlap = false;
 			for (let room of rooms) {
 				if (!(newRoom.x + newRoom.w + 1 < room.x || newRoom.x > room.x + room.w + 1 ||
@@ -327,14 +321,12 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 		}
 	}
 	
-	// Fill map with walls
 	for (let x = 0; x < size; x++) {
 		for (let y = 0; y < size; y++) {
 			walls.push({x, y, type: 'wall'});
 		}
 	}
 	
-	// Carve out rooms
 	for (let room of rooms) {
 		for (let x = room.x; x < room.x + room.w; x++) {
 			for (let y = room.y; y < room.y + room.h; y++) {
@@ -344,7 +336,6 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 		}
 	}
 	
-	// Create multiple hallways connecting random rooms
 	for (let i = 0; i < numHallways && rooms.length > 1; i++) {
 		const r1 = rooms[Math.floor(Math.random() * rooms.length)];
 		const r2 = rooms[Math.floor(Math.random() * rooms.length)];
@@ -356,9 +347,7 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 		const c2x = Math.floor(r2.x + r2.w / 2);
 		const c2y = Math.floor(r2.y + r2.h / 2);
 		
-		// L-shaped corridor
 		if (Math.random() > 0.5) {
-			// Horizontal then vertical
 			const xStart = Math.min(c1x, c2x);
 			const xEnd = Math.max(c1x, c2x);
 			for (let x = xStart; x <= xEnd; x++) {
@@ -372,7 +361,6 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 				if (idx >= 0) walls.splice(idx, 1);
 			}
 		} else {
-			// Vertical then horizontal
 			const yStart = Math.min(c1y, c2y);
 			const yEnd = Math.max(c1y, c2y);
 			for (let y = yStart; y <= yEnd; y++) {
@@ -388,36 +376,29 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 		}
 	}
 	
-	// Add cover (pillars and L-shaped wall clusters) to rooms
 	if (coverPercent > 0) {
 		for (let room of rooms) {
-			// Calculate how many cover pieces to add based on room size and percentage
-			const roomArea = (room.w - 2) * (room.h - 2); // Interior area
-			const numCoverPieces = Math.floor((roomArea * coverPercent) / 100 / 2); // Divide by 2 since L-shapes take ~2 tiles
+			const roomArea = (room.w - 2) * (room.h - 2);
+			const numCoverPieces = Math.floor((roomArea * coverPercent) / 100 / 2);
 			
 			for (let i = 0; i < numCoverPieces; i++) {
-				// Randomly choose between pillar or L-shape
 				if (Math.random() > 0.5) {
-					// Single pillar
 					const px = room.x + 1 + Math.floor(Math.random() * (room.w - 2));
 					const py = room.y + 1 + Math.floor(Math.random() * (room.h - 2));
 					
-					// Check if location is not already a wall
 					if (!walls.find(w => w.x === px && w.y === py)) {
 						walls.push({x: px, y: py, type: 'wall'});
 					}
 				} else {
-					// 2x2 L-shaped cluster
 					const px = room.x + 1 + Math.floor(Math.random() * (room.w - 3));
 					const py = room.y + 1 + Math.floor(Math.random() * (room.h - 3));
 					
-					// Random L-shape orientation (4 possible rotations)
 					const orientation = Math.floor(Math.random() * 4);
 					const lShapes = [
-						[{x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}], // ┐
-						[{x: 0, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}], // ┌
-						[{x: 1, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}], // ┘
-						[{x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: 1}]  // └
+						[{x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}],
+						[{x: 0, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}],
+						[{x: 1, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}],
+						[{x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: 1}]
 					];
 					
 					const shape = lShapes[orientation];
@@ -425,7 +406,6 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 						const wx = px + tile.x;
 						const wy = py + tile.y;
 						
-						// Check if location is valid and not already a wall
 						if (wx >= room.x + 1 && wx < room.x + room.w - 1 &&
 						    wy >= room.y + 1 && wy < room.y + room.h - 1 &&
 						    !walls.find(w => w.x === wx && w.y === wy)) {
@@ -437,7 +417,6 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 		}
 	}
 	
-	// Place player in first room
 	if (rooms.length > 0) {
 		player.x = Math.floor(rooms[0].x + rooms[0].w / 2);
 		player.y = Math.floor(rooms[0].y + rooms[0].h / 2);
@@ -462,10 +441,21 @@ function update() {
 	}
 	
 	const currentEntity = entities[currentEntityIndex] || player;
+	const oldCameraX = camera.x;
+	const oldCameraY = camera.y;
+	
 	camera = {
 		x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
 		y: currentEntity.y - Math.round((viewportSize / 2)) + 1
 	};
+	
+	// Only adjust cursor position when it's the player's turn
+	if (currentEntity === player && window.cursorWorldPos && cursorVisible) {
+		window.cursorWorldPos.x += (camera.x - oldCameraX);
+		window.cursorWorldPos.y += (camera.y - oldCameraY);
+		window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
+		window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
+	}
 	
 	canvas.init();
 	valid = [];
@@ -476,7 +466,6 @@ function update() {
 	canvas.drawOnionskin();
 	canvas.player();
 	
-	// Update enemy LOS states BEFORE drawing them
 	if (currentEntity === player && typeof turns !== 'undefined' && turns.checkEnemyLOS) {
 		turns.checkEnemyLOS();
 	}
@@ -488,7 +477,6 @@ function update() {
 	populate.player();
 	turns.check();
 	
-	// Show grenade throw area preview
 	if (currentEntity === player && action.value === "attack" && window.cursorWorldPos && window.throwingGrenadeIndex !== undefined) {
 		const grenadeTargeting = calculateGrenadeTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
 		if (grenadeTargeting.length > 0) {

@@ -23,7 +23,13 @@ var input = {
 			y: currentEntity.y - Math.round((viewportSize / 2)) + 1
 		};
 		
-		update();	
+		update();
+
+		// Update saved cursor screen position after zoom
+		if (window.cursorWorldPos && cursorVisible) {
+			window.savedCursorScreenX = window.cursorWorldPos.x - camera.x;
+			window.savedCursorScreenY = window.cursorWorldPos.y - camera.y;
+		}	
 	},
 	
 	keyboard: function(event) {
@@ -238,6 +244,17 @@ var input = {
 		if (event.keyCode === 80) { // P - Peek mode
 			//event.preventDefault();
 			activatePeekMode()
+		}
+
+		if (event.keyCode === 32) { // SPACE BAR
+			event.preventDefault();
+			window.cursorWorldPos = {
+				x: player.x,
+				y: player.y
+			};
+		cursorVisible = true;
+		update();
+		return;
 		}
 	},
 	
