@@ -94,7 +94,16 @@ var turns = {
                 const isValid = valid.find(v => v.x === endX && v.y === endY);
                 
                 if (isValid && endX >= 0 && endX < size && endY >= 0 && endY < size) {
-                    const graph = new Graph(pts, {diagonal: true});
+                    // Create grid with only valid tiles marked as walkable
+                    const validGrid = createAndFillTwoDArray({rows: size, columns: size, defaultValue: 0});
+                    valid.forEach(v => {
+                        if (validGrid[v.x] && validGrid[v.x][v.y] !== undefined) {
+                            validGrid[v.x][v.y] = 1;
+                        }
+                    });
+                    validGrid[player.x][player.y] = 1;
+                    
+                    const graph = new Graph(validGrid, {diagonal: true});
                     const pathResult = astar.search(graph, graph.grid[player.x][player.y], graph.grid[endX][endY]);
                     if (pathResult && pathResult.length > 0) {
                         canvas.path(pathResult);
