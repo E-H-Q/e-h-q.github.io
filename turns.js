@@ -167,8 +167,8 @@ var turns = {
                 // Clear attacker once in cover
                 if (entity.x === cover.x && entity.y === cover.y) {
                     entity.lastAttacker = null;
-		    currentEntityTurnsRemaining--;
-	            console.log(player.name + " hides...");
+		    		currentEntityTurnsRemaining--;
+	            	console.log(entity.name + " hides...");
                 }
                 return;
             }
