@@ -31,6 +31,11 @@ var turns = {
                 y: currentEntity.y - Math.round(viewportSize / 2) + 1
             };
             
+            // Recenter cursor on player when turn cycles back
+            if (currentEntity === player && keyboardMode && cursorVisible) {
+                window.cursorWorldPos = {x: player.x, y: player.y};
+            }
+            
             canvas.init();
             canvas.clear();
             canvas.grid();
