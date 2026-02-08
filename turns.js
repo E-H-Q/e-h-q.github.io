@@ -155,9 +155,33 @@ var turns = {
             effectiveRange = getEntityAttackRange(entity);
         }
         
+        // Defensive trait: seek cover from last attacker after taking damage
+        if (helper.hasTrait(entity, 'defensive') && entity.lastAttacker && entity.hp < entity.maxHp) {
+            const attackerPos = entity.lastAttacker;
+            const cover = helper.findNearestCover(entity, attackerPos.x, attackerPos.y);
+            
+            if (cover) {
+                //console.log(entity.name + " seeks cover from " + attackerPos.name + "!");
+                this.enemyMoveToward(entity, cover.x, cover.y);
+                
+                // Clear attacker once in cover
+                if (entity.x === cover.x && entity.y === cover.y) {
+                    entity.lastAttacker = null;
+		    currentEntityTurnsRemaining--;
+	            console.log(player.name + " hides...");
+                }
+                return;
+            }
+        }
+        
         if (canSeePlayer) {
             entity.seenX = player.x;
             entity.seenY = player.y;
+            
+            // Clear hunting state when player is spotted
+            if (entity.huntingTurns !== undefined) {
+                entity.huntingTurns = 0;
+            }
             
             if (dist <= effectiveRange) {
                 if (!hasAmmo(entity)) {
@@ -175,8 +199,40 @@ var turns = {
             }
         } else if (entity.seenX !== 0 || entity.seenY !== 0) {
             if (entity.x === entity.seenX && entity.y === entity.seenY) {
+                // Aggressive trait: hunt in area
+                if (helper.hasTrait(entity, 'aggressive')) {
+                    if (entity.huntingTurns === undefined) entity.huntingTurns = 0;
+                    
+                    if (entity.huntingTurns < 3) { // HARDCODED CARIABLES! WATCH OUT!
+                        const searchRadius = 4;
+                        const searchTiles = [];
+                        
+                        for (let x = Math.max(0, entity.x - searchRadius); x <= Math.min(size - 1, entity.x + searchRadius); x++) {
+                            for (let y = Math.max(0, entity.y - searchRadius); y <= Math.min(size - 1, entity.y + searchRadius); y++) {
+                                if (!helper.tileBlocked(x, y)) {
+                                    searchTiles.push({x, y, distance: calc.distance(entity.x, x, entity.y, y)});
+                                }
+                            }
+                        }
+                        
+                        if (searchTiles.length > 0) {
+                            searchTiles.sort((a, b) => a.distance - b.distance);
+                            const farTiles = searchTiles.filter(t => t.distance >= 2);
+                            const target = farTiles.length > 0 ? 
+                                farTiles[Math.floor(Math.random() * Math.min(5, farTiles.length))] :
+                                searchTiles[Math.floor(Math.random() * Math.min(5, searchTiles.length))];
+                            
+                            //console.log(entity.name + " searches the area...");
+                            this.enemyMoveToward(entity, target.x, target.y);
+                            entity.huntingTurns++;
+                            return;
+                        }
+                    }
+                }
+                
                 entity.seenX = 0;
                 entity.seenY = 0;
+                entity.huntingTurns = 0;
                 this.enemyRandomMove(entity);
             } else {
                 this.enemyMoveToward(entity, entity.seenX, entity.seenY);

@@ -21,6 +21,22 @@ var peekStartX = 0;
 var peekStartY = 0;
 var savedPlayerRange = 0;
 
+// Trait definitions
+var entityTraits = {
+	default: {
+		name: "Default",
+		description: "Standard behavior"
+	},
+	aggressive: {
+		name: "Aggressive",
+		description: "Searches area after losing sight of target"
+	},
+	defensive: {
+		name: "Defensive",
+		description: "Seeks cover after taking damage"
+	}
+};
+
 // Console override for logging
 (function() {
 	var logger = document.getElementById('log');
@@ -55,7 +71,8 @@ var player = {
 	attack_range: 4,
 	turns: 2,
 	inventory: [],
-	equipment: {}
+	equipment: {},
+	traits: []
 };
 
 var enemy = {
@@ -68,7 +85,8 @@ var enemy = {
 	turns: 2,
 	seenX: 0,
 	seenY: 0,
-	inventory: []
+	inventory: [],
+	traits: []
 };
 
 var allEnemies = [];
@@ -109,6 +127,7 @@ function spawnEnemy() {
 	const range = parseInt(document.getElementById('spawn_range').value) || 3;
 	const attackRange = parseInt(document.getElementById('spawn_attack_range').value) || 3;
 	const turnsVal = parseInt(document.getElementById('spawn_turns').value) || 2;
+	const trait = document.getElementById('spawn_trait').value || "default";
 	
 	let spawnX = null, spawnY = null;
 	
@@ -149,7 +168,10 @@ function spawnEnemy() {
 			turns: turnsVal,
 			seenX: 0,
 			seenY: 0,
-			inventory: []
+			inventory: [],
+			traits: [trait],
+			maxHp: hp,
+			lastAttacker: null
 		};
 		
 		allEnemies.push(newEnemy);
@@ -162,7 +184,7 @@ function spawnEnemy() {
 		}
 	
 		update();
-		console.log("Spawned " + newEnemy.name + " at " + spawnX + ", " + spawnY);
+		console.log("Spawned " + newEnemy.name + " (" + entityTraits[trait].name + ") at " + spawnX + ", " + spawnY);
 	} else {
 		console.log("No valid spawn location found!");
 	}
@@ -199,6 +221,38 @@ var helper = {
 		return offsets
 			.map(([dx, dy]) => ({x: x + dx, y: y + dy}))
 			.filter(tile => tile.x >= 0 && tile.x < size && tile.y >= 0 && tile.y < size);
+	},
+	
+	hasTrait: (entity, trait) => {
+		return entity.traits && entity.traits.includes(trait);
+	},
+	
+	findNearestCover: (entity, fromX, fromY, searchRadius = 5) => { // HARDCODED VARIABLE!!! searchRadius
+		const coverTiles = [];
+		
+		for (let x = Math.max(0, entity.x - searchRadius); x <= Math.min(size - 1, entity.x + searchRadius); x++) {
+			for (let y = Math.max(0, entity.y - searchRadius); y <= Math.min(size - 1, entity.y + searchRadius); y++) {
+				if (helper.tileBlocked(x, y)) continue;
+				if (x === entity.x && y === entity.y) continue;
+				
+				// Check if this position breaks LOS to the threat
+				const blocksLOS = !EntitySystem.hasLOS({x, y}, fromX, fromY, false);
+				
+				if (blocksLOS) {
+					coverTiles.push({
+						x, y,
+						distance: calc.distance(entity.x, x, entity.y, y)
+					});
+				}
+			}
+		}
+		
+		if (coverTiles.length === 0) return null;
+		
+		// Sort by distance, prefer closer cover
+		coverTiles.sort((a, b) => a.distance - b.distance);
+		
+		return coverTiles[0];
 	}
 };
 

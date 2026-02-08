@@ -177,7 +177,14 @@ const EntitySystem = {
 						const armor = enemy.armor || 0;
 						const dmgRoll = Math.max(1, baseDmg - armor);
 						
+						const previousHp = enemy.hp;
 						enemy.hp -= dmgRoll;
+						
+						// Track attacker for defensive trait
+						if (enemy.hp < previousHp && enemy.lastAttacker !== undefined) {
+							enemy.lastAttacker = attacker;
+						}
+						
 						if (enemy.seenX !== undefined) {
 							enemy.seenX = attacker.x;
 							enemy.seenY = attacker.y;

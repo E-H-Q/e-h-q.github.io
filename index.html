@@ -180,6 +180,13 @@
 							<label>Range: <input type="number" id="spawn_range" value="3" autocomplete="off" style="width: 50px;"></label><br>
 							<label>Attack Range: <input type="number" id="spawn_attack_range" value="3" autocomplete="off" style="width: 50px;"></label><br>
 							<label>Turns: <input type="number" id="spawn_turns" value="2" autocomplete="off" style="width: 50px;"></label><br>
+							<label>Behavior: 
+								<select id="spawn_trait" style="width: 100px;" autocomplete="off">
+									<option value="default" selected>Default</option>
+									<option value="aggressive">Aggressive</option>
+									<option value="defensive">Defensive</option>
+								</select>
+							</label><br>
 							<button onclick="spawnEnemy()" style="margin-top: 5px;">SPAWN ENEMY</button>
 						</fieldset>
 						<fieldset id="player-settings">
@@ -233,7 +240,7 @@
 				R. Click items in inventory to drop them.<br><br>
 				Press &lt;SHIFT&gt; to toggle zoom in/out.<br>
 				Press &lt;SHIFT+E&gt; to toggle EDIT mode.<br>
-				Press &lt;ESC&gt; to exit EDIT mode or PEEK mode.<br>
+				Press &lt;ESC&gt; to exit EDIT mode or PEEK mode, and to cancel throwing an item.<br>
 				R. Click tiles to populate coordinate input fields. (Spawning an item on the player/enemy will put it in their inventory.)<br>
 				</i></p>
 		</div>
