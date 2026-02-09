@@ -922,7 +922,7 @@ function detonateGrenade(grenade, x, y) {
 				if (pts[x] && pts[x][y] === 1) {
 					const sX = x - camera.x;
 					const sY = y - camera.y;
-					if (sX >= 0 && sX < viewportSize && sY >= 0 && sY < viewportSize) {
+					if (sX >= 0 && sX < viewportWidth && sY >= 0 && sY < viewportHeight) {
 						ctx.fillRect(sX * tileSize, sY * tileSize, tileSize, tileSize);
 					}
 				}
