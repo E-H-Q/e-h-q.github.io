@@ -27,8 +27,8 @@ var turns = {
             }
             
             camera = {
-                x: currentEntity.x - Math.round(viewportSize / 2) + 1,
-                y: currentEntity.y - Math.round(viewportSize / 2) + 1
+                x: currentEntity.x - Math.round(viewportWidth / 2) + 1,
+                y: currentEntity.y - Math.round(viewportHeight / 2) + 1
             };
             
             // Recenter cursor on player when turn cycles back
@@ -76,8 +76,9 @@ var turns = {
             
             const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
             const enemyInViewport = this.isInViewport(currentEntity);
-            const timeout = 250;
-            
+            //const timeout = parseInt(document.getElementById('turn-delay').value) || 250;
+	    const timeout = parseInt(document.getElementById('turn-delay').value);            
+
             if (enemyHasSeenPlayer && enemyInViewport) {
                 setTimeout(() => {
                     this.enemyTurn(currentEntity, canSeePlayer, dist, effectiveRange);
@@ -124,8 +125,8 @@ var turns = {
     },
     
     isInViewport: function(entity) {
-        return entity.x >= camera.x && entity.x <= camera.x + viewportSize - 1 && 
-               entity.y >= camera.y && entity.y <= camera.y + viewportSize - 1;
+        return entity.x >= camera.x && entity.x <= camera.x + viewportWidth - 1 && 
+               entity.y >= camera.y && entity.y <= camera.y + viewportHeight - 1;
     },
     
     playerCanSeeEnemy: function(enemy) {
@@ -141,6 +142,15 @@ var turns = {
                 enemy.seenY = player.y;
             }
         });
+    },
+    
+    hasStrictLOS: function(x1, y1, x2, y2) {
+        const path = line({x: x1, y: y1}, {x: x2, y: y2});
+        for (let i = 1; i < path.length - 1; i++) {
+            const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+            if (wall && wall.type !== 'glass') return false;
+        }
+        return true;
     },
     
     enemyTurn: function(entity, canSeePlayer, dist, effectiveRange) {
@@ -203,7 +213,7 @@ var turns = {
                 if (helper.hasTrait(entity, 'aggressive')) {
                     if (entity.huntingTurns === undefined) entity.huntingTurns = 0;
                     
-                    if (entity.huntingTurns < 3) { // HARDCODED CARIABLES! WATCH OUT!
+                    if (entity.huntingTurns < 3) {
                         const searchRadius = 4;
                         const searchTiles = [];
                         

@@ -2,7 +2,8 @@
 
 var canvas = {
 	init: () => {
-		c.width = c.height = tileSize * viewportSize;
+		c.width = tileSize * viewportWidth;
+		c.height = tileSize * viewportHeight;
 	},
 	
 	clear: () => {
@@ -14,10 +15,13 @@ var canvas = {
 		ctx.lineWidth = 0.1;
 		ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
 
-		for (let i = 0; i <= viewportSize; i++) {
+		for (let i = 0; i <= viewportWidth; i++) {
 			const pos = i * tileSize;
 			ctx.moveTo(pos, 0);
 			ctx.lineTo(pos, c.height);
+		}
+		for (let j = 0; j <= viewportHeight; j++) {
+			const pos = j * tileSize;
 			ctx.moveTo(0, pos);
 			ctx.lineTo(c.width, pos);
 		}
@@ -27,8 +31,8 @@ var canvas = {
 		ctx.strokeStyle = "rgba(255, 0, 0, 0.2)";
 		ctx.lineWidth = 1;
 		
-		for (let i = 0; i < viewportSize; i++) {
-			for (let j = 0; j < viewportSize; j++) {
+		for (let i = 0; i < viewportWidth; i++) {
+			for (let j = 0; j < viewportHeight; j++) {
 				const worldX = camera.x + i;
 				const worldY = camera.y + j;
 				
@@ -100,7 +104,7 @@ var canvas = {
 			const screenX = entity.x - camera.x;
 			const screenY = entity.y - camera.y;
 			
-			if (screenX >= 0 && screenX < viewportSize && screenY >= 0 && screenY < viewportSize) {
+			if (screenX >= 0 && screenX < viewportWidth && screenY >= 0 && screenY < viewportHeight) {
 				// Draw "Gnade" label
 				ctx.fillStyle = "#FFFFFF";
 				ctx.font = (tileSize / 3) + "px monospace";
@@ -171,7 +175,6 @@ var canvas = {
 			ctx.font = 'bold 12px serif';
 			ctx.textAlign = 'center';
 			ctx.fillText("?", screenX + tileSize * 0.75, screenY + tileSize * 0.25);
-		//	ctx.textAlign = 'left';
 		}
 	},
 	
@@ -211,7 +214,6 @@ var canvas = {
 	
 	enemy: () => {
         allEnemies.forEach(enemy => {
-            // Skip drawing grenades here - they're drawn separately
             if (enemy.isGrenade) return;
             if (enemy.hp >= 1) canvas.drawEntity(enemy, "rgba(125, 125, 0, 0.5)", "enemy");
         });

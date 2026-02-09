@@ -15,12 +15,13 @@ var input = {
     handleZoom: function(zoomOut) {
         isZoomedOut = zoomOut;
         tileSize = zoomOut ? tileSize / 2 : tileSize * 2;
-        viewportSize = zoomOut ? viewportSize * 2 : viewportSize / 2;
+	viewportWidth  = zoomOut ? viewportWidth * 2 : viewportWidth / 2;
+	viewportHeight = zoomOut ? viewportHeight * 2 : viewportHeight / 2;
         
         const currentEntity = entities[currentEntityIndex] || player;
         camera = {
-            x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
-            y: currentEntity.y - Math.round((viewportSize / 2)) + 1
+            x: currentEntity.x - Math.round((viewportWidth / 2)) + 1,
+            y: currentEntity.y - Math.round((viewportHeight / 2)) + 1
         };
         
         update();
@@ -53,8 +54,8 @@ var input = {
                 case 40: window.cursorWorldPos.y++; break;
             }
             
-            window.cursorWorldPos.x = Math.max(camera.x, Math.min(camera.x + viewportSize - 1, window.cursorWorldPos.x));
-            window.cursorWorldPos.y = Math.max(camera.y, Math.min(camera.y + viewportSize - 1, window.cursorWorldPos.y));
+            window.cursorWorldPos.x = Math.max(camera.x, Math.min(camera.x + viewportWidth - 1, window.cursorWorldPos.x));
+            window.cursorWorldPos.y = Math.max(camera.y, Math.min(camera.y + viewportHeight - 1, window.cursorWorldPos.y));
             window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
             window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
             
@@ -127,8 +128,8 @@ var input = {
                         e.hp > 0 && 
                         (e.seenX !== 0 || e.seenY !== 0) &&
                         EntitySystem.hasLOS(player, e.x, e.y, true) &&
-                        e.x >= camera.x && e.x < camera.x + viewportSize &&
-                        e.y >= camera.y && e.y < camera.y + viewportSize
+                        e.x >= camera.x && e.x < camera.x + viewportWidth &&
+                        e.y >= camera.y && e.y < camera.y + viewportHeight
                     );
                     
                     if (visibleEnemies.length > 0) {
@@ -145,8 +146,8 @@ var input = {
                 } else if (action.value === "move") {
                     const visibleItems = mapItems.filter(item => {
                         return hasPermissiveLOS(player.x, player.y, item.x, item.y) &&
-                               item.x >= camera.x && item.x < camera.x + viewportSize &&
-                               item.y >= camera.y && item.y < camera.y + viewportSize;
+                               item.x >= camera.x && item.x < camera.x + viewportWidth &&
+                               item.y >= camera.y && item.y < camera.y + viewportHeight;
                     });
                     
                     if (visibleItems.length > 0) {

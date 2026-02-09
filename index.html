@@ -149,8 +149,7 @@
 					</div>
 					<div style="margin-top: 10px;">
 						<span id="size-input-container">
-							<label>SIZE: <input type="number" id="map-size" min="5" max="100" style="width: 60px;" onchange="updateMapSize()" onkeydown="if(event.keyCode === 13) updateMapSize()"></label>
-							<label style="margin-left: 10px;">TILE: 
+							<label style="margin-right: 10px;">TILE: 
 								<select id="tile-type" style="width: 80px;">
 									<option value="wall">Wall</option>
 									<option value="glass">Glass</option>
@@ -218,6 +217,14 @@
 							<label>Max Size: <input type="number" id="dungeon_max_size" value="13" min="3" max="15" autocomplete="off" style="width: 50px;"></label><br>
 							<label>Cover %: <input type="number" id="dungeon_cover" value="20" min="0" max="50" autocomplete="off" style="width: 50px;"></label><br>
 							<button onclick="generateDungeon()" style="margin-top: 5px;">GENERATE</button>
+						</fieldset>
+						<fieldset id="game-settings">
+							<legend>Game Settings</legend>
+							<label>Map Size: <input type="number" id="map-size" min="5" max="100" value="50" autocomplete="off" style="width: 60px;" onchange="updateMapSize()" onkeydown="if(event.keyCode === 13) updateMapSize()"></label><br>
+							<label>Viewport Size:<br>X: <input type="number" id="viewport-width" min="5" max="50" autocomplete="off" style="width: 50px;" onchange="updateViewportSize()" onkeydown="if(event.keyCode === 13) updateViewportSize()"></label>
+							<label> Y: <input type="number" id="viewport-height" min="5" max="50" autocomplete="off" style="width: 50px;" onchange="updateViewportSize()" onkeydown="if(event.keyCode === 13) updateViewportSize()"></label><br>
+							<label>Turn Delay: <span id="delay-value">250</span>(ms)</label><br>
+							Fast<input type="range" id="turn-delay" min="0" max="1000" value="250" step="50" style="width: 120px;" oninput="document.getElementById('delay-value').textContent = this.value" autocomplete="off">Slow
 						</fieldset>
 					</div>
 				</div>

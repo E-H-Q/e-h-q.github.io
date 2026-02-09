@@ -7,12 +7,15 @@ var save_button = document.getElementById("save_button");
 var input = document.getElementById("file");
 input.value = "";
 
+//document.getElementById("delay-value").value = 250;
+
 var edit = document.getElementById("edit");
 edit.checked = false;
 
 var tileSize = 32;
 var size = 50;
-var viewportSize = Math.floor((window.innerWidth * 0.5) / tileSize);
+var viewportWidth = Math.floor((window.innerWidth * 0.5) / tileSize);
+var viewportHeight = Math.floor((window.innerWidth * 0.5) / tileSize);
 
 // Peek mode variables
 var isPeekMode = false;
@@ -65,8 +68,8 @@ var graph;
 var player = {
 	name: "player",
 	hp: 20,
-	x: Math.floor(viewportSize / 2),
-	y: Math.floor(viewportSize / 2),
+	x: Math.floor(viewportWidth / 2),
+	y: Math.floor(viewportHeight / 2),
 	range: 3,
 	attack_range: 4,
 	turns: 2,

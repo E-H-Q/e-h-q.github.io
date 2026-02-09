@@ -9,6 +9,8 @@ document.getElementById('item_category').value = 'consumables';
 updateItemDropdown();
 
 document.getElementById('map-size').value = size;
+document.getElementById("viewport-width").value = viewportWidth;
+document.getElementById("viewport-height").value = viewportHeight;
 
 update();
 
@@ -445,8 +447,8 @@ function update() {
     const oldCameraY = camera.y;
     
     camera = {
-        x: currentEntity.x - Math.round((viewportSize / 2)) + 1,
-        y: currentEntity.y - Math.round((viewportSize / 2)) + 1
+        x: currentEntity.x - Math.round((viewportWidth / 2)) + 1,
+        y: currentEntity.y - Math.round((viewportHeight / 2)) + 1
     };
     
     if (currentEntity === player && window.cursorWorldPos && cursorVisible) {
@@ -515,3 +517,25 @@ document.addEventListener("keyup", input.keyboard);
 
 var div_for_coords = document.createElement("div");
 document.body.appendChild(div_for_coords);
+
+function updateViewportSize() {
+    let newWidth = parseInt(document.getElementById('viewport-width').value);
+    let newHeight = parseInt(document.getElementById('viewport-height').value);
+    
+    if (newWidth >= 5 && newWidth <= 50 && newHeight >= 5 && newHeight <= 50) {
+        if (isZoomedOut) {
+            newWidth = newWidth * 2;
+            newHeight = newHeight * 2;
+        }
+        
+        viewportWidth = newWidth;
+        viewportHeight = newHeight;
+        canvas.init();
+        console.log("Viewport size changed to " + newWidth + "x" + newHeight);
+        update();
+    } else {
+        console.log("Invalid viewport size. Must be between 5 and 50.");
+        document.getElementById('viewport-width').value = isZoomedOut ? viewportWidth / 2 : viewportWidth;
+        document.getElementById('viewport-height').value = isZoomedOut ? viewportHeight / 2 : viewportHeight;
+    }
+}
