@@ -648,6 +648,7 @@ function showItemPickupWindow(x, y) {
             }
         }
         
+	//currentEntityTurnsRemaining--;
         update();
         return;
     }
@@ -727,6 +728,7 @@ function showItemPickupWindow(x, y) {
                 }
             });
             
+	    currentEntityTurnsRemaining--;
             update();
         },
         onCancel: function() {
