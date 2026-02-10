@@ -12,7 +12,7 @@ var WindowSystem = {
             height: config.height || 200,
             items: config.items || [],
             selectedIndices: new Set(),
-            hoveredIndex: -1,
+            hoveredIndex: 0, // Start with first item hovered
             onConfirm: config.onConfirm || null,
             onCancel: config.onCancel || null,
             scrollOffset: 0,
@@ -31,7 +31,7 @@ var WindowSystem = {
     
     open: function(window) {
         activeWindow = window;
-        update();
+        update(); // Draw the game first, then window will draw on top
     },
     
     close: function() {
@@ -249,6 +249,30 @@ var WindowSystem = {
     handleKeyboard: function(event) {
         if (!activeWindow) return false;
         
+        const win = activeWindow;
+        
+        // Arrow keys - navigate items
+        if (event.keyCode === 38) { // Up arrow
+            event.preventDefault();
+            if (win.hoveredIndex > 0) {
+                win.hoveredIndex--;
+                update();
+            }
+            return true;
+        }
+        
+        if (event.keyCode === 40) { // Down arrow
+            event.preventDefault();
+            if (win.hoveredIndex < win.items.length - 1) {
+                win.hoveredIndex++;
+                update();
+            } else if (win.hoveredIndex === -1 && win.items.length > 0) {
+                win.hoveredIndex = 0;
+                update();
+            }
+            return true;
+        }
+        
         if (event.keyCode === 13) { // Enter
             event.preventDefault();
             this.confirm();
@@ -263,7 +287,6 @@ var WindowSystem = {
         
         if (event.keyCode === 32) { // Space - toggle current hovered
             event.preventDefault();
-            const win = activeWindow;
             if (win.hoveredIndex >= 0) {
                 if (win.selectedIndices.has(win.hoveredIndex)) {
                     win.selectedIndices.delete(win.hoveredIndex);

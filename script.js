@@ -12,6 +12,10 @@ document.getElementById('map-size').value = size;
 document.getElementById("viewport-width").value = viewportWidth;
 document.getElementById("viewport-height").value = viewportHeight;
 
+// Initialize cursor at player position
+window.cursorWorldPos = {x: player.x, y: player.y};
+cursorVisible = true;
+
 update();
 
 function updateMapSize() {
@@ -145,6 +149,11 @@ function updateInventory() {
 }
 
 function useInventoryItem(inventoryIndex) {
+    // Don't use inventory items if window is open
+    if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
+        return;
+    }
+    
     if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
         if (typeof useItem !== 'undefined') {
             useItem(player, inventoryIndex)
@@ -154,6 +163,11 @@ function useInventoryItem(inventoryIndex) {
 
 function dropInventoryItem(event, inventoryIndex) {
     event.preventDefault();
+    
+    // Don't drop inventory items if window is open
+    if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
+        return;
+    }
     
     if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
         if (inventoryIndex >= 0 && inventoryIndex < player.inventory.length) {
@@ -568,16 +582,18 @@ function showItemPickupWindow(x, y) {
         }
     });
     
-    // If only one item (not one item type, but literally one item), pick it up directly
-    if (windowItems.length === 1 && windowItems[0].count === 1) {
+    // If only one entry (one item type), pick it all up directly
+    if (windowItems.length === 1) {
         const selection = windowItems[0];
         const itemDef = itemTypes[selection.itemType];
         
         // Remove from map
-        const itemIndex = mapItems.indexOf(selection.items[0]);
-        if (itemIndex >= 0) {
-            mapItems.splice(itemIndex, 1);
-        }
+        selection.items.forEach(item => {
+            const itemIndex = mapItems.indexOf(item);
+            if (itemIndex >= 0) {
+                mapItems.splice(itemIndex, 1);
+            }
+        });
         
         // Add to player inventory
         if (itemDef.type === "consumable") {
@@ -585,7 +601,7 @@ function showItemPickupWindow(x, y) {
             let added = false;
             for (let invItem of player.inventory) {
                 if (invItem.itemType === selection.itemType) {
-                    invItem.quantity = (invItem.quantity || 1) + 1;
+                    invItem.quantity = (invItem.quantity || 1) + selection.count;
                     added = true;
                     break;
                 }
@@ -594,30 +610,41 @@ function showItemPickupWindow(x, y) {
             if (!added) {
                 if (player.inventory.length >= maxInventorySlots) {
                     console.log("Inventory full!");
-                    mapItems.push(selection.items[0]);
+                    selection.items.forEach(item => mapItems.push(item));
                 } else {
                     player.inventory.push({
                         itemType: selection.itemType,
                         id: nextItemId++,
-                        quantity: 1
+                        quantity: selection.count
                     });
-                    console.log("Picked up " + itemDef.name);
+                    console.log("Picked up " + selection.count + " " + itemDef.name + (selection.count > 1 ? "s" : ""));
                 }
             } else {
-                console.log("Picked up " + itemDef.name);
+                console.log("Picked up " + selection.count + " " + itemDef.name + (selection.count > 1 ? "s" : ""));
             }
         } else {
-            // Equipment
-            if (player.inventory.length >= maxInventorySlots) {
-                console.log("Inventory full!");
-                mapItems.push(selection.items[0]);
-            } else {
-                const newItem = {itemType: selection.itemType, id: selection.items[0].id};
+            // Equipment - pick up each individually
+            let pickedCount = 0;
+            for (let i = 0; i < selection.items.length; i++) {
+                if (player.inventory.length >= maxInventorySlots) {
+                    console.log("Inventory full! Picked up " + pickedCount + " of " + selection.count);
+                    // Put remaining items back
+                    for (let j = i; j < selection.items.length; j++) {
+                        mapItems.push(selection.items[j]);
+                    }
+                    break;
+                }
+                
+                const newItem = {itemType: selection.itemType, id: selection.items[i].id};
                 if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
                     newItem.currentAmmo = itemDef.maxAmmo;
                 }
                 player.inventory.push(newItem);
-                console.log("Picked up " + itemDef.name);
+                pickedCount++;
+            }
+            
+            if (pickedCount > 0) {
+                console.log("Picked up " + pickedCount + " " + itemDef.name + (pickedCount > 1 ? "s" : ""));
             }
         }
         
@@ -625,7 +652,7 @@ function showItemPickupWindow(x, y) {
         return;
     }
     
-    // Multiple items - show window
+    // Multiple item types - show window
     const window = WindowSystem.create({
         title: `Items at (${x}, ${y})`,
         width: 400,

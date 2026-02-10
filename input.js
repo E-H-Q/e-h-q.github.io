@@ -4,12 +4,12 @@ var isZoomedOut = false;
 var isMouseDown = false;
 var lastTile = null;
 var keyboardMode = false;
-var cursorVisible = false;
+var cursorVisible = true;
 
 var input = {
     init: function() {
-        window.cursorWorldPos = null;
-        cursorVisible = false;
+        window.cursorWorldPos = {x: player.x, y: player.y};
+        cursorVisible = true;
     },
     
     handleZoom: function(zoomOut) {
@@ -53,7 +53,6 @@ var input = {
             
             keyboardMode = true;
             cursorVisible = true;
-            document.body.style.cursor = 'none';
             
             switch(event.keyCode) {
                 case 37: window.cursorWorldPos.x--; break;
@@ -128,7 +127,6 @@ var input = {
             if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
                 keyboardMode = true;
                 cursorVisible = true;
-                document.body.style.cursor = 'none';
                 
                 if (action.value === "attack") {
                     const visibleEnemies = entities.filter(e => 
@@ -182,6 +180,12 @@ var input = {
                 if (typeof pickupItem !== 'undefined') {
                     pickupItem(entities[currentEntityIndex], entities[currentEntityIndex].x, entities[currentEntityIndex].y);
                 }
+                
+                // Don't decrease turns or call update if window is open
+                if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
+                    return;
+                }
+                
                 currentEntityTurnsRemaining--;
                 console.log(player.name + " waits...");
                 
@@ -201,6 +205,11 @@ var input = {
         }
         
         if (event.keyCode >= 48 && event.keyCode <= 57) {
+            // Don't use inventory items if window is open
+            if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
+                return;
+            }
+            
             if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
                 let slotIndex = event.keyCode - 49;
                 if (event.keyCode === 48) slotIndex = 9;
@@ -290,7 +299,6 @@ var input = {
         
         if (keyboardMode) {
             keyboardMode = false;
-            document.body.style.cursor = '';
         }
 
         const gridX = Math.floor(canvasX / tileSize);

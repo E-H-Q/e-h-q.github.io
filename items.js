@@ -657,8 +657,8 @@ function spawnItemFromUI() {
 	spawnItem(document.getElementById('item_type').value, 
 		parseInt(document.getElementById('item_x').value), 
 		parseInt(document.getElementById('item_y').value));
-	document.getElementById('item_x').value = "";
-	document.getElementById('item_y').value = "";
+	//document.getElementById('item_x').value = "";
+	//document.getElementById('item_y').value = "";
 }
 
 function updateItemDropdown() {
