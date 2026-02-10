@@ -265,7 +265,9 @@ var input = {
         }
 
         if (event.keyCode === 32) { // SPACE BAR
-            event.preventDefault();
+            event.preventDefault(); // Disables page scrolling.
+			document.activeElement.value += " "; // Allows for typing in text fields.
+
             window.cursorWorldPos = {
                 x: player.x,
                 y: player.y
