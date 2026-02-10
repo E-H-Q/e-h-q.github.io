@@ -487,6 +487,7 @@ function update() {
     }
     canvas.drawGrenades();
     canvas.cursor();
+    canvas.window();
     
     updateTurnOrder();
     updateInventory();
@@ -517,6 +518,208 @@ document.addEventListener("keyup", input.keyboard);
 
 var div_for_coords = document.createElement("div");
 document.body.appendChild(div_for_coords);
+
+function showItemPickupWindow(x, y) {
+    // Get all items at this location
+    const itemsAtLocation = mapItems.filter(item => item.x === x && item.y === y);
+    if (itemsAtLocation.length === 0) return;
+    
+    // Group items by type and count stacks
+    const itemGroups = {};
+    itemsAtLocation.forEach(item => {
+        if (!itemGroups[item.itemType]) {
+            itemGroups[item.itemType] = [];
+        }
+        itemGroups[item.itemType].push(item);
+    });
+    
+    // If only one item type, pick it up directly
+    const itemTypeCount = Object.keys(itemGroups).length;
+    if (itemTypeCount === 1) {
+        const itemType = Object.keys(itemGroups)[0];
+        const items = itemGroups[itemType];
+        const count = items.length;
+        const itemDef = itemTypes[itemType];
+        
+        // Remove items from map
+        for (let i = 0; i < count; i++) {
+            const itemIndex = mapItems.findIndex(item => 
+                item.x === x && item.y === y && item.itemType === itemType
+            );
+            if (itemIndex >= 0) {
+                mapItems.splice(itemIndex, 1);
+            }
+        }
+        
+        // Add to player inventory
+        if (itemDef.type === "consumable") {
+            // Try to add to existing stack
+            let added = false;
+            for (let invItem of player.inventory) {
+                if (invItem.itemType === itemType) {
+                    invItem.quantity = (invItem.quantity || 1) + count;
+                    added = true;
+                    break;
+                }
+            }
+            
+            // Create new stack if needed
+            if (!added) {
+                if (player.inventory.length >= maxInventorySlots) {
+                    console.log("Inventory full! Couldn't pick up " + itemDef.name);
+                    // Put items back on map
+                    for (let i = 0; i < count; i++) {
+                        mapItems.push({x: x, y: y, itemType: itemType, id: nextItemId++});
+                    }
+                } else {
+                    player.inventory.push({
+                        itemType: itemType,
+                        id: nextItemId++,
+                        quantity: count
+                    });
+                    console.log("Picked up " + count + " " + itemDef.name + (count > 1 ? "s" : ""));
+                }
+            } else {
+                console.log("Picked up " + count + " " + itemDef.name + (count > 1 ? "s" : ""));
+            }
+        } else {
+            // Equipment - pick up each individually
+            let pickedCount = 0;
+            for (let i = 0; i < count; i++) {
+                if (player.inventory.length >= maxInventorySlots) {
+                    console.log("Inventory full! Picked up " + pickedCount + " of " + count);
+                    // Put remaining items back
+                    for (let j = i; j < count; j++) {
+                        mapItems.push({x: x, y: y, itemType: itemType, id: nextItemId++});
+                    }
+                    break;
+                }
+                
+                const newItem = {itemType: itemType, id: nextItemId++};
+                if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
+                    newItem.currentAmmo = itemDef.maxAmmo;
+                }
+                player.inventory.push(newItem);
+                pickedCount++;
+            }
+            
+            if (pickedCount > 0) {
+                console.log("Picked up " + pickedCount + " " + itemDef.name + (pickedCount > 1 ? "s" : ""));
+            }
+        }
+        
+        update();
+        return;
+    }
+    
+    // Multiple item types - show window
+    const windowItems = [];
+    Object.keys(itemGroups).forEach(itemType => {
+        const items = itemGroups[itemType];
+        const itemDef = itemTypes[itemType];
+        const count = items.length;
+        
+        let displayText = itemDef.displayName;
+        if (count > 1) {
+            displayText = `${displayText} (x${count})`;
+        }
+        
+        windowItems.push({
+            text: displayText,
+            itemType: itemType,
+            items: items,
+            count: count
+        });
+    });
+    
+    // Create and open window
+    const window = WindowSystem.create({
+        title: `Items at (${x}, ${y})`,
+        width: 400,
+        height: Math.min(500, 100 + windowItems.length * 35),
+        items: windowItems,
+        onConfirm: function(selectedItems) {
+            // Pick up selected items
+            selectedItems.forEach(selection => {
+                const itemDef = itemTypes[selection.itemType];
+                
+                // Remove items from map
+                for (let i = 0; i < selection.count; i++) {
+                    const itemIndex = mapItems.findIndex(item => 
+                        item.x === x && item.y === y && item.itemType === selection.itemType
+                    );
+                    if (itemIndex >= 0) {
+                        mapItems.splice(itemIndex, 1);
+                    }
+                }
+                
+                // Add to player inventory
+                if (itemDef.type === "consumable") {
+                    // Try to add to existing stack
+                    let added = false;
+                    for (let invItem of player.inventory) {
+                        if (invItem.itemType === selection.itemType) {
+                            invItem.quantity = (invItem.quantity || 1) + selection.count;
+                            added = true;
+                            break;
+                        }
+                    }
+                    
+                    // Create new stack if needed
+                    if (!added) {
+                        if (player.inventory.length >= maxInventorySlots) {
+                            console.log("Inventory full! Couldn't pick up " + itemDef.name);
+                            // Put items back on map
+                            for (let i = 0; i < selection.count; i++) {
+                                mapItems.push({x: x, y: y, itemType: selection.itemType, id: nextItemId++});
+                            }
+                        } else {
+                            player.inventory.push({
+                                itemType: selection.itemType,
+                                id: nextItemId++,
+                                quantity: selection.count
+                            });
+                            console.log("Picked up " + selection.count + " " + itemDef.name + (selection.count > 1 ? "s" : ""));
+                        }
+                    } else {
+                        console.log("Picked up " + selection.count + " " + itemDef.name + (selection.count > 1 ? "s" : ""));
+                    }
+                } else {
+                    // Equipment - pick up each individually
+                    let pickedCount = 0;
+                    for (let i = 0; i < selection.count; i++) {
+                        if (player.inventory.length >= maxInventorySlots) {
+                            console.log("Inventory full! Picked up " + pickedCount + " of " + selection.count);
+                            // Put remaining items back
+                            for (let j = i; j < selection.count; j++) {
+                                mapItems.push({x: x, y: y, itemType: selection.itemType, id: nextItemId++});
+                            }
+                            break;
+                        }
+                        
+                        const newItem = {itemType: selection.itemType, id: nextItemId++};
+                        if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
+                            newItem.currentAmmo = itemDef.maxAmmo;
+                        }
+                        player.inventory.push(newItem);
+                        pickedCount++;
+                    }
+                    
+                    if (pickedCount > 0) {
+                        console.log("Picked up " + pickedCount + " " + itemDef.name + (pickedCount > 1 ? "s" : ""));
+                    }
+                }
+            });
+            
+            update();
+        },
+        onCancel: function() {
+            console.log("Cancelled item pickup");
+        }
+    });
+    
+    WindowSystem.open(window);
+}
 
 function updateViewportSize() {
     let newWidth = parseInt(document.getElementById('viewport-width').value);

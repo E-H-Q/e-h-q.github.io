@@ -133,7 +133,6 @@ const EntitySystem = {
 		if (pts[x]?.[y] !== 0) {
 			entity.x = x;
 			entity.y = y;
-			if (typeof pickupItem !== 'undefined') pickupItem(entity, x, y);
 			return true;
 		}
 		return false;

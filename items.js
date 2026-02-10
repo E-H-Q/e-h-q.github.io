@@ -690,7 +690,20 @@ function updateItemDropdown() {
 function pickupItem(entity, x, y) {
 	if (!entity.inventory) return false;
 
-	// CRITICAL FIX: Get all items at this location
+	// Only player uses the window system
+	if (entity === player) {
+		const itemsAtLocation = mapItems.filter(item => item.x === x && item.y === y);
+		if (itemsAtLocation.length > 0) {
+			// Open item selection window
+			if (typeof showItemPickupWindow !== 'undefined') {
+				showItemPickupWindow(x, y);
+			}
+			return true;
+		}
+		return false;
+	}
+
+	// Enemies auto-pickup items (old behavior)
 	const itemsAtLocation = mapItems.filter(item => item.x === x && item.y === y);
 
 	if (itemsAtLocation.length > 0) {
@@ -699,7 +712,7 @@ function pickupItem(entity, x, y) {
 		const itemDef = itemTypes[mostRecent.itemType];
 
 		// For enemies, auto-equip equipment
-		if (entity !== player && itemDef.type === "equipment" && shouldEnemyEquip(entity, itemDef)) {
+		if (itemDef.type === "equipment" && shouldEnemyEquip(entity, itemDef)) {
 			if (!entity.equipment) entity.equipment = {};
 			if (entity.equipment[itemDef.slot]) unequipItem(entity, itemDef.slot);
 			
@@ -719,7 +732,7 @@ function pickupItem(entity, x, y) {
 			return true;
 		}
 
-		// CRITICAL FIX: For consumables, pick up entire stack at this location
+		// For consumables, pick up entire stack at this location
 		if (itemDef.type === "consumable") {
 			// Count how many of this item type are at this location
 			const stackAtLocation = itemsAtLocation.filter(item => item.itemType === mostRecent.itemType);
@@ -744,11 +757,6 @@ function pickupItem(entity, x, y) {
 			}
 			
 			// If no existing stack, create new inventory slot with entire stack
-			if (entity === player && entity.inventory.length >= maxInventorySlots) {
-				console.log("Inventory full!");
-				return false;
-			}
-			
 			const newItem = {itemType: mostRecent.itemType, id: nextItemId++, quantity: stackSize};
 			entity.inventory.push(newItem);
 			console.log(entity.name + " picked up " + stackSize + " " + itemDef.name + (stackSize > 1 ? "s" : ""));
@@ -762,12 +770,6 @@ function pickupItem(entity, x, y) {
 			return true;
 		}
 		
-		// For equipment, check inventory space
-		if (entity === player && entity.inventory.length >= maxInventorySlots) {
-			console.log("Inventory full!");
-			return false;
-		}
-
 		// Pick up equipment
 		const newItem = {itemType: mostRecent.itemType, id: mostRecent.id};
 		

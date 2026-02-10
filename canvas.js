@@ -217,5 +217,11 @@ var canvas = {
             if (enemy.isGrenade) return;
             if (enemy.hp >= 1) canvas.drawEntity(enemy, "rgba(125, 125, 0, 0.5)", "enemy");
         });
-    }
+    },
+	
+	window: () => {
+		if (typeof WindowSystem !== 'undefined') {
+			WindowSystem.draw();
+		}
+	}
 };

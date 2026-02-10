@@ -15,8 +15,8 @@ var input = {
     handleZoom: function(zoomOut) {
         isZoomedOut = zoomOut;
         tileSize = zoomOut ? tileSize / 2 : tileSize * 2;
-	viewportWidth  = zoomOut ? viewportWidth * 2 : viewportWidth / 2;
-	viewportHeight = zoomOut ? viewportHeight * 2 : viewportHeight / 2;
+        viewportWidth = zoomOut ? viewportWidth * 2 : viewportWidth / 2;
+        viewportHeight = zoomOut ? viewportHeight * 2 : viewportHeight / 2;
         
         const currentEntity = entities[currentEntityIndex] || player;
         camera = {
@@ -36,6 +36,14 @@ var input = {
     keyboard: function(event) {
         if (player.hp < 1) return;
         if (event.type !== 'keydown' && event.keyCode !== 16) return;
+        
+        // Check if window is open - let it handle input first
+        if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
+            if (WindowSystem.handleKeyboard(event)) {
+                return;
+            }
+        }
+        
         if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
         
         if ([37, 38, 39, 40].includes(event.keyCode)) { // ARROW KEYS
@@ -262,21 +270,28 @@ var input = {
     mouse: function(event) {
         if (player.hp < 1) return;
         
-        if (keyboardMode) {
-            keyboardMode = false;
-            document.body.style.cursor = '';
-        }
-        
         const rect = c.getBoundingClientRect();
         const canvasX = event.clientX - rect.left;
         const canvasY = event.clientY - rect.top;
         
+        // Always store mouse position
         mouse_pos = {
             canvasX: canvasX,
             canvasY: canvasY,
             clientX: event.clientX,
             clientY: event.clientY
         };
+        
+        // Check if window is open - let it handle mouse movement
+        if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
+            WindowSystem.handleMouseMove(canvasX, canvasY);
+            return;
+        }
+        
+        if (keyboardMode) {
+            keyboardMode = false;
+            document.body.style.cursor = '';
+        }
 
         const gridX = Math.floor(canvasX / tileSize);
         const gridY = Math.floor(canvasY / tileSize);
@@ -325,6 +340,15 @@ var input = {
     click: function() {
         if (player.hp < 1) return;
         if (edit.checked) return;
+        
+        // Check if window is open - let it handle clicks
+        if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
+            const canvasX = mouse_pos.canvasX || 0;
+            const canvasY = mouse_pos.canvasY || 0;
+            WindowSystem.handleClick(canvasX, canvasY);
+            return;
+        }
+        
         if (!window.cursorWorldPos) return;
         
         const click_pos = {

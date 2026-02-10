@@ -221,10 +221,10 @@
 						<fieldset id="game-settings">
 							<legend>Game Settings</legend>
 							<label>Map Size: <input type="number" id="map-size" min="5" max="100" value="50" autocomplete="off" style="width: 60px;" onchange="updateMapSize()" onkeydown="if(event.keyCode === 13) updateMapSize()"></label><br>
-							<label>Viewport Size:<br>X: <input type="number" id="viewport-width" min="5" max="50" autocomplete="off" style="width: 50px;" onchange="updateViewportSize()" onkeydown="if(event.keyCode === 13) updateViewportSize()"></label>
-							<label> Y: <input type="number" id="viewport-height" min="5" max="50" autocomplete="off" style="width: 50px;" onchange="updateViewportSize()" onkeydown="if(event.keyCode === 13) updateViewportSize()"></label><br>
-							<label>Turn Delay: <span id="delay-value">250</span>(ms)</label><br>
-							Fast<input type="range" id="turn-delay" min="0" max="1000" value="250" step="50" style="width: 120px;" oninput="document.getElementById('delay-value').textContent = this.value" autocomplete="off">Slow
+							<label>Viewport X: <input type="number" id="viewport-width" min="5" max="50" autocomplete="off" style="width: 50px;" onchange="updateViewportSize()" onkeydown="if(event.keyCode === 13) updateViewportSize()"></label><br>
+							<label>Viewport Y: <input type="number" id="viewport-height" min="5" max="50" autocomplete="off" style="width: 50px;" onchange="updateViewportSize()" onkeydown="if(event.keyCode === 13) updateViewportSize()"></label><br>
+							<label>Delay (ms): <span id="delay-value">250</span></label><br>
+							<input type="range" id="turn-delay" min="0" max="500" value="250" step="50" style="width: 120px;" oninput="document.getElementById('delay-value').textContent = this.value">
 						</fieldset>
 					</div>
 				</div>
@@ -263,6 +263,7 @@
 		<script type="text/javascript" src="input.js"></script>
 		<script type="text/javascript" src="turns.js"></script>
 		<script type="text/javascript" src="circle.js"></script>
+		<script type="text/javascript" src="window.js"></script>
 		<script type="text/javascript" src="script.js"></script>
 	</body>
 </html>
