@@ -631,22 +631,19 @@ function giveItem(entity, itemType) {
 	console.log(entity.name + " received " + itemDef.name);
 
 	if (entity !== player && itemDef?.type === "equipment") {
-		entity.inventory.pop();
+		// Auto-equip for enemies, but unequip old item first
 		if (!entity.equipment) entity.equipment = {};
-		entity.equipment[itemDef.slot] = newItem;
-
-		if (itemDef.effects) {
-			for (let effect of itemDef.effects) {
-				if (effect.stat === "attack_range") entity.attack_range += effect.value;
-				else if (effect.stat === "damage") entity.damage = (entity.damage || 0) + effect.value;
-				else if (effect.stat === "armor") entity.armor = (entity.armor || 0) + effect.value;
-			}
+		
+		if (entity.equipment[itemDef.slot]) {
+			// Unequip the old item first
+			unequipItem(entity, itemDef.slot);
 		}
-
-		if (itemDef.aimStyle === "melee") {
-			entity.attack_range = 1;
+		
+		// Now equip the new item from inventory
+		const itemIndex = entity.inventory.findIndex(item => item.id === newItem.id);
+		if (itemIndex >= 0) {
+			equipItem(entity, itemIndex);
 		}
-		console.log(entity.name + " equipped " + itemDef.name);
 	}
 
 	update();

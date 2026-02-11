@@ -143,6 +143,29 @@ var turns = {
         });
     },
     
+    findWeaponWithAmmo: function(entity) {
+        if (!entity.inventory) return -1;
+        
+        for (let i = 0; i < entity.inventory.length; i++) {
+            const item = entity.inventory[i];
+            const itemDef = itemTypes[item.itemType];
+            
+            if (itemDef && itemDef.type === "equipment" && itemDef.slot === "weapon") {
+                if (itemDef.maxAmmo === undefined) {
+                    // Weapons without ammo (like knife) are always ready
+                    return i;
+                }
+                
+                const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
+                if (currentAmmo > 0) {
+                    return i;
+                }
+            }
+        }
+        
+        return -1;
+    },
+
     enemyTurn: function(entity, canSeePlayer, dist, effectiveRange) {
         if (entity.hp < 1) {
             currentEntityTurnsRemaining = 0;
@@ -185,6 +208,20 @@ var turns = {
             
             if (dist <= effectiveRange) {
                 if (!hasAmmo(entity)) {
+                    // Aggressive trait: switch to another weapon with ammo instead of reloading
+                    if (helper.hasTrait(entity, 'aggressive')) {
+                        const weaponIndex = this.findWeaponWithAmmo(entity);
+                        if (weaponIndex >= 0) {
+                            if (typeof equipItem !== 'undefined') {
+                                equipItem(entity, weaponIndex);
+                                currentEntityTurnsRemaining--;
+                                //console.log(entity.name + " switched weapons!");
+                                return;
+                            }
+                        }
+                    }
+                    
+                    // Fallback to reloading
                     if (reloadWeapon(entity)) {
                         currentEntityTurnsRemaining--;
                     }
