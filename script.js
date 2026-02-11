@@ -124,7 +124,16 @@ function updateInventory() {
         for (let i = 0; i < player.inventory.length; i++) {
             const item = player.inventory[i];
             const itemDef = itemTypes[item.itemType];
-            const itemTypeLabel = itemDef.type === "equipment" ? " [equip]" : "";
+            
+            let itemTypeLabel = "";
+            if (itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
+                const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
+		if (currentAmmo > 0) {
+	                itemTypeLabel = " [" + currentAmmo + "/" + itemDef.maxAmmo + "]";
+		} else {
+			itemTypeLabel = " [E]"; // EMPTY
+		}
+            }
             
             let displayName = itemDef.displayName;
             let quantityLabel = "";
