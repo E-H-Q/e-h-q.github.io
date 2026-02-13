@@ -165,7 +165,39 @@ var turns = {
         
         return -1;
     },
-
+    
+    findWeaponToReload: function(entity) {
+        if (!entity.inventory) return -1;
+        
+        // Check equipped weapon first
+        if (entity.equipment?.weapon) {
+            const weapon = entity.equipment.weapon;
+            const weaponDef = itemTypes[weapon.itemType];
+            
+            if (weaponDef.maxAmmo !== undefined) {
+                const currentAmmo = weapon.currentAmmo !== undefined ? weapon.currentAmmo : weaponDef.maxAmmo;
+                if (currentAmmo < weaponDef.maxAmmo) {
+                    return -2; // Special code for equipped weapon
+                }
+            }
+        }
+        
+        // Check inventory for weapons that need reloading
+        for (let i = 0; i < entity.inventory.length; i++) {
+            const item = entity.inventory[i];
+            const itemDef = itemTypes[item.itemType];
+            
+            if (itemDef && itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
+                const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
+                if (currentAmmo < itemDef.maxAmmo) {
+                    return i;
+                }
+            }
+        }
+        
+        return -1;
+    },
+    
     enemyTurn: function(entity, canSeePlayer, dist, effectiveRange) {
         if (entity.hp < 1) {
             currentEntityTurnsRemaining = 0;
@@ -215,7 +247,7 @@ var turns = {
                             if (typeof equipItem !== 'undefined') {
                                 equipItem(entity, weaponIndex);
                                 currentEntityTurnsRemaining--;
-                                //console.log(entity.name + " switched weapons!");
+                                console.log(entity.name + " switched weapons!");
                                 return;
                             }
                         }
@@ -234,48 +266,79 @@ var turns = {
             } else {
                 this.enemyMoveToward(entity, player.x, player.y);
             }
-        } else if (entity.seenX !== 0 || entity.seenY !== 0) {
-            if (entity.x === entity.seenX && entity.y === entity.seenY) {
-                // Aggressive trait: hunt in area
-                if (helper.hasTrait(entity, 'aggressive')) {
-                    if (entity.huntingTurns === undefined) entity.huntingTurns = 0;
-                    
-                    if (entity.huntingTurns < 3) { // HARDCODED CARIABLES! WATCH OUT!
-                        const searchRadius = 4;
-                        const searchTiles = [];
+        } else {
+            // Player not visible - check if any weapon needs reloading
+            const weaponToReload = this.findWeaponToReload(entity);
+            
+            if (weaponToReload === -2) {
+                // Equipped weapon needs reloading
+                if (reloadWeapon(entity)) {
+                    currentEntityTurnsRemaining--;
+                    return;
+                }
+            } else if (weaponToReload >= 0) {
+                // Inventory weapon needs reloading - equip it first, then reload
+                const item = entity.inventory[weaponToReload];
+                const itemDef = itemTypes[item.itemType];
+                
+                if (typeof equipItem !== 'undefined') {
+                    equipItem(entity, weaponToReload);
+                    currentEntityTurnsRemaining--;
+                    return;
+                }
+            }
+            
+            if (entity.seenX !== 0 || entity.seenY !== 0) {
+                if (entity.x === entity.seenX && entity.y === entity.seenY) {
+                    // Aggressive trait: find where player might be hiding
+                    if (helper.hasTrait(entity, 'aggressive')) {
+                        if (entity.huntingTurns === undefined) entity.huntingTurns = 0;
                         
-                        for (let x = Math.max(0, entity.x - searchRadius); x <= Math.min(size - 1, entity.x + searchRadius); x++) {
-                            for (let y = Math.max(0, entity.y - searchRadius); y <= Math.min(size - 1, entity.y + searchRadius); y++) {
-                                if (!helper.tileBlocked(x, y)) {
-                                    searchTiles.push({x, y, distance: calc.distance(entity.x, x, entity.y, y)});
+                        if (entity.huntingTurns < entity.turns) {
+                            // Find tiles that break LOS from current position (potential hiding spots)
+                            const searchRadius = entity.attack_range;
+                            const hidingSpots = [];
+                            
+                            for (let x = Math.max(0, entity.x - searchRadius); x <= Math.min(size - 1, entity.x + searchRadius); x++) {
+                                for (let y = Math.max(0, entity.y - searchRadius); y <= Math.min(size - 1, entity.y + searchRadius); y++) {
+                                    if (helper.tileBlocked(x, y)) continue;
+                                    if (x === entity.x && y === entity.y) continue;
+                                    
+                                    // Check if this position breaks LOS from entity's current position
+                                    const blocksLOS = !EntitySystem.hasLOS({x: entity.x, y: entity.y}, x, y, false);
+                                    
+                                    if (blocksLOS) {
+                                        hidingSpots.push({
+                                            x, y,
+                                            distance: calc.distance(entity.x, x, entity.y, y)
+                                        });
+                                    }
                                 }
                             }
-                        }
-                        
-                        if (searchTiles.length > 0) {
-                            searchTiles.sort((a, b) => a.distance - b.distance);
-                            const farTiles = searchTiles.filter(t => t.distance >= 2);
-                            const target = farTiles.length > 0 ? 
-                                farTiles[Math.floor(Math.random() * Math.min(5, farTiles.length))] :
-                                searchTiles[Math.floor(Math.random() * Math.min(5, searchTiles.length))];
                             
-                            //console.log(entity.name + " searches the area...");
-                            this.enemyMoveToward(entity, target.x, target.y);
-                            entity.huntingTurns++;
-                            return;
+                            if (hidingSpots.length > 0) {
+                                // Sort by distance and pick one of the closer spots to check
+                                hidingSpots.sort((a, b) => a.distance - b.distance);
+                                const target = hidingSpots[Math.floor(Math.random() * Math.min(3, hidingSpots.length))];
+                                
+                                this.enemyMoveToward(entity, target.x, target.y);
+                                entity.huntingTurns++;
+                                return;
+                            }
                         }
                     }
+                    
+                    entity.seenX = 0;
+                    entity.seenY = 0;
+                    entity.huntingTurns = 0;
+                    this.enemyRandomMove(entity);
+                } else {
+                    this.enemyMoveToward(entity, entity.seenX, entity.seenY);
                 }
-                
-                entity.seenX = 0;
-                entity.seenY = 0;
-                entity.huntingTurns = 0;
-                this.enemyRandomMove(entity);
             } else {
-                this.enemyMoveToward(entity, entity.seenX, entity.seenY);
+                // No last known position - random movement
+                this.enemyRandomMove(entity);
             }
-        } else {
-            this.enemyRandomMove(entity);
         }
     },
     

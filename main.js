@@ -230,7 +230,9 @@ var helper = {
 		return entity.traits && entity.traits.includes(trait);
 	},
 	
-	findNearestCover: (entity, fromX, fromY, searchRadius = 5) => { // HARDCODED VARIABLE!!! searchRadius
+	//findNearestCover: (entity, fromX, fromY, searchRadius = 5) => {
+	findNearestCover: (entity, fromX, fromY) => {
+	const searchRadius = entity.range * entity.turns; // searches within possible movement distance of the entire turn?
 		const coverTiles = [];
 		
 		for (let x = Math.max(0, entity.x - searchRadius); x <= Math.min(size - 1, entity.x + searchRadius); x++) {
