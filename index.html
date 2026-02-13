@@ -224,7 +224,7 @@
 							<label>Viewport X: <input type="number" id="viewport-width" min="5" max="50" autocomplete="off" style="width: 50px;" onchange="updateViewportSize()" onkeydown="if(event.keyCode === 13) updateViewportSize()"></label><br>
 							<label>Viewport Y: <input type="number" id="viewport-height" min="5" max="50" autocomplete="off" style="width: 50px;" onchange="updateViewportSize()" onkeydown="if(event.keyCode === 13) updateViewportSize()"></label><br>
 							<label>Delay (ms): <span id="delay-value">250</span></label><br>
-							<input type="range" id="turn-delay" min="0" max="500" value="250" step="50" style="width: 120px;" oninput="document.getElementById('delay-value').textContent = this.value">
+							Fast<input type="range" id="turn-delay" min="0" max="1000" value="250" step="50" style="width: 120px;" oninput="document.getElementById('delay-value').textContent = this.value" autocomplete="off">Slow
 						</fieldset>
 					</div>
 				</div>
