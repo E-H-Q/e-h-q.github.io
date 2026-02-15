@@ -446,7 +446,7 @@ var input = {
                             canvas.player();
                             canvas.enemy();
                             canvas.cursor();
-                            canvas.drawGrenades();
+                            //canvas.drawGrenades();
                             
                             if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "move") {
                                 calc.move(player);
@@ -539,7 +539,7 @@ var input = {
                     canvas.drawOnionskin();
                     canvas.player();
                     canvas.enemy();
-                    canvas.drawGrenades();
+                    //canvas.drawGrenades();
                     
                     if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "move") {
                         calc.move(player);

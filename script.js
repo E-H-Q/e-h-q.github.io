@@ -508,7 +508,7 @@ function update() {
             canvas.los(grenadeTargeting);
         }
     }
-    canvas.drawGrenades();
+   // canvas.drawGrenades();
     canvas.cursor();
     canvas.window();
     

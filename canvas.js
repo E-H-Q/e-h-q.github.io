@@ -95,8 +95,33 @@ var canvas = {
 				ctx.textAlign = 'left';
 			}
 		});
+		for (let entity of entities) {
+		if (entity.isGrenade && entity.hp > 0) {
+			const screenX = entity.x - camera.x;
+			const screenY = entity.y - camera.y;
+			
+			if (screenX >= 0 && screenX < viewportWidth && screenY >= 0 && screenY < viewportHeight) {
+				// Draw "Gnade" label
+				ctx.fillStyle = "#FFFFFF";
+				ctx.font = (tileSize / 3) + "px monospace";
+				ctx.textAlign = "center";
+				ctx.fillText("Gnade", 
+					(screenX * tileSize) + (tileSize / 2), 
+					(screenY * tileSize) + 2);
+				
+				// Draw turns remaining in red below
+				ctx.fillStyle = "#FF0000";
+				ctx.font = "bold " + (tileSize / 2) + "px monospace";
+				ctx.textAlign = "center";
+				ctx.fillText(entity.turnsRemaining.toString(), 
+					(screenX * tileSize) + (tileSize / 2), 
+					(screenY * tileSize) + (tileSize * 0.65));
+				}
+			}
+		}
 	},
 
+/*
 	drawGrenades: () => {
 		if (!mapItems) return;
 		for (let entity of entities) {
@@ -124,7 +149,8 @@ var canvas = {
 			}
 		}
 	},
-	
+*/
+
 	range: (res, entity) => {
 		if (res.length > 0 && res.length <= entity.range + 1) {
 			const coord = new calc.coordinate(res[res.length - 1].x, res[res.length - 1].y);
