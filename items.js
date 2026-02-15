@@ -982,8 +982,8 @@ function detonateGrenade(grenade, x, y) {
         			}
     			}
 			}
-			update(); // might cause turn skipping bug down the line?
-		}, 250);
+			//update();
+		}, timeout);
 	}, 0);
 }
 

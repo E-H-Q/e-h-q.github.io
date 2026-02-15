@@ -76,7 +76,7 @@ var turns = {
             
             const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
             const enemyInViewport = this.isInViewport(currentEntity);
-            const timeout = 250;
+            //const timeout = 250;
             
             if (enemyHasSeenPlayer && enemyInViewport) {
                 setTimeout(() => {
