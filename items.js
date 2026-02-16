@@ -982,7 +982,7 @@ function detonateGrenade(grenade, x, y) {
         			}
     			}
 			}
-			//update();
+			update();
 		}, timeout);
 	}, 0);
 }
