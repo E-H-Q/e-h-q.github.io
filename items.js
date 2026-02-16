@@ -972,8 +972,9 @@ function detonateGrenade(grenade, x, y) {
 			        if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0 && entity !== grenade) {
 			            const armor = entity.armor || 0;
  			            const dmg = Math.max(1, itemDef.damage - armor);
-			            entity.hp -= dmg;
 			            console.log(entity.name + " takes " + dmg + " damage!");
+			            entity.hp -= dmg;
+						if (entity.hp <= 0) EntitySystem.dropAllItems(entity);
             
 			            // Check if damaged entity is a grenade and trigger detonation
 			            if (entity.isGrenade && entity.hp <= 0) {
