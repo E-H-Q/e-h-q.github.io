@@ -738,7 +738,7 @@ function showItemPickupWindow(x, y) {
             });
             
 	    currentEntityTurnsRemaining--;
-            update();
+            //update();
         },
         onCancel: function() {
             console.log("Cancelled item pickup");
