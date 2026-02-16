@@ -139,7 +139,17 @@ var turns = {
             if (EntitySystem.hasLOS(enemy, player.x, player.y, false)) {
                 enemy.seenX = player.x;
                 enemy.seenY = player.y;
-            }
+            } else {
+				const screenX = (enemy.x - camera.x) * tileSize;
+				const screenY = (enemy.y - camera.y) * tileSize;
+				// Draw "?" if enemy is unaware
+				if (enemy !== player && enemy.seenX === 0 && enemy.seenY === 0) {
+					ctx.fillStyle = "rgba(255, 255, 255, 1)";
+					ctx.font = 'bold 12px serif';
+					ctx.textAlign = 'center';
+					ctx.fillText("?", screenX + tileSize * 0.75, screenY + tileSize * 0.25);
+				}
+			}
         });
     },
     
@@ -359,7 +369,7 @@ var turns = {
             const isWall = walls.some(w => w.x === newX && w.y === newY);
             const isOccupied = entities.some(e => e !== entity && e.hp > 0 && e.x === newX && e.y === newY);
             
-            if (!isWall && !isOccupied) {
+            if (!isWall && !isOccupied && entity.range > 0) {
                 entity.x = newX;
                 entity.y = newY;
                 break;

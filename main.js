@@ -128,7 +128,7 @@ function spawnEnemy() {
 	const hp = parseInt(document.getElementById('spawn_hp').value) || 15;
 	const manualX = document.getElementById('spawn_x').value;
 	const manualY = document.getElementById('spawn_y').value;
-	const range = parseInt(document.getElementById('spawn_range').value) || 3;
+	const range = parseInt(document.getElementById('spawn_range').value);
 	const attackRange = parseInt(document.getElementById('spawn_attack_range').value) || 3;
 	const turnsVal = parseInt(document.getElementById('spawn_turns').value) || 2;
 	const trait = document.getElementById('spawn_trait').value || "default";
