@@ -430,28 +430,7 @@ var input = {
                         }
                         
                         action.value = "move";
-                        update();
-                        
-                        if (wasKeyboardMode && window.cursorWorldPos) {
-                            window.cursorWorldPos.x = camera.x + screenOffsetX;
-                            window.cursorWorldPos.y = camera.y + screenOffsetY;
-                            window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
-                            window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
-                            
-                            canvas.clear();
-                            canvas.grid();
-                            canvas.walls();
-                            canvas.items();
-                            canvas.drawOnionskin();
-                            canvas.player();
-                            canvas.enemy();
-                            canvas.cursor();
-                            //canvas.drawGrenades();
-                            
-                            if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "move") {
-                                calc.move(player);
-                            }
-                        }
+                        update();    
                     }
                     return;
                 }
@@ -526,33 +505,6 @@ var input = {
                     update();
                 }
                 
-                if (wasKeyboardMode && window.cursorWorldPos) {
-                    window.cursorWorldPos.x = camera.x + screenOffsetX;
-                    window.cursorWorldPos.y = camera.y + screenOffsetY;
-                    window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
-                    window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
-                    
-                    canvas.clear();
-                    canvas.grid();
-                    canvas.walls();
-                    canvas.items();
-                    canvas.drawOnionskin();
-                    canvas.player();
-                    canvas.enemy();
-                    //canvas.drawGrenades();
-                    
-                    if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "move") {
-                        calc.move(player);
-                    }
-                    
-                    if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && action.value === "attack") {
-                        const targetingTiles = calculateEntityTargeting(player, window.cursorWorldPos.x, window.cursorWorldPos.y);
-                        if (targetingTiles.length > 0) canvas.los(targetingTiles);
-                    }
-                    
-                    // Draw cursor AFTER movement/targeting overlays
-                    canvas.cursor();
-                }
                 break;
                 
             default:
