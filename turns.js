@@ -50,7 +50,7 @@ var turns = {
         
         if (currentEntity.isGrenade && currentEntityTurnsRemaining > 0) {
             currentEntity.turnsRemaining--;
-            console.log("Grenade countdown: " + currentEntity.turnsRemaining);
+            //console.log("Grenade countdown: " + currentEntity.turnsRemaining);
             
             if (currentEntity.turnsRemaining <= 0) {
                 detonateGrenade(currentEntity);
