@@ -3,6 +3,41 @@
 var activeWindow = null;
 
 var WindowSystem = {
+    // Generate label for item at index (a-z, A-Z, 0-9)
+    getItemLabel: function(index) {
+        if (index < 26) {
+            // a-z (0-25)
+            return String.fromCharCode(97 + index);
+        } else if (index < 52) {
+            // A-Z (26-51)
+            return String.fromCharCode(65 + (index - 26));
+        } else if (index < 62) {
+            // 0-9 (52-61)
+            return String.fromCharCode(48 + (index - 52));
+        }
+        return "?";
+    },
+    
+    // Get index from key character
+    getIndexFromKey: function(key) {
+        if (!key || key.length !== 1) return -1;
+        const code = key.charCodeAt(0);
+        
+        // a-z (97-122)
+        if (code >= 97 && code <= 122) {
+            return code - 97;
+        }
+        // A-Z (65-90)
+        if (code >= 65 && code <= 90) {
+            return 26 + (code - 65);
+        }
+        // 0-9 (48-57)
+        if (code >= 48 && code <= 57) {
+            return 52 + (code - 48);
+        }
+        return -1;
+    },
+    
     create: function(config) {
         const window = {
             title: config.title || "Window",
@@ -104,9 +139,11 @@ var WindowSystem = {
                 ctx.fillRect(checkboxX + 3, checkboxY + 3, checkboxSize - 6, checkboxSize - 6);
             }
             
-            // Draw item text
+            // Draw item text with letter label
+            const label = this.getItemLabel(i);
             ctx.fillStyle = "#ffffff";
-            ctx.fillText(item.text, checkboxX + checkboxSize + 10, itemY + 20);
+            ctx.font = "14px monospace";
+            ctx.fillText("(" + label + ") " + item.text, checkboxX + checkboxSize + 10, itemY + 20);
         }
         
         // Draw scrollbar if needed
@@ -251,6 +288,24 @@ var WindowSystem = {
         
         const win = activeWindow;
         
+        // Check for letter/number keys (a-z, A-Z, 0-9)
+        if (event.key && event.key.length === 1) {
+            const index = this.getIndexFromKey(event.key);
+            if (index >= 0 && index < win.items.length) {
+                event.preventDefault();
+                // Toggle selection for this item
+                if (win.selectedIndices.has(index)) {
+                    win.selectedIndices.delete(index);
+                } else {
+                    win.selectedIndices.add(index);
+                }
+                // Update hovered index to show which was just toggled
+                win.hoveredIndex = index;
+                update();
+                return true;
+            }
+        }
+        
         // Arrow keys - navigate items
         if (event.keyCode === 38) { // Up arrow
             event.preventDefault();
@@ -298,7 +353,9 @@ var WindowSystem = {
             return true;
         }
         
-        return false;
+        // Consume all other key events to prevent game hotkeys
+        event.preventDefault();
+        return true;
     },
     
     confirm: function() {

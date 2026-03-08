@@ -37,11 +37,10 @@ var input = {
         if (player.hp < 1) return;
         if (event.type !== 'keydown' && event.keyCode !== 16) return;
         
-        // Check if window is open - let it handle input first
+        // Check if window is open - let it handle ALL input first
         if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
-            if (WindowSystem.handleKeyboard(event)) {
-                return;
-            }
+            WindowSystem.handleKeyboard(event);
+            return;
         }
         
         if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
