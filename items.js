@@ -831,6 +831,8 @@ function equipItem(entity, inventoryIndex) {
 	entity.equipment[itemDef.slot] = item;
 	applyEquipmentEffects(entity, itemDef, true);
 	console.log(entity.name + " equipped " + itemDef.name);
+    window.throwingGrenadeIndex = undefined;
+	console.log("Grenade throw cancelled");
 	return true;
 }
 
