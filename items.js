@@ -3,7 +3,6 @@
 var mapItems = [];
 var nextItemId = 0;
 var maxInventorySlots = 10;
-var maxStackSize = 10;
 
 // Consumables data
 const consumablesData = {
@@ -604,7 +603,7 @@ function giveItem(entity, itemType) {
 	
 	if (itemDef.type === "consumable") {
 		for (let item of entity.inventory) {
-			if (item.itemType === itemType && (item.quantity || 1) < maxStackSize) {
+			if (item.itemType === itemType) {
 				item.quantity = (item.quantity || 1) + 1;
 				console.log(entity.name + " received another " + itemDef.name);
 				update();
@@ -734,25 +733,7 @@ function pickupItem(entity, x, y) {
 			// Count how many of this item type are at this location
 			const stackAtLocation = itemsAtLocation.filter(item => item.itemType === mostRecent.itemType);
 			const stackSize = stackAtLocation.length;
-			
-			// Try to add to existing stack in inventory (ignoring maxStackSize limit)
-			let addedToExisting = false;
-			for (let invItem of entity.inventory) {
-				if (invItem.itemType === mostRecent.itemType) {
-					const currentQty = invItem.quantity || 1;
-					invItem.quantity = currentQty + stackSize;
-					console.log(entity.name + " picked up " + stackSize + " " + itemDef.name + (stackSize > 1 ? "s" : ""));
-					
-					// Remove all picked items from map
-					for (let i = 0; i < stackSize; i++) {
-						const itemIndex = mapItems.findIndex(item => item.x === x && item.y === y && item.itemType === mostRecent.itemType);
-						if (itemIndex >= 0) mapItems.splice(itemIndex, 1);
-					}
-					
-					return true;
-				}
-			}
-			
+				
 			// If no existing stack, create new inventory slot with entire stack
 			const newItem = {itemType: mostRecent.itemType, id: nextItemId++, quantity: stackSize};
 			entity.inventory.push(newItem);
