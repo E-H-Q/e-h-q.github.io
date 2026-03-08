@@ -1,6 +1,7 @@
 // WINDOW.JS: SIMPLE WINDOW SYSTEM FOR CANVAS UI
 
 var activeWindow = null;
+var activeContextMenu = null;
 
 var WindowSystem = {
     // Generate label for item at index (a-z, A-Z, 0-9)
@@ -47,14 +48,16 @@ var WindowSystem = {
             height: config.height || 200,
             items: config.items || [],
             selectedIndices: new Set(),
-            hoveredIndex: 0, // Start with first item hovered
+            hoveredIndex: 0,
             onConfirm: config.onConfirm || null,
             onCancel: config.onCancel || null,
             scrollOffset: 0,
             itemHeight: 30,
             headerHeight: 0,
             footerHeight: 40,
-            padding: 10
+            padding: 10,
+            isExamineWindow: config.isExamineWindow || false,
+            entity: config.entity || null
         };
         
         // Center window on canvas
@@ -75,7 +78,13 @@ var WindowSystem = {
     },
     
     draw: function() {
-        if (!activeWindow) return;
+        if (!activeWindow) {
+            // Draw context menu even if no window is open
+            if (activeContextMenu) {
+                this.drawContextMenu();
+            }
+            return;
+        }
         
         const win = activeWindow;
         
@@ -92,6 +101,71 @@ var WindowSystem = {
         ctx.lineWidth = 2;
         ctx.strokeRect(win.x, win.y, win.width, win.height);
         
+        if (win.isExamineWindow) {
+            // EXAMINE WINDOW - completely different rendering
+            this.drawExamineWindow(win);
+        } else {
+            // ITEM PICKUP WINDOW - standard rendering
+            this.drawItemPickupWindow(win);
+        }
+        
+        // Draw context menu on top if present
+        if (activeContextMenu) {
+            this.drawContextMenu();
+        }
+    },
+    
+    drawExamineWindow: function(win) { // LOTS OF HARDCODED POSITIONS!!!
+        // Draw entity sprite at top
+        if (win.entity) {
+            const spriteSize = tileSize * 2;
+            const spriteY = win.y + 10;
+            const spriteX = win.x + (win.width / 2) - (spriteSize / 2);
+            
+            // Draw entity using game's rendering method
+            const entity = win.entity;
+            //const color = entity === player ? "rgba(0, 0, 255, 0.5)" : "rgba(125, 125, 0, 0.5)";
+            const imgId = entity === player ? "pep" : "enemy";
+            
+            //ctx.fillStyle = color;
+            //ctx.fillRect(spriteX, spriteY, spriteSize, spriteSize);
+            
+            const img = document.getElementById(imgId);
+            if (img && img.complete) {
+                ctx.drawImage(img, spriteX, spriteY, spriteSize, spriteSize);
+            }
+            
+			// Draw entity name and HP below sprite
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 16px monospace";
+            ctx.textAlign = "center";
+            ctx.fillText(entity.name, spriteX + spriteSize / 2, spriteY + spriteSize + 20);
+        	ctx.font = "14px monospace";
+			ctx.fillText(" (X: "+entity.x+", Y: "+entity.y+") ", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
+            //ctx.fillText(entity.hp + " HP", spriteX + spriteSize / 2, spriteY + spriteSize + 40);
+        }
+        
+        // Draw stats
+        const contentY = win.y + (tileSize * 2) + 60;
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "14px monospace";
+        ctx.textAlign = "left";
+        
+        for (let i = 0; i < win.items.length; i++) {
+            const item = win.items[i];
+            const itemY = contentY + (i * 20);
+            ctx.fillText(item.text, win.x + win.padding + 10, itemY);
+        }
+        
+        // Draw footer message
+        const footerY = win.y + win.height - 12;
+        ctx.fillStyle = "#888888";
+        ctx.font = "12px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("Press ESC or click outside to close", win.x + win.width / 2, footerY);
+    },
+    
+    drawItemPickupWindow: function(win) {
         // Calculate content area
         const contentY = win.y + win.headerHeight;
         const contentHeight = win.height - win.headerHeight - win.footerHeight;
@@ -163,10 +237,8 @@ var WindowSystem = {
             ctx.fillRect(scrollbarX, thumbY, 10, thumbHeight);
         }
         
-        // Draw footer
+        // Draw footer buttons
         const footerY = win.y + win.height - win.footerHeight;
-        
-        // Draw buttons
         const buttonWidth = 100;
         const buttonHeight = 25;
         const buttonY = footerY + 8;
@@ -193,9 +265,25 @@ var WindowSystem = {
     },
     
     handleClick: function(mouseX, mouseY) {
+        // Context menu takes priority
+        if (activeContextMenu) {
+            return this.handleContextMenuClick(mouseX, mouseY);
+        }
+        
         if (!activeWindow) return false;
         
         const win = activeWindow;
+        
+        // For examine windows, clicking outside closes them
+        if (win.isExamineWindow) {
+            if (mouseX < win.x || mouseX > win.x + win.width ||
+                mouseY < win.y || mouseY > win.y + win.height) {
+                this.close();
+                return true;
+            }
+            // Clicking inside does nothing
+            return true;
+        }
         
         // Check button clicks first (they're in the footer area)
         const footerY = win.y + win.height - win.footerHeight;
@@ -256,6 +344,11 @@ var WindowSystem = {
     },
     
     handleMouseMove: function(mouseX, mouseY) {
+        // Context menu takes priority
+        if (activeContextMenu) {
+            return this.handleContextMenuMove(mouseX, mouseY);
+        }
+        
         if (!activeWindow) return false;
         
         const win = activeWindow;
@@ -284,9 +377,26 @@ var WindowSystem = {
     },
     
     handleKeyboard: function(event) {
+        // Context menu takes priority
+        if (activeContextMenu) {
+            return this.handleContextMenuKeyboard(event);
+        }
+        
         if (!activeWindow) return false;
         
         const win = activeWindow;
+        
+        // For examine windows, only ESC closes them
+        if (win.isExamineWindow) {
+            if (event.keyCode === 27) {
+                event.preventDefault();
+                this.close();
+                return true;
+            }
+            // Consume all other keys
+            event.preventDefault();
+            return true;
+        }
         
         // Check for letter/number keys (a-z, A-Z, 0-9)
         if (event.key && event.key.length === 1) {
@@ -381,5 +491,248 @@ var WindowSystem = {
     
     isOpen: function() {
         return activeWindow !== null;
+    },
+    
+    createContextMenu: function(config) {
+        return {
+            x: config.x || 0,
+            y: config.y || 0,
+            tileX: config.tileX,
+            tileY: config.tileY,
+            options: config.options || [],
+            hoveredIndex: -1,
+            itemHeight: 25,
+            padding: 1,
+            width: 150
+        };
+    },
+    
+    openContextMenu: function(menu) {
+        activeContextMenu = menu;
+        update();
+    },
+    
+    closeContextMenu: function() {
+        activeContextMenu = null;
+        update();
+    },
+    
+    drawContextMenu: function() {
+        if (!activeContextMenu) return;
+        
+        const menu = activeContextMenu;
+        const height = menu.options.length * menu.itemHeight + menu.padding * 2;
+        
+        // Draw menu background
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(menu.x, menu.y, menu.width, height);
+        
+        // Draw menu border
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(menu.x, menu.y, menu.width, height);
+        
+        // Draw options
+        ctx.font = "14px monospace";
+        ctx.textAlign = "left";
+        
+        for (let i = 0; i < menu.options.length; i++) {
+            const option = menu.options[i];
+            const itemY = menu.y + menu.padding + i * menu.itemHeight;
+            
+            // Highlight hovered option
+            if (i === menu.hoveredIndex) {
+                ctx.fillStyle = "#333333";
+                ctx.fillRect(menu.x + menu.padding, itemY, menu.width - menu.padding * 2, menu.itemHeight);
+            }
+            
+            // Draw option text
+            ctx.fillStyle = "#ffffff";
+            ctx.fillText(option.text, menu.x + menu.padding + 5, itemY + 17);
+        }
+    },
+    
+    handleContextMenuMove: function(mouseX, mouseY) {
+        if (!activeContextMenu) return false;
+        
+        const menu = activeContextMenu;
+        const height = menu.options.length * menu.itemHeight + menu.padding * 2;
+        
+        // Check if mouse is outside menu AND outside the tile
+        const tileScreenX = (menu.tileX - camera.x) * tileSize;
+        const tileScreenY = (menu.tileY - camera.y) * tileSize;
+        
+        const inMenu = mouseX >= menu.x && mouseX <= menu.x + menu.width &&
+                       mouseY >= menu.y && mouseY <= menu.y + height;
+        
+        const inTile = mouseX >= tileScreenX && mouseX <= tileScreenX + tileSize &&
+                       mouseY >= tileScreenY && mouseY <= tileScreenY + tileSize;
+        
+        if (!inMenu && !inTile) {
+            this.closeContextMenu();
+            return true;
+        }
+        
+        if (!inMenu) {
+            menu.hoveredIndex = -1;
+            update();
+            return true;
+        }
+        
+        // Update hovered option
+        menu.hoveredIndex = -1;
+        for (let i = 0; i < menu.options.length; i++) {
+            const itemY = menu.y + menu.padding + i * menu.itemHeight;
+            if (mouseY >= itemY && mouseY <= itemY + menu.itemHeight) {
+                menu.hoveredIndex = i;
+                update();
+                break;
+            }
+        }
+        
+        return true;
+    },
+    
+    handleContextMenuClick: function(mouseX, mouseY) {
+        if (!activeContextMenu) return false;
+        
+        const menu = activeContextMenu;
+        const height = menu.options.length * menu.itemHeight + menu.padding * 2;
+        
+        // Check if click is inside menu
+        if (mouseX >= menu.x && mouseX <= menu.x + menu.width &&
+            mouseY >= menu.y && mouseY <= menu.y + height) {
+            
+            for (let i = 0; i < menu.options.length; i++) {
+                const itemY = menu.y + menu.padding + i * menu.itemHeight;
+                if (mouseY >= itemY && mouseY <= itemY + menu.itemHeight) {
+                    const option = menu.options[i];
+                    this.closeContextMenu();
+                    if (option.action) option.action();
+                    return true;
+                }
+            }
+        }
+        
+        // Click outside menu - close it
+        this.closeContextMenu();
+        return true;
+    },
+    
+    handleContextMenuKeyboard: function(event) {
+        if (!activeContextMenu) return false;
+        
+        const menu = activeContextMenu;
+        
+        // Get the actual key pressed - event.key is most reliable
+        const pressedKey = event.key ? event.key.toLowerCase() : null;
+        
+        if (pressedKey) {
+            for (let option of menu.options) {
+                if (option.key && option.key.toLowerCase() === pressedKey) {
+                    event.preventDefault();
+                    this.closeContextMenu();
+                    if (option.action) option.action();
+                    return true;
+                }
+            }
+        }
+        
+        // Escape to close
+        if (event.keyCode === 27 || event.key === 'Escape') {
+            event.preventDefault();
+            this.closeContextMenu();
+            return true;
+        }
+        
+        // Consume all keys to prevent game actions
+        event.preventDefault();
+        return true;
+    },
+    
+    showExamineWindow: function(entity) {
+        const stats = [];
+        
+        stats.push({ text: `HP: ${entity.hp}${entity.maxHp ? '/' + entity.maxHp : ''}` });
+        stats.push({ text: `Movement: ${entity.range}` });
+        stats.push({ text: `Attack Range: ${entity.attack_range}` });
+        
+        if (entity.damage) {
+            stats.push({ text: `Damage: +${entity.damage}` });
+        }
+        
+        if (entity.armor) {
+            stats.push({ text: `Armor: ${entity.armor}` });
+        }
+        
+        // Equipment info
+        if (entity.equipment) {
+            stats.push({ text: "" }); // Blank line
+            stats.push({ text: "EQUIPMENT:" });
+            
+            if (entity.equipment.weapon) {
+                const weaponDef = itemTypes[entity.equipment.weapon.itemType];
+                const ammo = entity.equipment.weapon.currentAmmo;
+                const maxAmmo = weaponDef.maxAmmo;
+                let weaponText = `  Weapon: ${weaponDef.displayName}`;
+                if (maxAmmo !== undefined) {
+                    weaponText += ` [${ammo}/${maxAmmo}]`;
+                }
+                stats.push({ text: weaponText });
+            }
+            
+            if (entity.equipment.armor) {
+                const armorDef = itemTypes[entity.equipment.armor.itemType];
+                stats.push({ text: `  Armor: ${armorDef.displayName}` });
+            }
+            
+            if (entity.equipment.accessory) {
+                const accDef = itemTypes[entity.equipment.accessory.itemType];
+                stats.push({ text: `  Accessory: ${accDef.displayName}` });
+            }
+        }
+        
+        // Inventory
+        if (entity.inventory && entity.inventory.length > 0) {
+            stats.push({ text: "" }); // Blank line
+            stats.push({ text: `INVENTORY (${entity.inventory.length} items):` });
+            entity.inventory.forEach(item => {
+                const itemDef = itemTypes[item.itemType];
+                let itemText = `  - ${itemDef.displayName}`;
+                if (item.quantity > 1) {
+                    itemText += ` (x${item.quantity})`;
+                }
+                if (item.currentAmmo !== undefined) {
+                    itemText += ` [${item.currentAmmo}/${itemDef.maxAmmo}]`;
+                }
+                stats.push({ text: itemText });
+            });
+        }
+        
+        // Traits
+        if (entity.traits && entity.traits.length > 0) {
+            stats.push({ text: `Traits: ${entity.traits.join(', ')}` });
+        }
+        
+        // Special flags
+        if (entity.isGrenade) {
+            stats.push({ text: `Grenade Countdown: ${entity.turnsRemaining}` });
+        }
+        
+        const window = this.create({
+            title: `${entity.name}`,
+            width: 400,
+            height: Math.min(600, 200 + stats.length * 22),
+            items: stats,
+            selectedIndices: new Set(),
+            isExamineWindow: true,
+            entity: entity,
+            onConfirm: null,
+            onCancel: function() {
+                //console.log("Closed examine window");
+            }
+        });
+        
+        this.open(window);
     }
 };

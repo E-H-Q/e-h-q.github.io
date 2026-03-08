@@ -37,10 +37,12 @@ var input = {
         if (player.hp < 1) return;
         if (event.type !== 'keydown' && event.keyCode !== 16) return;
         
-        // Check if window is open - let it handle ALL input first
-        if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
-            WindowSystem.handleKeyboard(event);
-            return;
+        // Check if context menu OR window is open - let them handle ALL input first
+        if (typeof WindowSystem !== 'undefined') {
+            if (activeContextMenu || WindowSystem.isOpen()) {
+                WindowSystem.handleKeyboard(event);
+                return;
+            }
         }
         
         if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
@@ -292,6 +294,12 @@ var input = {
             clientY: event.clientY
         };
         
+        // Check if context menu is open
+        if (typeof WindowSystem !== 'undefined' && activeContextMenu) {
+            WindowSystem.handleMouseMove(canvasX, canvasY);
+            return;
+        }
+        
         // Check if window is open - let it handle mouse movement
         if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
             WindowSystem.handleMouseMove(canvasX, canvasY);
@@ -349,6 +357,14 @@ var input = {
     click: function() {
         if (player.hp < 1) return;
         if (edit.checked) return;
+        
+        // Check if context menu is open - let it handle clicks FIRST
+        if (typeof WindowSystem !== 'undefined' && activeContextMenu) {
+            const canvasX = mouse_pos.canvasX || 0;
+            const canvasY = mouse_pos.canvasY || 0;
+            WindowSystem.handleClick(canvasX, canvasY);
+            return;
+        }
         
         // Check if window is open - let it handle clicks
         if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
@@ -516,14 +532,49 @@ var input = {
         
         if (!window.cursorWorldPos) return;
         
-        console.log(window.cursorWorldPos);
-        
+        // Always populate the coordinate fields (regardless of edit mode)
+        //console.log(window.cursorWorldPos);
         document.getElementById('spawn_x').value = window.cursorWorldPos.x;
         document.getElementById('spawn_y').value = window.cursorWorldPos.y;
         document.getElementById('player_x').value = window.cursorWorldPos.x;
         document.getElementById('player_y').value = window.cursorWorldPos.y;
         document.getElementById('item_x').value = window.cursorWorldPos.x;
         document.getElementById('item_y').value = window.cursorWorldPos.y;
+        
+        // If in edit mode, stop here (old behavior)
+        if (edit.checked) {
+            return;
+        }
+        
+        // Check if there's an entity at this position
+        const clickedEntity = entities.find(e => 
+            e.x === window.cursorWorldPos.x && 
+            e.y === window.cursorWorldPos.y
+        );
+        
+        if (clickedEntity) {
+            const rect = c.getBoundingClientRect();
+            const menuX = event.clientX - rect.left;
+            const menuY = event.clientY - rect.top;
+            
+            const menu = WindowSystem.createContextMenu({
+                x: menuX,
+                y: menuY,
+                tileX: window.cursorWorldPos.x,
+                tileY: window.cursorWorldPos.y,
+                options: [
+                    {
+                        text: "(x) Examine",
+                        key: "x",
+                        action: function() {
+                            WindowSystem.showExamineWindow(clickedEntity);
+                        }
+                    }
+                ]
+            });
+            
+            WindowSystem.openContextMenu(menu);
+        }
     },
     
     mousedown: function(event) {
