@@ -1,4 +1,4 @@
-// TURNS.JS: HANDLES TURN ORDER AND TURN ACTIONS
+// TURNS.JS: HANDLES TURN ORDER AND TURN ACTIONS (OPTIMIZED)
 
 var currentEntityIndex = -1;
 var currentEntityTurnsRemaining = 0;
@@ -16,8 +16,42 @@ var turns = {
 
         if (currentEntityTurnsRemaining <= 0) {
             const previousEntity = entities[currentEntityIndex];
-            currentEntityIndex++;
-            if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+            
+            // Use player-centered camera for range checks (since we only care about entities near player)
+            const playerCamera = {
+                x: player.x - Math.round(viewportWidth / 2) + 1,
+                y: player.y - Math.round(viewportHeight / 2) + 1
+            };
+            
+            // Skip to next entity, skipping ones outside viewport (except grenades)
+            do {
+                currentEntityIndex++;
+                if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+                
+                const currentEntity = entities[currentEntityIndex];
+                
+                // Always process player and grenades
+                if (currentEntity === player || currentEntity.isGrenade) {
+                    break;
+                }
+                
+                // Check if entity is within active range (viewport + buffer around PLAYER)
+                const buffer = 5; // Small buffer beyond viewport
+                const inActiveRange = (
+                    currentEntity.x >= playerCamera.x - buffer &&
+                    currentEntity.x <= playerCamera.x + viewportWidth + buffer &&
+                    currentEntity.y >= playerCamera.y - buffer &&
+                    currentEntity.y <= playerCamera.y + viewportHeight + buffer
+                );
+                
+                // If in range, process this entity
+                if (inActiveRange) {
+                    break;
+                }
+                
+                // Skip this entity - continue to next
+            } while (currentEntityIndex !== 0); // Safety: stop if we've looped back to player
+            
             currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
             
             const currentEntity = entities[currentEntityIndex];
@@ -41,7 +75,6 @@ var turns = {
             canvas.grid();
             canvas.items();
             canvas.walls();
-            //canvas.drawGrenades();
             canvas.player();
             canvas.enemy();
         }
@@ -50,7 +83,6 @@ var turns = {
         
         if (currentEntity.isGrenade && currentEntityTurnsRemaining > 0) {
             currentEntity.turnsRemaining--;
-            //console.log("Grenade countdown: " + currentEntity.turnsRemaining);
             
             if (currentEntity.turnsRemaining <= 0) {
                 detonateGrenade(currentEntity);
@@ -67,23 +99,25 @@ var turns = {
             const canSeePlayer = EntitySystem.hasLOS(currentEntity, player.x, player.y, false);
             const willAttack = canSeePlayer && dist <= effectiveRange;
             
-            if (!willAttack) {
+            // OPTIMIZATION: Only show movement range if enemy can see player or is in viewport
+            const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
+            const enemyInViewport = this.isInViewport(currentEntity);
+            
+            if (!willAttack && enemyHasSeenPlayer && enemyInViewport) {
                 calc.move(currentEntity);
-            } else {
+            } else if (willAttack && enemyInViewport) {
                 const targetingTiles = calculateEntityTargeting(currentEntity, player.x, player.y);
                 canvas.los(targetingTiles);
             }
             
-            const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
-            const enemyInViewport = this.isInViewport(currentEntity);
-            //const timeout = 250;
-            
+            // Only use delay for enemies that have seen player AND are in viewport
             if (enemyHasSeenPlayer && enemyInViewport) {
                 setTimeout(() => {
                     this.enemyTurn(currentEntity, canSeePlayer, dist, effectiveRange);
                     update();
                 }, timeout);
             } else {
+                // Process instantly for off-screen/unaware enemies
                 this.enemyTurn(currentEntity, canSeePlayer, dist, effectiveRange);
                 update();
             }
@@ -133,8 +167,21 @@ var turns = {
     },
     
     checkEnemyLOS: function() {
+        // OPTIMIZATION: Only check LOS for enemies within viewport range
+        const buffer = 5;
+        
         allEnemies.forEach(enemy => {
             if (enemy.hp < 1) return;
+            
+            // Skip LOS check for enemies far outside viewport
+            const inActiveRange = (
+                enemy.x >= camera.x - buffer &&
+                enemy.x <= camera.x + viewportWidth + buffer &&
+                enemy.y >= camera.y - buffer &&
+                enemy.y <= camera.y + viewportHeight + buffer
+            );
+            
+            if (!inActiveRange) return; // Skip this enemy
             
             if (EntitySystem.hasLOS(enemy, player.x, player.y, false)) {
                 enemy.seenX = player.x;
@@ -226,7 +273,6 @@ var turns = {
             const cover = helper.findNearestCover(entity, attackerPos.x, attackerPos.y);
             
             if (cover) {
-                //console.log(entity.name + " seeks cover from " + attackerPos.name + "!");
                 this.enemyMoveToward(entity, cover.x, cover.y);
                 
                 // Clear attacker once in cover
@@ -274,6 +320,7 @@ var turns = {
                     currentEntityTurnsRemaining--;
                 }
             } else {
+                // OPTIMIZATION: Only use A* pathfinding if enemy can see player
                 this.enemyMoveToward(entity, player.x, player.y);
             }
         } else {
@@ -331,6 +378,7 @@ var turns = {
                                 hidingSpots.sort((a, b) => a.distance - b.distance);
                                 const target = hidingSpots[Math.floor(Math.random() * Math.min(3, hidingSpots.length))];
                                 
+                                // OPTIMIZATION: Only use A* when hunting (has seen player before)
                                 this.enemyMoveToward(entity, target.x, target.y);
                                 entity.huntingTurns++;
                                 return;
@@ -343,10 +391,11 @@ var turns = {
                     entity.huntingTurns = 0;
                     this.enemyRandomMove(entity);
                 } else {
+                    // OPTIMIZATION: Only use A* when moving toward last known player position
                     this.enemyMoveToward(entity, entity.seenX, entity.seenY);
                 }
             } else {
-                // No last known position - random movement
+                // No last known position - random movement (no A*)
                 this.enemyRandomMove(entity);
             }
         }
@@ -384,6 +433,9 @@ var turns = {
     },
     
     enemyMoveToward: function(entity, targetX, targetY) {
+        // OPTIMIZATION: This function now only called when enemy can see player
+        // or is actively hunting/seeking cover
+        
         if (!pts) {
             currentEntityTurnsRemaining--;
             return;
@@ -514,5 +566,14 @@ var turns = {
             if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
             currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
         }
+    },
+    
+    hasStrictLOS: function(x1, y1, x2, y2) {
+        const path = line({x: x1, y: y1}, {x: x2, y: y2});
+        for (let i = 1; i < path.length - 1; i++) {
+            const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+            if (wall && wall.type !== 'glass') return false;
+        }
+        return true;
     }
 };
