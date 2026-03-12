@@ -35,16 +35,16 @@ function updateCamera() {
         const euclideanDist = Math.sqrt(dx * dx + dy * dy);
         
         // Apply dampening for close-range aiming (within 5 tiles)
-        const dampening = euclideanDist < 3 ? 0.2 + (euclideanDist / 3) * 0.8 : 1.0;
-        const maxPanDistance = Math.ceil(euclideanDist / 3) * dampening;
+        const dampening = euclideanDist < 5 ? 0.2 + (euclideanDist / 5) * 0.8 : 1.0;
+        const maxPanDistance = Math.round(euclideanDist / 3) * dampening;
         
         // Calculate player-centered camera position
-        const playerCameraX = player.x - Math.round(viewportWidth / 2) + 1;
-        const playerCameraY = player.y - Math.round(viewportHeight / 2) + 1;
+        const playerCameraX = player.x - Math.floor(viewportWidth / 2) + 1;
+        const playerCameraY = player.y - Math.floor(viewportHeight / 2) + 1;
         
         // Calculate desired camera position (cursor-centered)
-        let desiredCameraX = window.cursorWorldPos.x - Math.round(viewportWidth / 2) + 1;
-        let desiredCameraY = window.cursorWorldPos.y - Math.round(viewportHeight / 2) + 1;
+        let desiredCameraX = window.cursorWorldPos.x - Math.floor(viewportWidth / 2) + 1;
+        let desiredCameraY = window.cursorWorldPos.y - Math.floor(viewportHeight / 2) + 1;
         
         // Clamp camera to max pan distance from player-centered position using radial clamping
         const deltaX = desiredCameraX - playerCameraX;
@@ -134,6 +134,13 @@ var input = {
     			}
                 updateCamera();
                 canvas.init();
+                
+                // Clamp cursor back to viewport bounds after camera updates
+                if (window.cursorWorldPos) {
+                    window.cursorWorldPos.x = Math.max(camera.x, Math.min(camera.x + viewportWidth - 1, window.cursorWorldPos.x));
+                    window.cursorWorldPos.y = Math.max(camera.y, Math.min(camera.y + viewportHeight - 1, window.cursorWorldPos.y));
+                }
+                
                 update();
             }
             return;
@@ -214,6 +221,12 @@ var input = {
                 isAiming = false;
                 updateCamera();
                 canvas.init();
+                
+                // Clamp cursor back to viewport bounds
+                if (window.cursorWorldPos) {
+                    window.cursorWorldPos.x = Math.max(camera.x, Math.min(camera.x + viewportWidth - 1, window.cursorWorldPos.x));
+                    window.cursorWorldPos.y = Math.max(camera.y, Math.min(camera.y + viewportHeight - 1, window.cursorWorldPos.y));
+                }
             }
             
             if (window.throwingGrenadeIndex !== undefined) {
@@ -304,15 +317,29 @@ var input = {
             return;
         }
         
+        // COMMA KEY - Pickup item
+        if (event.keyCode === 188) {
+            if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining > 0) {
+                if (typeof pickupItem !== 'undefined') {
+                    pickupItem(entities[currentEntityIndex], entities[currentEntityIndex].x, entities[currentEntityIndex].y);
+                }
+                
+                // Don't decrease turns or call update if window is open
+                if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
+                    return;
+                }
+                
+                update();
+            }
+            return;
+        }
+        
+        // PERIOD KEY - Wait/pass turn
         if (event.keyCode === 190) {
             if (isPeekMode) {
                 exitPeekMode();
                 return;
             } else if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player && currentEntityTurnsRemaining > 0) {
-                if (typeof pickupItem !== 'undefined') {
-                    pickupItem(entities[currentEntityIndex], entities[currentEntityIndex].x, entities[currentEntityIndex].y);
-                }
-                
                 // Don't decrease turns or call update if window is open
                 if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
                     return;
