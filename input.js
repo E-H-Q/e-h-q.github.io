@@ -1,10 +1,101 @@
 // INPUT.JS: HANDLES USER INPUT
 
-var isZoomedOut = false;
 var isMouseDown = false;
 var lastTile = null;
 var keyboardMode = false;
 var cursorVisible = true;
+var isAiming = false;
+var aimCamera = null;
+var isZoomedOut = false;
+var lastCameraUpdateCursorX = null;
+var lastCameraUpdateCursorY = null;
+
+function updateCamera() {
+    if (isAiming && window.cursorWorldPos && !isZoomedOut && !edit.checked) {
+        // Dead zone: only update camera if cursor moved significantly since last update
+        const deadZone = 2; // tiles
+        
+        if (lastCameraUpdateCursorX !== null && lastCameraUpdateCursorY !== null) {
+            const cursorMovedX = Math.abs(window.cursorWorldPos.x - lastCameraUpdateCursorX);
+            const cursorMovedY = Math.abs(window.cursorWorldPos.y - lastCameraUpdateCursorY);
+            
+            // If cursor hasn't moved enough, don't update camera
+            if (cursorMovedX < deadZone && cursorMovedY < deadZone) {
+                return;
+            }
+        }
+        
+        // Update tracking position
+        lastCameraUpdateCursorX = window.cursorWorldPos.x;
+        lastCameraUpdateCursorY = window.cursorWorldPos.y;
+        
+        // Camera follows cursor when aiming
+        const dx = window.cursorWorldPos.x - player.x;
+        const dy = window.cursorWorldPos.y - player.y;
+        const euclideanDist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Apply dampening for close-range aiming (within 5 tiles)
+        const dampening = euclideanDist < 3 ? 0.2 + (euclideanDist / 3) * 0.8 : 1.0;
+        const maxPanDistance = Math.ceil(euclideanDist / 3) * dampening;
+        
+        // Calculate player-centered camera position
+        const playerCameraX = player.x - Math.round(viewportWidth / 2) + 1;
+        const playerCameraY = player.y - Math.round(viewportHeight / 2) + 1;
+        
+        // Calculate desired camera position (cursor-centered)
+        let desiredCameraX = window.cursorWorldPos.x - Math.round(viewportWidth / 2) + 1;
+        let desiredCameraY = window.cursorWorldPos.y - Math.round(viewportHeight / 2) + 1;
+        
+        // Clamp camera to max pan distance from player-centered position using radial clamping
+        const deltaX = desiredCameraX - playerCameraX;
+        const deltaY = desiredCameraY - playerCameraY;
+        const deltaDist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        
+        if (deltaDist > maxPanDistance) {
+            const ratio = maxPanDistance / deltaDist;
+            desiredCameraX = playerCameraX + deltaX * ratio;
+            desiredCameraY = playerCameraY + deltaY * ratio;
+        }
+        
+        // Round to integers to maintain grid alignment and set camera
+        camera = aimCamera = {
+            x: Math.round(desiredCameraX),
+            y: Math.round(desiredCameraY)
+        };
+    } else {
+        // Normal camera: follows current entity
+        lastCameraUpdateCursorX = null;
+        lastCameraUpdateCursorY = null;
+        
+        const currentEntity = entities[currentEntityIndex] || player;
+        camera = {
+            x: currentEntity.x - Math.round(viewportWidth / 2) + 1,
+            y: currentEntity.y - Math.round(viewportHeight / 2) + 1
+        };
+        aimCamera = null;
+    }
+}
+
+function handleZoom(zoomOut) {
+    isZoomedOut = zoomOut;
+    tileSize = zoomOut ? tileSize / 2 : tileSize * 2;
+    viewportWidth = zoomOut ? viewportWidth * 2 : viewportWidth / 2;
+    viewportHeight = zoomOut ? viewportHeight * 2 : viewportHeight / 2;
+    
+    const currentEntity = entities[currentEntityIndex] || player;
+    camera = {
+        x: currentEntity.x - Math.round((viewportWidth / 2)) + 1,
+        y: currentEntity.y - Math.round((viewportHeight / 2)) + 1
+    };
+    
+    canvas.init();
+    update();
+
+    if (window.cursorWorldPos && cursorVisible) {
+        window.savedCursorScreenX = window.cursorWorldPos.x - camera.x;
+        window.savedCursorScreenY = window.cursorWorldPos.y - camera.y;
+    }
+}
 
 var input = {
     init: function() {
@@ -12,30 +103,8 @@ var input = {
         cursorVisible = true;
     },
     
-    handleZoom: function(zoomOut) {
-        isZoomedOut = zoomOut;
-        tileSize = zoomOut ? tileSize / 2 : tileSize * 2;
-        viewportWidth = zoomOut ? viewportWidth * 2 : viewportWidth / 2;
-        viewportHeight = zoomOut ? viewportHeight * 2 : viewportHeight / 2;
-        
-        const currentEntity = entities[currentEntityIndex] || player;
-        camera = {
-            x: currentEntity.x - Math.round((viewportWidth / 2)) + 1,
-            y: currentEntity.y - Math.round((viewportHeight / 2)) + 1
-        };
-        
-        update();
-
-        // Update saved cursor screen position after zoom
-        if (window.cursorWorldPos && cursorVisible) {
-            window.savedCursorScreenX = window.cursorWorldPos.x - camera.x;
-            window.savedCursorScreenY = window.cursorWorldPos.y - camera.y;
-        }	
-    },
-    
     keyboard: function(event) {
         if (player.hp < 1) return;
-        if (event.type !== 'keydown' && event.keyCode !== 16) return;
         
         // Check if context menu OR window is open - let them handle ALL input first
         if (typeof WindowSystem !== 'undefined') {
@@ -47,6 +116,54 @@ var input = {
         
         if (currentEntityIndex < 0 || entities[currentEntityIndex] !== player) return;
         
+        // SPACE KEY - Toggle aim mode
+        if (event.keyCode === 32) {
+            event.preventDefault();
+            if (event.type === 'keydown' && !isAiming) {
+                // Start aiming
+                isAiming = true;
+                updateCamera();
+                canvas.init();
+                update();
+            } else if (event.type === 'keyup' && isAiming) {
+                // Stop aiming
+                isAiming = false;
+    			if (window.cursorWorldPos && cursorVisible) { // cursor positioning continuity
+        			window.savedCursorScreenX = window.cursorWorldPos.x - camera.x;
+        			window.savedCursorScreenY = window.cursorWorldPos.y - camera.y;
+    			}
+                updateCamera();
+                canvas.init();
+                update();
+            }
+            return;
+        }
+        
+        // Z KEY - Toggle zoom in/out
+        if (event.keyCode === 90) { // Z key
+            if (event.type === 'keydown') {
+                if (!isZoomedOut) {
+                    handleZoom(true);
+                } else {
+                    handleZoom(false);
+                }
+            }
+            return;
+        }
+        
+        // C KEY - Center cursor on player
+        if (event.keyCode === 67 && !isAiming) { // C key
+            if (event.type === 'keydown') {
+                keyboardMode = true;
+                cursorVisible = true;
+                window.cursorWorldPos = {x: player.x, y: player.y};
+                update();
+            }
+            return;
+        }
+        
+        if (event.type !== 'keydown' && event.keyCode !== 32) return;
+        
         if ([37, 38, 39, 40].includes(event.keyCode)) { // ARROW KEYS
             event.preventDefault();
             
@@ -55,17 +172,29 @@ var input = {
             keyboardMode = true;
             cursorVisible = true;
             
+            // Move 3 tiles if shift is held, otherwise 1 tile
+            const moveDistance = event.shiftKey ? 3 : 1;
+            
             switch(event.keyCode) {
-                case 37: window.cursorWorldPos.x--; break;
-                case 38: window.cursorWorldPos.y--; break;
-                case 39: window.cursorWorldPos.x++; break;
-                case 40: window.cursorWorldPos.y++; break;
+                case 37: window.cursorWorldPos.x -= moveDistance; break;
+                case 38: window.cursorWorldPos.y -= moveDistance; break;
+                case 39: window.cursorWorldPos.x += moveDistance; break;
+                case 40: window.cursorWorldPos.y += moveDistance; break;
             }
             
-            window.cursorWorldPos.x = Math.max(camera.x, Math.min(camera.x + viewportWidth - 1, window.cursorWorldPos.x));
-            window.cursorWorldPos.y = Math.max(camera.y, Math.min(camera.y + viewportHeight - 1, window.cursorWorldPos.y));
+            // Clamp to map bounds
             window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
             window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
+            
+            // Also clamp to viewport bounds
+            window.cursorWorldPos.x = Math.max(camera.x, Math.min(camera.x + viewportWidth - 1, window.cursorWorldPos.x));
+            window.cursorWorldPos.y = Math.max(camera.y, Math.min(camera.y + viewportHeight - 1, window.cursorWorldPos.y));
+            
+            // Update camera if aiming
+            if (isAiming) {
+                updateCamera();
+                canvas.init();
+            }
             
             update();
             return;
@@ -74,14 +203,19 @@ var input = {
         if (event.keyCode === 13) { // ENTER
             event.preventDefault();
             if (keyboardMode && currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
-                // Only execute click action, don't decrement turns here
-                // The click handler will manage turn decrements
                 input.click();
             }
             return;
         }
         
         if (event.keyCode === 27) {
+            // Reset aiming mode when closing menus/windows
+            if (isAiming) {
+                isAiming = false;
+                updateCamera();
+                canvas.init();
+            }
+            
             if (window.throwingGrenadeIndex !== undefined) {
                 window.throwingGrenadeIndex = undefined;
                 action.value = "move";
@@ -91,7 +225,6 @@ var input = {
                 exitPeekMode();
             } else if (edit.checked) {
                 edit.checked = false;
-                if (isZoomedOut) input.handleZoom(false);
                 document.getElementById('size-input-container').style.display = 'none';
             }
             return;
@@ -99,13 +232,11 @@ var input = {
         
         if (event.shiftKey && event.keyCode === 69) {
             edit.checked = !edit.checked;
-            if (edit.checked && !isZoomedOut) input.handleZoom(true);
             document.getElementById('size-input-container').style.display = edit.checked ? 'inline-block' : 'none';
             return;
         }
         
         if (event.keyCode === 82) { // R - Reload
-            //event.preventDefault();
             if (currentEntityIndex >= 0 && entities[currentEntityIndex] === player) {
                 if (reloadWeapon(player)) {
                     exitPeekMode();
@@ -224,17 +355,6 @@ var input = {
             return;
         }
         
-        if (event.keyCode === 16) { // SHIFT
-            if (event.type === 'keydown') {
-                if (!isZoomedOut) {
-                    input.handleZoom(true);
-                } else if (isZoomedOut) {
-                    input.handleZoom(false);
-                }
-            }
-            return;
-        }
-        
         if (event.keyCode === 9) { // TAB
             event.preventDefault();
             
@@ -261,13 +381,33 @@ var input = {
             }
         }
         if (event.keyCode === 80) { // P - Peek mode
-            //event.preventDefault();
             activatePeekMode()
         }
 
         if (event.keyCode === 32) { // SPACE BAR
-            event.preventDefault(); // Disables page scrolling.
-			document.activeElement.value += " "; // Allows for typing in text fields.
+			event.preventDefault();
+			console.log(state);
+            if (event.type === 'keydown' && !isAiming) {
+                // Start aiming
+                isAiming = true;
+                updateCamera();
+                canvas.init();
+                update();
+            } else if (event.type === 'keyup' && isAiming) {
+                // Stop aiming
+                isAiming = false;
+    			if (window.cursorWorldPos && cursorVisible) { // cursor positioning continuity
+        			window.savedCursorScreenX = window.cursorWorldPos.x - camera.x;
+        			window.savedCursorScreenY = window.cursorWorldPos.y - camera.y;
+    			}
+                updateCamera();
+                canvas.init();
+                update();
+            }
+            return;
+			/*
+            event.preventDefault();
+			document.activeElement.value += " ";
 
             window.cursorWorldPos = {
                 x: player.x,
@@ -276,6 +416,7 @@ var input = {
         cursorVisible = true;
         update();
         return;
+		*/
         }
     },
     
@@ -294,14 +435,8 @@ var input = {
             clientY: event.clientY
         };
         
-        // Check if context menu is open
-        if (typeof WindowSystem !== 'undefined' && activeContextMenu) {
-            WindowSystem.handleMouseMove(canvasX, canvasY);
-            return;
-        }
-        
-        // Check if window is open - let it handle mouse movement
-        if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) {
+        // Let window system handle mouse if open or context menu active
+        if (typeof WindowSystem !== 'undefined' && (activeContextMenu || WindowSystem.isOpen())) {
             WindowSystem.handleMouseMove(canvasX, canvasY);
             return;
         }
@@ -313,11 +448,43 @@ var input = {
         const gridX = Math.floor(canvasX / tileSize);
         const gridY = Math.floor(canvasY / tileSize);
         
+        // Store old camera position
+        const oldCameraX = camera.x;
+        const oldCameraY = camera.y;
+        
+        // Calculate cursor world position and clamp to both viewport and map bounds
+        let worldX = camera.x + gridX;
+        let worldY = camera.y + gridY;
+        
+        // Clamp to viewport (0 to viewportWidth-1, 0 to viewportHeight-1 in grid coords)
+        const clampedGridX = Math.max(0, Math.min(viewportWidth - 1, gridX));
+        const clampedGridY = Math.max(0, Math.min(viewportHeight - 1, gridY));
+        
+        worldX = camera.x + clampedGridX;
+        worldY = camera.y + clampedGridY;
+        
+        // Also clamp to map bounds
         window.cursorWorldPos = {
-            x: camera.x + gridX,
-            y: camera.y + gridY
+            x: Math.max(0, Math.min(size - 1, worldX)),
+            y: Math.max(0, Math.min(size - 1, worldY))
         };
         cursorVisible = true;
+
+        // Update camera if aiming
+        if (isAiming) {
+            updateCamera();
+            canvas.init();
+            
+            // Recalculate cursor world position if camera moved (keeps cursor at same screen position)
+            if (camera.x !== oldCameraX || camera.y !== oldCameraY) {
+                worldX = camera.x + clampedGridX;
+                worldY = camera.y + clampedGridY;
+                window.cursorWorldPos = {
+                    x: Math.max(0, Math.min(size - 1, worldX)),
+                    y: Math.max(0, Math.min(size - 1, worldY))
+                };
+            }
+        }
 
         if (edit.checked && isMouseDown) {
             const click_pos = {
@@ -344,14 +511,7 @@ var input = {
             return;
         }
 
-        if (action.value === "attack") {	
-            const endX = camera.x + gridX;
-            const endY = camera.y + gridY;
-            
-            update();
-        } else {
-            update();
-        }
+        update();
     },
     
     click: function() {
@@ -437,7 +597,6 @@ var input = {
                                 player.x = peekStartX;
                                 player.y = peekStartY;
                             }
-                            // Exit peek mode without calling update
                             isPeekMode = false;
                             peekStep = 1;
                             action.disabled = false;
@@ -458,7 +617,6 @@ var input = {
                 const effectiveRange = getEntityAttackRange(player);
                 const dist = calc.distance(player.x, click_pos.x, player.y, click_pos.y);
                 
-                // Use permissive LOS that sees through glass
                 const hasLOS = hasPermissiveLOS(player.x, player.y, click_pos.x, click_pos.y);
                 
                 if (dist > effectiveRange || !hasLOS) return;
@@ -499,7 +657,6 @@ var input = {
                     player.x = peekStartX;
                     player.y = peekStartY;
                     
-                    // Exit peek mode without calling update
                     isPeekMode = false;
                     peekStep = 1;
                     action.disabled = false;
@@ -533,7 +690,6 @@ var input = {
         if (!window.cursorWorldPos) return;
         
         // Always populate the coordinate fields (regardless of edit mode)
-        //console.log(window.cursorWorldPos);
         document.getElementById('spawn_x').value = window.cursorWorldPos.x;
         document.getElementById('spawn_y').value = window.cursorWorldPos.y;
         document.getElementById('player_x').value = window.cursorWorldPos.x;
@@ -564,8 +720,8 @@ var input = {
                 tileY: window.cursorWorldPos.y,
                 options: [
                     {
-                        text: "(x) Examine",
-                        key: "x",
+                        text: "(e) Examine",
+                        key: "e",
                         action: function() {
                             WindowSystem.showExamineWindow(clickedEntity);
                         }

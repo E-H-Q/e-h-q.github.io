@@ -86,7 +86,7 @@ var canvas = {
 			const screenY = (item.y - camera.y) * tileSize;
 			ctx.fillRect(screenX, screenY, tileSize, tileSize);
 			
-			// Draw item label if not zoomed out
+			// Draw item label when not zoomed out
 			if (!isZoomedOut && itemLabels[item.itemType]) {
 				ctx.fillStyle = isEquipment ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)";
 				ctx.font = 'bold 12px serif';
@@ -120,36 +120,6 @@ var canvas = {
 			}
 		}
 	},
-
-/*
-	drawGrenades: () => {
-		if (!mapItems) return;
-		for (let entity of entities) {
-		if (entity.isGrenade && entity.hp > 0) {
-			const screenX = entity.x - camera.x;
-			const screenY = entity.y - camera.y;
-			
-			if (screenX >= 0 && screenX < viewportWidth && screenY >= 0 && screenY < viewportHeight) {
-				// Draw "Gnade" label
-				ctx.fillStyle = "#FFFFFF";
-				ctx.font = (tileSize / 3) + "px monospace";
-				ctx.textAlign = "center";
-				ctx.fillText("Gnade", 
-					(screenX * tileSize) + (tileSize / 2), 
-					(screenY * tileSize) + 2);
-				
-				// Draw turns remaining in red below
-				ctx.fillStyle = "#FF0000";
-				ctx.font = "bold " + (tileSize / 2) + "px monospace";
-				ctx.textAlign = "center";
-				ctx.fillText(entity.turnsRemaining.toString(), 
-					(screenX * tileSize) + (tileSize / 2), 
-					(screenY * tileSize) + (tileSize * 0.65));
-				}
-			}
-		}
-	},
-*/
 
 	range: (res, entity) => {
 		if (res.length > 0 && res.length <= entity.range + 1) {
@@ -188,7 +158,7 @@ var canvas = {
 		const img = document.getElementById(imgId);
 		ctx.drawImage(img, screenX, screenY, tileSize, tileSize);
 		
-		// Only draw text when not zoomed out
+		// Only draw HP text when not zoomed out
 		if (!isZoomedOut) {
 			ctx.fillStyle = "rgba(255, 255, 255, 1)";
 			ctx.font = '16px serif';

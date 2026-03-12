@@ -469,10 +469,20 @@ function update() {
     const oldCameraX = camera.x;
     const oldCameraY = camera.y;
     
-    camera = {
-        x: currentEntity.x - Math.round((viewportWidth / 2)) + 1,
-        y: currentEntity.y - Math.round((viewportHeight / 2)) + 1
-    };
+    // NEW: Update camera based on aim state
+    if (currentEntity === player) {
+        updateCamera();
+    } else {
+        // During enemy turns, keep camera on entity unless aiming
+        if (isAiming) {
+            updateCamera();
+        } else {
+            camera = {
+                x: currentEntity.x - Math.round((viewportWidth / 2)) + 1,
+                y: currentEntity.y - Math.round((viewportHeight / 2)) + 1
+            };
+        }
+    }
     
     if (currentEntity === player && window.cursorWorldPos && cursorVisible) {
         window.cursorWorldPos.x += (camera.x - oldCameraX);
@@ -508,7 +518,6 @@ function update() {
             canvas.los(grenadeTargeting);
         }
     }
-   // canvas.drawGrenades();
     canvas.cursor();
     canvas.window();
     
@@ -657,7 +666,6 @@ function showItemPickupWindow(x, y) {
             }
         }
         
-	//currentEntityTurnsRemaining--;
         update();
         return;
     }
@@ -738,7 +746,6 @@ function showItemPickupWindow(x, y) {
             });
             
 	    currentEntityTurnsRemaining--;
-            //update();
         },
         onCancel: function() {
             console.log("Cancelled item pickup");
@@ -753,6 +760,7 @@ function updateViewportSize() {
     let newHeight = parseInt(document.getElementById('viewport-height').value);
     
     if (newWidth >= 5 && newWidth <= 50 && newHeight >= 5 && newHeight <= 50) {
+        // Account for zoom state
         if (isZoomedOut) {
             newWidth = newWidth * 2;
             newHeight = newHeight * 2;

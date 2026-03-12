@@ -388,7 +388,7 @@ var WindowSystem = {
         
         // For examine windows, only ESC closes them
         if (win.isExamineWindow) {
-            if (event.keyCode === 27) {
+            if (event.keyCode === 27 && event.type === 'keydown') {
                 event.preventDefault();
                 this.close();
                 return true;
@@ -398,8 +398,8 @@ var WindowSystem = {
             return true;
         }
         
-        // Check for letter/number keys (a-z, A-Z, 0-9)
-        if (event.key && event.key.length === 1) {
+        // Only handle letter/number keys on keydown to prevent toggle on keyup
+        if (event.type === 'keydown' && event.key && event.key.length === 1) {
             const index = this.getIndexFromKey(event.key);
             if (index >= 0 && index < win.items.length) {
                 event.preventDefault();
@@ -415,6 +415,9 @@ var WindowSystem = {
                 return true;
             }
         }
+        
+        // Only handle navigation keys on keydown
+        if (event.type !== 'keydown') return false;
         
         // Arrow keys - navigate items
         if (event.keyCode === 38) { // Up arrow

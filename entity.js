@@ -81,6 +81,10 @@ const EntitySystem = {
 	},
 	
 	moveEntity: function(entity, x, y) {
+		if (isAiming) {
+			isAiming = false;
+			update();
+		}
 		if (pts[x]?.[y] !== 0) {
 			entity.x = x;
 			entity.y = y;
@@ -96,6 +100,11 @@ const EntitySystem = {
 	},
 	
 	attack: function(attacker, targetX, targetY) {
+		if (isAiming) {
+			isAiming = false;
+			update();
+		}
+
 		// Check ammo before attacking
 		if (!hasAmmo(attacker)) {
 			if (attacker === player) {
