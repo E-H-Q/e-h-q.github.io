@@ -1,4 +1,4 @@
-# JSrogue
+# JSrogue V2.0
 A Javascript RogueLike / TTRPG inspired web-app. Turn based movement, long range combat and map editing!
 Hosted at: https://e-h-q.github.io
 
