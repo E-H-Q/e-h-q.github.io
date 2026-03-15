@@ -181,6 +181,11 @@
 						</fieldset>
 						<fieldset id="player-settings">
 							<legend>Player Settings</legend>
+							<label>Select: 
+								<select id="player_select" onchange="onPlayerSelectChange()" style="width: 100px;">
+									<option value="original">player</option>
+								</select>
+							</label><br>
 							<label>Name: <input type="text" id="player_name" value="player" autocomplete="off" style="width: 80px;"></label><br>
 							<label>HP: <input type="number" id="player_hp" value="20" autocomplete="off" style="width: 50px;"></label><br>
 							<label>X: <input type="number" id="player_x" value="" placeholder="current" autocomplete="off" style="width: 50px;"></label>
@@ -188,7 +193,10 @@
 							<label>Range: <input type="number" id="player_range" value="3" autocomplete="off" style="width: 50px;"></label><br>
 							<label>Attack Range: <input type="number" id="player_attack_range" value="4" autocomplete="off" style="width: 50px;"></label><br>
 							<label>Turns: <input type="number" id="player_turns" value="2" autocomplete="off" style="width: 50px;"></label><br>
-							<button onclick="updatePlayer()" style="margin-top: 5px;">UPDATE PLAYER</button>
+							<div style="display: flex; gap: 4px; margin-top: 5px;">
+								<button onclick="updatePlayer()">UPDATE SELECTED</button>
+								<button onclick="spawnExtraPlayer()">NEW PLAYER</button>
+							</div>
 						</fieldset>
 						<fieldset id="item-settings" style="width: auto;">
 							<legend>Item Settings</legend>
@@ -254,6 +262,7 @@
 				Press &lt;ESC&gt; to exit EDIT mode or PEEK mode, and to cancel throwing an item.<br>
 				R. Click tiles to populate coordinate input fields. (Spawning an item on the player/enemy will put it in their inventory.)<br>
 				</i></p>
+				<a href="https://github.com/E-H-Q/e-h-q.github.io">Github Repo</a>
 		</div>
 		<script type="text/javascript" src="main.js"></script>
 		<script type="text/javascript" src="entity.js"></script>

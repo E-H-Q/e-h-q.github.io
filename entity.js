@@ -3,10 +3,10 @@
 const EntitySystem = {
 	hasLOS: function(entity, targetX, targetY, usePermissive = false) {
 		if (usePermissive) return hasPermissiveLOS(entity.x, entity.y, targetX, targetY);
-		
+
 		const path = line({x: entity.x, y: entity.y}, {x: targetX, y: targetY});
 		const dist = calc.distance(entity.x, targetX, entity.y, targetY);
-		
+
 		if (path.length < dist + 1) return false;
 		for (let i = 1; i < path.length - 1; i++) {
 			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
@@ -14,24 +14,23 @@ const EntitySystem = {
 		}
 		return true;
 	},
-	
+
 	calculateMovement: function(entity, specialMode = null) {
-		
 		if (entity.range === 1) {
 			const adjacentTiles = helper.getAdjacentTiles(entity.x, entity.y, true)
 				.filter(tile => !helper.tileBlocked(tile.x, tile.y));
 			return adjacentTiles.map(tile => ({x: tile.x, y: tile.y, path: [tile]}));
 		}
-		
+
 		circle(entity.y, entity.x, entity.range);
 		convert();
 		if (!pts) return [];
-		
+
 		const graph = new Graph(pts, {diagonal: true});
 		entities.forEach(e => {
 			if (e !== entity && e.hp > 0 && pts[e.x]?.[e.y] !== undefined) pts[e.x][e.y] = 0;
 		});
-		
+
 		if (specialMode === 'peek') {
 			entity.range = Math.floor(savedPlayerRange / 2);
 		}
@@ -41,7 +40,7 @@ const EntitySystem = {
 		const maxX = Math.min(pts.length - 1, entity.x + entity.range + 1);
 		const minY = Math.max(0, entity.y - entity.range - 1);
 		const maxY = Math.min(pts.length - 1, entity.y + entity.range + 1);
-		
+
 		for (let i = minX; i <= maxX; i++) {
 			for (let j = minY; j <= maxY; j++) {
 				if (pts[i][j] === 1) {
@@ -49,12 +48,10 @@ const EntitySystem = {
 					if (res.length > 0) {
 						let pathCost = 0;
 						let diagonalCount = 0;
-						
 						for (let k = 0; k < res.length; k++) {
 							const prev = k === 0 ? {x: entity.x, y: entity.y} : res[k - 1];
 							const curr = res[k];
 							const isDiagonal = (prev.x !== curr.x && prev.y !== curr.y);
-							
 							if (isDiagonal) {
 								diagonalCount++;
 								pathCost += (diagonalCount % 2 === 0) ? 2 : 1;
@@ -62,7 +59,6 @@ const EntitySystem = {
 								pathCost += 1;
 							}
 						}
-						
 						if (pathCost <= entity.range) validMoves.push({x: i, y: j, path: res});
 					}
 				}
@@ -70,16 +66,18 @@ const EntitySystem = {
 		}
 		return validMoves;
 	},
-	
+
 	displayMovement: function(entity, specialMode = null) {
 		this.calculateMovement(entity, specialMode).forEach(move => {
 			const coord = new calc.coordinate(move.x, move.y);
-			if (entity === player && !valid.find(item => item.x === coord.x && item.y === coord.y)) valid.push(coord);
+			if (isPlayerControlled(entity) && !valid.find(item => item.x === coord.x && item.y === coord.y)) {
+				valid.push(coord);
+			}
 			ctx.fillStyle = "rgba(0, 255, 0, 0.5)";
 			ctx.fillRect((coord.x - camera.x) * tileSize, (coord.y - camera.y) * tileSize, tileSize, tileSize);
 		});
 	},
-	
+
 	moveEntity: function(entity, x, y) {
 		if (isAiming) {
 			isAiming = false;
@@ -92,102 +90,89 @@ const EntitySystem = {
 		}
 		return false;
 	},
-	
+
 	canAttack: function(entity, target) {
 		const dist = calc.distance(entity.x, target.x, entity.y, target.y);
 		if (dist > entity.attack_range) return false;
-		return this.hasLOS(entity, target.x, target.y, entity === player);
+		return this.hasLOS(entity, target.x, target.y, isPlayerControlled(entity));
 	},
-	
+
 	attack: function(attacker, targetX, targetY) {
 		if (isAiming) {
 			isAiming = false;
 			update();
 		}
 
-		// Check ammo before attacking
 		if (!hasAmmo(attacker)) {
-			if (attacker === player) {
+			if (isPlayerControlled(attacker)) {
 				console.log("Out of ammo! Press R to reload.");
 			}
 			return false;
 		}
-		
+
 		const weaponDef = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType] : null;
 		const targets = getTargetedEntities(attacker, targetX, targetY);
 		const enemies = targets.filter(e => e !== attacker && e.hp > 0);
-		
+
 		let attackedAnyone = false;
-		
-		// Perform burst attacks on all targets
+
 		const burstCount = weaponDef?.burst || 1;
 		for (let burst = 0; burst < burstCount; burst++) {
-			// Destroy walls (including glass) for each burst
 			if (this.destroyWalls(attacker, targetX, targetY)) {
 				attackedAnyone = true;
 			}
-			
+
 			for (let enemy of enemies) {
 				if (enemy.hp > 0) {
 					const hitRoll = calc.roll(6);
-					
 					if (hitRoll >= 4) {
 						const baseDmg = calc.roll(6) + (attacker.damage || 0);
 						const armor = enemy.armor || 0;
 						const dmgRoll = Math.max(1, baseDmg - armor);
-						
 						const previousHp = enemy.hp;
 						enemy.hp -= dmgRoll;
-						
-						// Track attacker for defensive trait
+
 						if (enemy.hp < previousHp && enemy.lastAttacker !== undefined) {
 							enemy.lastAttacker = attacker;
 						}
-						
 						if (enemy.seenX !== undefined) {
 							enemy.seenX = attacker.x;
 							enemy.seenY = attacker.y;
 						}
-						
+
 						console.log(attacker.name + " hits " + enemy.name + " for " + dmgRoll + " DMG!");
-						
-						// Check if enemy is a grenade and trigger detonation
+
 						if (enemy.isGrenade && enemy.hp <= 0) {
 							detonateGrenade(enemy);
 						}
-						
 						if (enemy.hp <= 0 && !enemy.isGrenade) this.dropAllItems(enemy);
 					} else {
 						console.log(attacker.name + " attacks and misses " + enemy.name + "...");
 					}
-					
 					attackedAnyone = true;
 				}
 			}
 		}
-		
-		// Consume ammo once per attack action
+
 		if (attackedAnyone) {
 			consumeAmmo(attacker);
 			return true;
 		}
-		
 		return false;
 	},
-	
+
 	destroyWalls: function(attacker, targetX, targetY) {
 		const weaponDef = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType] : null;
 		const accessoryDef = attacker.equipment?.accessory ? itemTypes[attacker.equipment.accessory.itemType] : null;
 		const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
-		
+
 		const targetingTiles = calculateEntityTargeting(attacker, targetX, targetY);
 		let destroyedAny = false;
-		
+
 		targetingTiles.forEach(tile => {
 			const wallIndex = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
 			if (wallIndex >= 0) {
 				const wall = walls[wallIndex];
-				
 				if (wall.type === 'glass') {
 					if (canDestroy || wall.damaged) {
 						walls.splice(wallIndex, 1);
@@ -206,30 +191,27 @@ const EntitySystem = {
 				}
 			}
 		});
-		
+
 		return destroyedAny;
 	},
-	
+
 	dropAllItems: function(entity) {
 		if (typeof mapItems === 'undefined' || typeof nextItemId === 'undefined') return;
-		
+
 		entity.inventory?.forEach(item => {
 			const itemDef = itemTypes[item.itemType];
-			
-			// For consumables with quantities, drop each one individually
 			if (itemDef.type === "consumable" && item.quantity && item.quantity > 1) {
 				for (let i = 0; i < item.quantity; i++) {
 					mapItems.push({x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++});
 				}
 				console.log(entity.name + " dropped " + item.quantity + " " + itemDef.name + (item.quantity > 1 ? "s" : ""));
 			} else {
-				// Single item or equipment
 				mapItems.push({x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++});
 				console.log(entity.name + " dropped " + itemDef.name);
 			}
 		});
 		entity.inventory = [];
-		
+
 		if (entity.equipment) {
 			for (let slot in entity.equipment) {
 				if (entity.equipment[slot]) {
@@ -240,11 +222,11 @@ const EntitySystem = {
 			entity.equipment = {};
 		}
 	},
-	
+
 	isAI: function(entity) {
-		return entity !== player && entity.seenX !== undefined;
+		return !isPlayerControlled(entity) && entity.seenX !== undefined;
 	},
-	
+
 	getValidTargets: function(entity) {
 		return entities.filter(e => e !== entity && e.hp > 0 && this.canAttack(entity, e));
 	}

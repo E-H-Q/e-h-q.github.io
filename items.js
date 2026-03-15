@@ -582,7 +582,9 @@ function spawnItem(itemType, x, y) {
 
 	if (x >= 0 && x < size && y >= 0 && y < size) {
 		const hasWall = walls.find(w => w.x === x && w.y === y);
-		const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === x && e.y === y) || (player.x === x && player.y === y ? player : null);
+		const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === x && e.y === y) ||
+			allPlayers.find(e => e.hp > 0 && e.x === x && e.y === y) ||
+			(player.x === x && player.y === y ? player : null);
 
 		if (hasEntity) return giveItem(hasEntity, itemType);
 
@@ -612,7 +614,7 @@ function giveItem(entity, itemType) {
 		}
 	}
 	
-	if (entity === player && entity.inventory.length >= maxInventorySlots) {
+	if (isPlayerControlled(entity) && entity.inventory.length >= maxInventorySlots) {
 		console.log("Inventory full!");
 		return false;
 	}
@@ -629,7 +631,7 @@ function giveItem(entity, itemType) {
 	entity.inventory.push(newItem);
 	console.log(entity.name + " received " + itemDef.name);
 
-	if (entity !== player && itemDef?.type === "equipment") {
+	if (!isPlayerControlled(entity) && itemDef?.type === "equipment") {
 		// Auto-equip for enemies, but unequip old item first
 		if (!entity.equipment) entity.equipment = {};
 		
@@ -687,7 +689,7 @@ function pickupItem(entity, x, y) {
 	if (!entity.inventory) return false;
 
 	// Only player uses the window system
-	if (entity === player) {
+	if (isPlayerControlled(entity)) {
 		const itemsAtLocation = mapItems.filter(item => item.x === x && item.y === y);
 		if (itemsAtLocation.length > 0) {
 			// Open item selection window

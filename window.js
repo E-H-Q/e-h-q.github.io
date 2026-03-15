@@ -125,7 +125,7 @@ var WindowSystem = {
             // Draw entity using game's rendering method
             const entity = win.entity;
             //const color = entity === player ? "rgba(0, 0, 255, 0.5)" : "rgba(125, 125, 0, 0.5)";
-            const imgId = entity === player ? "pep" : "enemy";
+            const imgId = isPlayerControlled(entity) ? "pep" : "enemy";
             
             //ctx.fillStyle = color;
             //ctx.fillRect(spriteX, spriteY, spriteSize, spriteSize);
