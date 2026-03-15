@@ -737,7 +737,6 @@ function showItemPickupWindow(x, y) {
                     if (pickedCount > 0) console.log("Picked up " + pickedCount + " " + itemDef.name + (pickedCount > 1 ? "s" : ""));
                 }
             });
-            currentEntityTurnsRemaining--;
         },
         onCancel: function() {
             console.log("Cancelled item pickup");
