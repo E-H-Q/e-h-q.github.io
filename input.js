@@ -585,7 +585,52 @@ var input = {
             e.y === window.cursorWorldPos.y
         );
 
+        const activeEnt = getActivePlayerEntity();
+        const options = [];
+
         if (clickedEntity) {
+            options.push({
+                text: "(e) Examine",
+                key: "e",
+                action: function() {
+                    WindowSystem.showExamineWindow(clickedEntity);
+                }
+            });
+
+            // Show Follow option when right-clicking a different player-controlled entity
+            if (isPlayerControlled(clickedEntity) && clickedEntity !== activeEnt) {
+                options.push({
+                    text: "(f) Follow",
+                    key: "f",
+                    action: function() {
+                        startFollowing(activeEnt, clickedEntity);
+                        update();
+                    }
+                });
+            }
+        }
+
+        // Show Remove followers only when the active entity right-clicks themselves and has followers
+        const entityHasFollowers = clickedEntity === activeEnt &&
+            isPlayerControlled(activeEnt) &&
+            (player.following === activeEnt || allPlayers.some(p => p.following === activeEnt));
+        if (entityHasFollowers) {
+            options.push({
+                text: "(f) Remove followers",
+                key: "f",
+                action: function() {
+                    [player, ...allPlayers].forEach(p => {
+                        if (p.following === clickedEntity) {
+                            console.log(p.name + " stopped following " + clickedEntity.name + ".");
+                            p.following = null;
+                        }
+                    });
+                    update();
+                }
+            });
+        }
+
+        if (options.length > 0) {
             const rect = c.getBoundingClientRect();
             const menuX = event.clientX - rect.left;
             const menuY = event.clientY - rect.top;
@@ -595,15 +640,7 @@ var input = {
                 y: menuY,
                 tileX: window.cursorWorldPos.x,
                 tileY: window.cursorWorldPos.y,
-                options: [
-                    {
-                        text: "(e) Examine",
-                        key: "e",
-                        action: function() {
-                            WindowSystem.showExamineWindow(clickedEntity);
-                        }
-                    }
-                ]
+                options
             });
 
             WindowSystem.openContextMenu(menu);

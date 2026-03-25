@@ -506,7 +506,7 @@ var WindowSystem = {
             hoveredIndex: -1,
             itemHeight: 25,
             padding: 1,
-            width: 150
+            width: 190
         };
     },
     

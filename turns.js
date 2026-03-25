@@ -2,9 +2,29 @@
 
 var currentEntityIndex = -1;
 var currentEntityTurnsRemaining = 0;
+var isAnimating = false; // blocks check() re-entry during setTimeout turns
+
+function startFollowing(follower, followed) {
+    const inCombat = allEnemies.some(e => e.hp > 0 && !e.isGrenade && (e.seenX !== 0 || e.seenY !== 0));
+    if (inCombat) {
+        console.log("Cannot follow while in combat!");
+        return;
+    }
+    // Prevent loops: walk the follow chain to make sure followed doesn't lead back to follower
+    let cursor = followed;
+    while (cursor) {
+        if (cursor === follower) return;
+        cursor = cursor.following;
+    }
+    follower.following = followed;
+    console.log(follower.name + " is following " + followed.name + ".");
+}
+
 
 var turns = {
     check: function() {
+        if (isAnimating) return;
+
         if (player.hp < 1 && allPlayers.length === 0) {
             const music = new Audio('sound.wav');
             music.play();
@@ -78,6 +98,39 @@ var turns = {
             return;
         }
 
+        // Following entities - use A* via enemyMoveToward with freshly populated pts
+        if (currentEntity.following && currentEntity.following.hp > 0 && currentEntityTurnsRemaining > 0) {
+            const followTarget = currentEntity.following;
+            const alreadyAdjacent = calc.distance(currentEntity.x, followTarget.x, currentEntity.y, followTarget.y) <= 1;
+
+            if (alreadyAdjacent) {
+                currentEntityTurnsRemaining--;
+                update();
+                return;
+            }
+
+            const inCombat = currentEntity.seenX !== undefined && (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
+            const inViewport = this.isInViewport(currentEntity);
+            if (inCombat && inViewport) {
+                isAnimating = true;
+                setTimeout(() => {
+                    populate.reset();
+                    populate.walls();
+                    populate.enemies();
+                    this.enemyMoveToward(currentEntity, followTarget.x, followTarget.y);
+                    isAnimating = false;
+                    update();
+                }, parseInt(document.getElementById('turn-delay').value) || 0);
+            } else {
+                populate.reset();
+                populate.walls();
+                populate.enemies();
+                this.enemyMoveToward(currentEntity, followTarget.x, followTarget.y);
+                update();
+            }
+            return;
+        }
+
         if (!isPlayerControlled(currentEntity) && currentEntityTurnsRemaining > 0) {
             const target = this.pickTarget(currentEntity);
             const dist = calc.distance(currentEntity.x, target.x, currentEntity.y, target.y);
@@ -99,7 +152,7 @@ var turns = {
                 setTimeout(() => {
                     this.enemyTurn(currentEntity, target, canSeeTarget, dist, effectiveRange);
                     update();
-                }, timeout);
+                }, parseInt(document.getElementById('turn-delay').value) || 0);
             } else {
                 this.enemyTurn(currentEntity, target, canSeeTarget, dist, effectiveRange);
                 update();
@@ -152,7 +205,7 @@ var turns = {
         const playerEntities = entities.filter(e => isPlayerControlled(e) && e.hp > 0);
 
         allEnemies.forEach(enemy => {
-            if (enemy.hp < 1) return;
+            if (enemy.hp < 1 || enemy.isGrenade) return;
             const inActiveRange = (
                 enemy.x >= camera.x - buffer &&
                 enemy.x <= camera.x + viewportWidth + buffer &&
@@ -172,8 +225,33 @@ var turns = {
             }
 
             if (closestVisible) {
+                const wasUnaware = (enemy.seenX === 0 && enemy.seenY === 0);
                 enemy.seenX = closestVisible.x;
                 enemy.seenY = closestVisible.y;
+
+                // Enemy just entered combat — stop following of the spotted player, and clear the enemy's own follow state
+                if (wasUnaware) {
+                    [player, ...allPlayers].forEach(p => {
+                        if (p.following === closestVisible) {
+                            console.log(p.name + " stopped following " + closestVisible.name + ".");
+                            p.following = null;
+                        }
+                    });
+                    if (closestVisible.following) {
+                        console.log(closestVisible.name + " stopped following " + closestVisible.following.name + ".");
+                        closestVisible.following = null;
+                    }
+                    if (enemy.following) {
+                        console.log(enemy.name + " stopped following " + enemy.following.name + ".");
+                        enemy.following = null;
+                    }
+                    allEnemies.forEach(e => {
+                        if (e.following === enemy) {
+                            console.log(e.name + " stopped following " + enemy.name + ".");
+                            e.following = null;
+                        }
+                    });
+                }
             } else {
                 const screenX = (enemy.x - camera.x) * tileSize;
                 const screenY = (enemy.y - camera.y) * tileSize;

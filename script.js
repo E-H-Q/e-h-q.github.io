@@ -516,6 +516,11 @@ function update() {
     allEnemies = allEnemies.filter(enemy => enemy.hp >= 1);
     allPlayers = allPlayers.filter(p => p.hp >= 1);
 
+    // Clear following reference if the followed entity has died
+    entities.forEach(e => {
+        if (e.following && e.following.hp < 1) e.following = null;
+    });
+
     // If original player is dead, promote the next player-controlled entity
     if (player.hp < 1 && allPlayers.length > 0) {
         player = allPlayers.shift();

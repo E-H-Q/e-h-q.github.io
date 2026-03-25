@@ -7,8 +7,6 @@ var save_button = document.getElementById("save_button");
 var input = document.getElementById("file");
 input.value = "";
 
-const timeout = document.getElementById("turn-delay").value || 250;
-
 var edit = document.getElementById("edit");
 edit.checked = false;
 
@@ -220,6 +218,11 @@ function spawnEnemy() {
 
 var populate = {
 	reset: () => resizePtsArray(),
+	walls: () => {
+		walls.forEach(w => {
+			if (pts[w.x]?.[w.y] !== undefined) pts[w.x][w.y] = 0;
+		});
+	},
 	enemies: () => {
 		entities.forEach(e => {
 			if (e !== player && e.hp > 0 && pts[e.x]?.[e.y] !== undefined) {
