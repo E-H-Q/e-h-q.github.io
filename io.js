@@ -1,11 +1,24 @@
 // IO.JS: HANDLES LOADING + SAVING MAP DATA
 
 function save_map() {
+	// Build a flat list of all entities in the same order used at runtime
+	const allEntities = [player, ...allPlayers, ...allEnemies];
+
+	// Replace following references with their index in allEntities before serializing
+	function serializeEntities(arr) {
+		return arr.map(e => {
+			const out = Object.assign({}, e);
+			if (out.following) out.following = allEntities.indexOf(out.following);
+			else delete out.following;
+			return out;
+		});
+	}
+
 	const save_walls   = JSON.stringify(walls);
-	const save_enemies = JSON.stringify(allEnemies);
-	const save_player  = JSON.stringify(player);
+	const save_enemies = JSON.stringify(serializeEntities(allEnemies));
+	const save_player  = JSON.stringify(serializeEntities([player])[0]);
 	const save_items   = JSON.stringify(mapItems);
-	const save_players = JSON.stringify(allPlayers);
+	const save_players = JSON.stringify(serializeEntities(allPlayers));
 	const name = "map";
 	const type = "text/plain";
 
@@ -34,7 +47,7 @@ function load_map() {
 		const loaded_enemies = lines[2];
 		const loaded_player  = lines[3];
 		const loaded_items   = lines[4];
-		const loaded_players = lines[5]; // new — extra player-controlled entities
+		const loaded_players = lines[5];
 
 		if (!loaded_walls) {
 			console.log("Failed to load map!");
@@ -42,7 +55,6 @@ function load_map() {
 		}
 
 		walls = JSON.parse(loaded_walls);
-		// Convert old wall format to new format
 		walls = walls.map(wall => wall.type ? wall : {x: wall.x, y: wall.y, type: 'wall'});
 
 		allEnemies = loaded_enemies ? JSON.parse(loaded_enemies) : [];
@@ -79,12 +91,21 @@ function load_map() {
 			mapItems = [];
 		}
 
-		// Load extra player-controlled entities (backward compat: older saves have no line 5)
 		try {
 			allPlayers = loaded_players ? JSON.parse(loaded_players) : [];
 		} catch (e) {
 			allPlayers = [];
 		}
+
+		// Restore following references from saved indices
+		const allEntities = [player, ...allPlayers, ...allEnemies];
+		allEntities.forEach(e => {
+			if (typeof e.following === 'number') {
+				e.following = allEntities[e.following] || null;
+			} else {
+				e.following = null;
+			}
+		});
 
 		if (typeof updatePlayerSelect === 'function') updatePlayerSelect();
 		turns.checkEnemyLOS();

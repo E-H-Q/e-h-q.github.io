@@ -7,6 +7,8 @@ var save_button = document.getElementById("save_button");
 var input = document.getElementById("file");
 input.value = "";
 
+const timeout = document.getElementById("turn-delay").value || 250;
+
 var edit = document.getElementById("edit");
 edit.checked = false;
 
@@ -202,7 +204,8 @@ function spawnEnemy() {
 			inventory: [],
 			traits: [trait],
 			maxHp: hp,
-			lastAttacker: null
+			lastAttacker: null,
+			following: null
 		};
 		allEnemies.push(newEnemy);
 		if (typeof turns !== 'undefined' && turns.hasStrictLOS &&

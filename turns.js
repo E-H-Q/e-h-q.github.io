@@ -98,25 +98,28 @@ var turns = {
             return;
         }
 
-        // Following entities - use A* via enemyMoveToward with freshly populated pts
+        // Following entities - skip if adjacent, otherwise move toward follow target.
+        // Siblings (entities following the same target) are made passable in pts so they don't block the path.
         if (currentEntity.following && currentEntity.following.hp > 0 && currentEntityTurnsRemaining > 0) {
             const followTarget = currentEntity.following;
-            const alreadyAdjacent = calc.distance(currentEntity.x, followTarget.x, currentEntity.y, followTarget.y) <= 1;
 
-            if (alreadyAdjacent) {
+            if (calc.distance(currentEntity.x, followTarget.x, currentEntity.y, followTarget.y) <= 1) {
                 currentEntityTurnsRemaining--;
                 update();
                 return;
             }
 
+            const siblings = entities.filter(e => e !== currentEntity && e.following === followTarget && e.hp > 0);
             const inCombat = currentEntity.seenX !== undefined && (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
             const inViewport = this.isInViewport(currentEntity);
+
             if (inCombat && inViewport) {
                 isAnimating = true;
                 setTimeout(() => {
                     populate.reset();
                     populate.walls();
                     populate.enemies();
+                    siblings.forEach(s => { if (pts[s.x]?.[s.y] !== undefined) pts[s.x][s.y] = 1; });
                     this.enemyMoveToward(currentEntity, followTarget.x, followTarget.y);
                     isAnimating = false;
                     update();
@@ -125,6 +128,7 @@ var turns = {
                 populate.reset();
                 populate.walls();
                 populate.enemies();
+                siblings.forEach(s => { if (pts[s.x]?.[s.y] !== undefined) pts[s.x][s.y] = 1; });
                 this.enemyMoveToward(currentEntity, followTarget.x, followTarget.y);
                 update();
             }
@@ -229,7 +233,7 @@ var turns = {
                 enemy.seenX = closestVisible.x;
                 enemy.seenY = closestVisible.y;
 
-                // Enemy just entered combat — stop following of the spotted player, and clear the enemy's own follow state
+                // Enemy just entered combat — stop following of the spotted player and clear enemy's own follow state
                 if (wasUnaware) {
                     [player, ...allPlayers].forEach(p => {
                         if (p.following === closestVisible) {
