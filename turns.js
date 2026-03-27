@@ -147,6 +147,8 @@ var turns = {
 
             if (!willAttack && enemyHasSeenPlayer && enemyInViewport) {
                 calc.move(currentEntity);
+                const previewPath = this.computeEnemyPath(currentEntity, currentEntity.seenX, currentEntity.seenY);
+                if (previewPath.length > 0) canvas.path(previewPath, currentEntity.x, currentEntity.y, currentEntity);
             } else if (willAttack && enemyInViewport) {
                 const targetingTiles = calculateEntityTargeting(currentEntity, target.x, target.y);
                 canvas.los(targetingTiles);
@@ -181,7 +183,7 @@ var turns = {
 
                     const graph = new Graph(validGrid, {diagonal: true});
                     const pathResult = astar.search(graph, graph.grid[currentEntity.x][currentEntity.y], graph.grid[endX][endY]);
-                    if (pathResult && pathResult.length > 0) canvas.path(pathResult);
+                    if (pathResult && pathResult.length > 0) canvas.path(pathResult, currentEntity.x, currentEntity.y, currentEntity);
                 }
             }
         }
@@ -450,6 +452,42 @@ var turns = {
 
     enemyMove: function(entity) {
         this.enemyRandomMove(entity);
+    },
+
+    // Returns the planned movement path for an enemy toward targetX/targetY without moving them.
+    computeEnemyPath: function(entity, targetX, targetY) {
+        if (!pts || targetX < 0 || targetX >= size || targetY < 0 || targetY >= size) return [];
+
+        const graph = new Graph(pts, { diagonal: true });
+        entities.forEach(e => {
+            if (e !== entity && e.hp > 0 && !(e.x === targetX && e.y === targetY)) {
+                if (graph.grid[e.x]?.[e.y]) graph.grid[e.x][e.y].weight = 0;
+            }
+        });
+
+        if (!graph.grid[entity.x]?.[entity.y] || !graph.grid[targetX]?.[targetY]) return [];
+
+        const path = astar.search(
+            graph,
+            graph.grid[entity.x][entity.y],
+            graph.grid[targetX][targetY],
+            { closest: true, heuristic: astar.heuristics.diagonal }
+        );
+
+        if (!path || path.length === 0) return [];
+
+        // Trim to the entity's actual movement range
+        let distanceMoved = 0;
+        const trimmed = [];
+        for (let step of path) {
+            if (distanceMoved + 1 <= entity.range) {
+                const occupied = entities.some(e => e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y);
+                const isWall = walls.some(w => w.x === step.x && w.y === step.y);
+                if (!occupied && !isWall) { trimmed.push(step); distanceMoved++; }
+                else break;
+            } else break;
+        }
+        return trimmed;
     },
 
     enemyMoveToward: function(entity, targetX, targetY) {

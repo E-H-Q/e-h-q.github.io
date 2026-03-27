@@ -1,5 +1,19 @@
 // CANVAS.JS: DRAWS STUFF ON THE CANVAS "SCREEN"
 
+const DIR_TO_SPRITE = {
+	"0,-1": 0,  // up
+	"1,-1": 1,  // up-right
+	"1,0":  2,  // right
+	"1,1":  3,  // down-right
+	"0,1":  4,  // down
+	"-1,1": 5,  // down-left
+	"-1,0": 6,  // left
+	"-1,-1":7   // up-left
+};
+const MOVE_SPRITE_SIZE = 32;
+const SPRITE_ACTIVE    = 8; // circle rendered on the current entity
+const SPRITE_CROSSHAIR = 9; // crosshair rendered on the last tile of a LOS path
+
 var canvas = {
 	init: () => {
 		c.width = tileSize * viewportWidth;
@@ -118,17 +132,63 @@ var canvas = {
 	},
 
 	los: (path) => {
+		if (!path || path.length === 0) return;
+		const movesImg = document.getElementById("moves");
 		ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
 		path.forEach(point => {
 			ctx.fillRect((point.x - camera.x) * tileSize, (point.y - camera.y) * tileSize, tileSize, tileSize);
 		});
+		if (movesImg && movesImg.complete && movesImg.naturalWidth > 0 && window.cursorWorldPos) {
+			const cursorInPath = path.some(p => p.x === window.cursorWorldPos.x && p.y === window.cursorWorldPos.y);
+			if (cursorInPath) {
+				ctx.drawImage(movesImg, SPRITE_CROSSHAIR * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+					(window.cursorWorldPos.x - camera.x) * tileSize, (window.cursorWorldPos.y - camera.y) * tileSize, tileSize, tileSize);
+			}
+		}
 	},
 
-	path: (path) => {
+	// path: draws directional move arrows along the pathfinding result.
+	// startX/startY: the entity's current tile (used to determine the first arrow's direction).
+	// entity: the moving entity, used for the onion skin on the last tile.
+	path: (path, startX, startY, entity) => {
+		if (!path || path.length === 0) return;
+
+		const moveImg = document.getElementById("moves");
+		const useSprites = moveImg && moveImg.complete && moveImg.naturalWidth > 0
+			&& startX !== undefined && startY !== undefined;
+
+		// Pass 1: yellow background tiles
 		ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
 		path.forEach(point => {
 			ctx.fillRect((point.x - camera.x) * tileSize, (point.y - camera.y) * tileSize, tileSize, tileSize);
 		});
+
+		// Pass 2: directional arrow sprites (skip last tile — onion skin renders there)
+		if (useSprites) {
+			path.forEach((point, i) => {
+				if (i === path.length - 1) return;
+				const prevX = i === 0 ? startX : path[i - 1].x;
+				const prevY = i === 0 ? startY : path[i - 1].y;
+				const dx = Math.sign(point.x - prevX);
+				const dy = Math.sign(point.y - prevY);
+				const spriteIndex = DIR_TO_SPRITE[`${dx},${dy}`];
+				if (spriteIndex !== undefined) {
+					ctx.drawImage(moveImg, spriteIndex * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+						(point.x - camera.x) * tileSize, (point.y - camera.y) * tileSize, tileSize, tileSize);
+				}
+			});
+		}
+
+		// Pass 3: onion skin of the entity on the last tile
+		if (entity) {
+			const last = path[path.length - 1];
+			const pepImg = document.getElementById(isPlayerControlled(entity) ? "pep" : "enemy");
+			if (pepImg && pepImg.complete) {
+				ctx.globalAlpha = 0.4;
+				ctx.drawImage(pepImg, (last.x - camera.x) * tileSize, (last.y - camera.y) * tileSize, tileSize, tileSize);
+				ctx.globalAlpha = 1.0;
+			}
+		}
 	},
 
 	drawEntity: (entity, color, imgId) => {
@@ -143,6 +203,15 @@ var canvas = {
 			ctx.font = '16px serif';
 			ctx.textAlign = 'left';
 			ctx.fillText(entity.hp, screenX, screenY + tileSize);
+		}
+		// Draw active-entity indicator circle on the current turn's entity
+		const isActive = entities[currentEntityIndex] === entity;
+		if (isActive) {
+			const movesImg = document.getElementById("moves");
+			if (movesImg && movesImg.complete && movesImg.naturalWidth > 0) {
+				ctx.drawImage(movesImg, SPRITE_ACTIVE * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+					screenX, screenY, tileSize, tileSize);
+			}
 		}
 	},
 
