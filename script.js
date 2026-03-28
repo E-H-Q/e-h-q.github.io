@@ -34,8 +34,8 @@ function populatePlayerFields(target) {
     document.getElementById('player_range').value = target.range;
     document.getElementById('player_attack_range').value = target.attack_range;
     document.getElementById('player_turns').value = target.turns;
-    document.getElementById('player_x').value = target.x;
-    document.getElementById('player_y').value = target.y;
+    //document.getElementById('player_x').value = target.x;
+    //document.getElementById('player_y').value = target.y;
 }
 
 function updatePlayerSelect() {
