@@ -74,6 +74,7 @@ var WindowSystem = {
     
     close: function() {
         activeWindow = null;
+		isAiming = false;
         update();
     },
     

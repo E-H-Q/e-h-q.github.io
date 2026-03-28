@@ -11,7 +11,7 @@ const DIR_TO_SPRITE = {
 	"-1,-1":7   // up-left
 };
 const MOVE_SPRITE_SIZE = 32;
-const SPRITE_ACTIVE    = 8; // circle rendered on the current entity
+const SPRITE_ACTIVE    = 8; // star rendered on the current entity
 const SPRITE_CROSSHAIR = 9; // crosshair rendered on the last tile of a LOS path
 
 var canvas = {
