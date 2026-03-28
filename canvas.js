@@ -242,7 +242,7 @@ var canvas = {
 
 	player: () => {
 		// Draw original player
-		if (player.hp >= 1) canvas.drawEntity(player, "rgba(0, 0, 255, 0.5)", "pep");
+		if (player.hp >= 1) canvas.drawEntity(player, player.playerColor || "rgba(0, 0, 255, 0.5)", "pep");
 		// Draw extra player-controlled entities with their assigned colors using pep.png
 		allPlayers.forEach(e => {
 			if (e.hp >= 1) canvas.drawEntity(e, e.playerColor || PLAYER_COLORS[0], "pep");
