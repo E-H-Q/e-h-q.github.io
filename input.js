@@ -178,6 +178,20 @@ var input = {
             return;
         }
 
+        if (event.keyCode === 17) { // CTRL - act as right-click
+            event.preventDefault();
+            if (window.cursorWorldPos) {
+                const rect = c.getBoundingClientRect();
+                const syntheticEvent = {
+                    preventDefault: () => {},
+                    clientX: rect.left + (window.cursorWorldPos.x - camera.x) * tileSize + tileSize / 2,
+                    clientY: rect.top  + (window.cursorWorldPos.y - camera.y) * tileSize + tileSize / 2
+                };
+                input.right_click(syntheticEvent);
+            }
+            return;
+        }
+
         if (event.keyCode === 27) { // ESC
             if (isAiming) {
                 isAiming = false;
