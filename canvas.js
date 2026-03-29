@@ -14,6 +14,13 @@ const MOVE_SPRITE_SIZE = 32;
 const SPRITE_ACTIVE    = 8; // star rendered on the current entity
 const SPRITE_CROSSHAIR = 9; // crosshair rendered on the last tile of a LOS path
 
+const TILE_SIZE        = 32;
+const TILE_WALL        = 0;
+const TILE_FLOOR       = 1;
+const TILE_GLASS       = 2;
+const TILE_BROKEN      = 3;
+const TILE_WATER       = 4;
+
 var canvas = {
 	init: () => {
 		c.width = tileSize * viewportWidth;
@@ -25,6 +32,30 @@ var canvas = {
 	},
 
 	grid: () => {
+		const tilesImg = document.getElementById("tiles");
+		for (let i = 0; i < viewportWidth; i++) {
+			for (let j = 0; j < viewportHeight; j++) {
+				const worldX = camera.x + i;
+				const worldY = camera.y + j;
+				const screenX = i * tileSize;
+				const screenY = j * tileSize;
+				if (worldX < 0 || worldY < 0 || worldX >= size || worldY >= size) {
+					// Out of bounds: draw X marker
+					ctx.strokeStyle = "rgba(255, 0, 0, 0.2)";
+					ctx.lineWidth = 1;
+					ctx.beginPath();
+					ctx.moveTo(screenX, screenY);
+					ctx.lineTo(screenX + tileSize, screenY + tileSize);
+					ctx.moveTo(screenX + tileSize, screenY);
+					ctx.lineTo(screenX, screenY + tileSize);
+					ctx.stroke();
+				} else if (tilesImg && tilesImg.complete && tilesImg.naturalWidth > 0) {
+					ctx.drawImage(tilesImg, TILE_FLOOR * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+				}
+			}
+		}
+
+		// Grid lines
 		ctx.beginPath();
 		ctx.lineWidth = 0.1;
 		ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
@@ -39,42 +70,29 @@ var canvas = {
 			ctx.lineTo(c.width, pos);
 		}
 		ctx.stroke();
-
-		// Draw X on out of bounds tiles
-		ctx.strokeStyle = "rgba(255, 0, 0, 0.2)";
-		ctx.lineWidth = 1;
-		for (let i = 0; i < viewportWidth; i++) {
-			for (let j = 0; j < viewportHeight; j++) {
-				const worldX = camera.x + i;
-				const worldY = camera.y + j;
-				if (worldX < 0 || worldY < 0 || worldX >= size || worldY >= size) {
-					const screenX = i * tileSize;
-					const screenY = j * tileSize;
-					ctx.beginPath();
-					ctx.moveTo(screenX, screenY);
-					ctx.lineTo(screenX + tileSize, screenY + tileSize);
-					ctx.moveTo(screenX + tileSize, screenY);
-					ctx.lineTo(screenX, screenY + tileSize);
-					ctx.stroke();
-				}
-			}
-		}
 	},
 
 	walls: () => {
+		const tilesImg = document.getElementById("tiles");
+		const hasSprites = tilesImg && tilesImg.complete && tilesImg.naturalWidth > 0;
 		walls.forEach(wall => {
 			const screenX = (wall.x - camera.x) * tileSize;
 			const screenY = (wall.y - camera.y) * tileSize;
 			if (wall.type === 'glass') {
-				ctx.fillStyle = "rgba(0, 100, 255, 0.5)";
-				ctx.fillRect(screenX, screenY, tileSize, tileSize);
-				if (wall.damaged) {
-					const img = document.getElementById("broken");
-					if (img && img.complete) ctx.drawImage(img, screenX, screenY, tileSize, tileSize);
+				if (hasSprites) {
+					ctx.drawImage(tilesImg, TILE_GLASS * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+					if (wall.damaged) ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+				} else {
+					ctx.fillStyle = wall.damaged ? "rgba(0, 100, 255, 0.3)" : "rgba(0, 100, 255, 0.5)";
+					ctx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
 			} else {
-				ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
-				ctx.fillRect(screenX, screenY, tileSize, tileSize);
+				if (hasSprites) {
+					ctx.drawImage(tilesImg, TILE_WALL * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+				} else {
+					ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
+					ctx.fillRect(screenX, screenY, tileSize, tileSize);
+				}
 			}
 		});
 	},
