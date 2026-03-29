@@ -152,6 +152,7 @@ var turns = {
             } else if (willAttack && enemyInViewport) {
                 const targetingTiles = calculateEntityTargeting(currentEntity, target.x, target.y);
                 canvas.los(targetingTiles);
+                canvas.crosshair(target.x, target.y);
             }
 
             if (enemyHasSeenPlayer && enemyInViewport) {
@@ -189,6 +190,7 @@ var turns = {
         }
 
         if (isPlayerControlled(currentEntity) && action.value === "attack") {
+            canvas.attackRangeDim(currentEntity);
             const targetingTiles = calculateEntityTargeting(currentEntity, window.cursorWorldPos.x, window.cursorWorldPos.y);
             if (targetingTiles.length > 0) canvas.los(targetingTiles);
         }

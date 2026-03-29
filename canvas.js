@@ -256,6 +256,25 @@ var canvas = {
 		});
 	},
 
+	crosshair: (x, y) => {
+		const movesImg = document.getElementById("moves");
+		if (!movesImg || !movesImg.complete || !movesImg.naturalWidth) return;
+		ctx.drawImage(movesImg, SPRITE_CROSSHAIR * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+			(x - camera.x) * tileSize, (y - camera.y) * tileSize, tileSize, tileSize);
+	},
+
+	attackRangeDim: (entity) => {
+		const range = getEntityAttackRange(entity);
+		ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+		for (let i = 0; i < viewportWidth; i++) {
+			for (let j = 0; j < viewportHeight; j++) {
+				if (calc.distance(entity.x, camera.x + i, entity.y, camera.y + j) > range) {
+					ctx.fillRect(i * tileSize, j * tileSize, tileSize, tileSize);
+				}
+			}
+		}
+	},
+
 	window: () => {
 		if (typeof WindowSystem !== 'undefined') {
 			WindowSystem.draw();
