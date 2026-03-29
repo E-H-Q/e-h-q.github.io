@@ -254,7 +254,7 @@ function calculateGrenadeTargeting(entity, endX, endY) {
 	
 	for (let i = 1; i < path.length; i++) {
 		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-		if (wall && (wall.type !== 'glass' || !wall.damaged)) {
+		if (wall && (wall.type !== 'glass' || !wall.damaged || wall.type !== 'water')) {
 			path = path.slice(0, i);
 			break;
 		}
@@ -299,7 +299,7 @@ function calculateEntityTargeting(entity, endX, endY) {
     if (!canDestroy) {
         for (let i = 1; i < path.length; i++) {
             const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-            if (wall && wall.type !== 'glass') {
+            if (wall && wall.type !== 'glass' && wall.type !== 'water') {
                 path = path.slice(0, i);
                 break;
             }
@@ -395,7 +395,7 @@ function getTargetedEntities(attacker, endX, endY) {
         // Stop at solid walls
         for (let i = 1; i < path.length; i++) {
             const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-            if (wall && wall.type !== 'glass') {
+            if (wall && wall.type !== 'glass' && wall.type !== 'water') {
                 path = path.slice(0, i);
                 break;
             }
@@ -430,7 +430,7 @@ function getTargetedEntities(attacker, endX, endY) {
         
         for (let i = 1; i < path.length; i++) {
             const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-            if (wall && wall.type !== 'glass') {
+            if (wall && wall.type !== 'glass' && wall.type !== 'water') {
                 path = path.slice(0, i);
                 break;
             }
@@ -453,7 +453,7 @@ function getTargetedEntities(attacker, endX, endY) {
         if (!canDestroy) {
             for (let i = 1; i < path.length; i++) {
                 const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-                if (wall && wall.type !== 'glass') {
+                if (wall && wall.type !== 'glass' && wall.type !== 'water') {
                     path = path.slice(0, i);
                     break;
                 }
@@ -485,7 +485,7 @@ function getTargetedEntities(attacker, endX, endY) {
         
         for (let i = 1; i < path.length; i++) {
             const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-            if (wall && wall.type !== 'glass') {
+            if (wall && wall.type !== 'glass' && wall.type !== 'water') {
                 path = path.slice(0, i);
                 break;
             }
@@ -498,7 +498,7 @@ function getTargetedEntities(attacker, endX, endY) {
         
         for (let i = 1; i < path.length; i++) {
             const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-            if (wall && wall.type !== 'glass') {
+            if (wall && wall.type !== 'glass' && wall.type !== 'water') {
                 path = path.slice(0, i);
                 break;
             }
@@ -535,7 +535,7 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 	let path = line({x: entity.x, y: entity.y}, {x: targetX, y: targetY});
 	for (let i = 1; i < path.length; i++) {
 		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-		if (wall && (wall.type !== 'glass' || !wall.damaged)) {
+		if (wall && (wall.type !== 'glass' || !wall.damaged || wall.type !== 'water')) {
 			path = path.slice(0, i);
 			break;
 		}

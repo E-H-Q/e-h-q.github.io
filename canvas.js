@@ -86,6 +86,13 @@ var canvas = {
 					ctx.fillStyle = wall.damaged ? "rgba(0, 100, 255, 0.3)" : "rgba(0, 100, 255, 0.5)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
+			} else if (wall.type === 'water') {
+				if (hasSprites) {
+					ctx.drawImage(tilesImg, TILE_WATER * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+				} else {
+					ctx.fillStyle = "rgba(0, 50, 200, 0.5)";
+					ctx.fillRect(screenX, screenY, tileSize, tileSize);
+				}
 			} else {
 				if (hasSprites) {
 					ctx.drawImage(tilesImg, TILE_WALL * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);

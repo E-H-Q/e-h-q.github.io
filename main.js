@@ -223,7 +223,7 @@ var populate = {
 	reset: () => resizePtsArray(),
 	walls: () => {
 		walls.forEach(w => {
-			if (pts[w.x]?.[w.y] !== undefined) pts[w.x][w.y] = 0;
+			if (pts[w.x]?.[w.y] !== undefined) pts[w.x][w.y] = w.type === 'water' ? 2 : 0;
 		});
 	},
 	enemies: () => {
@@ -242,7 +242,7 @@ var populate = {
 
 var helper = {
 	tileBlocked: (x, y) => {
-		return walls.some(w => w.x === x && w.y === y) ||
+		return walls.some(w => w.x === x && w.y === y && w.type !== 'water') ||
 		       allEnemies.some(e => e.hp > 0 && e.x === x && e.y === y) ||
 		       allPlayers.some(e => e.hp > 0 && e.x === x && e.y === y) ||
 		       (player.x === x && player.y === y);

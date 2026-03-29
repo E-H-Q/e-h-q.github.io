@@ -52,7 +52,7 @@ function hasPermissiveLOS(startX, startY, endX, endY) {
 		for (let i = 1; i < path.length - 1; i++) {
 			const point = path[i];
 			const wall = walls.find(w => w.x === point.x && w.y === point.y);
-			if (wall && wall.type !== 'glass') {
+			if (wall && wall.type !== 'glass' && wall.type !== 'water') {
 				blocked = true;
 				break;
 			}
@@ -113,7 +113,7 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 			// Stop at solid walls only
 			for (let i = 1; i < sidePath.length; i++) {
 				const wall = walls.find(w => w.x === sidePath[i].x && w.y === sidePath[i].y);
-				if (wall && wall.type !== 'glass') {
+				if (wall && wall.type !== 'glass' && wall.type !== 'water') {
 					sidePath = sidePath.slice(0, i);
 					break;
 				}

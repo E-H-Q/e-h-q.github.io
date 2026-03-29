@@ -10,7 +10,7 @@ const EntitySystem = {
 		if (path.length < dist + 1) return false;
 		for (let i = 1; i < path.length - 1; i++) {
 			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-			if (wall && wall.type !== 'glass') return false;
+			if (wall && wall.type !== 'glass' && wall.type !== 'water') return false;
 		}
 		return true;
 	},
@@ -43,7 +43,7 @@ const EntitySystem = {
 
 		for (let i = minX; i <= maxX; i++) {
 			for (let j = minY; j <= maxY; j++) {
-				if (pts[i][j] === 1) {
+				if (pts[i][j] > 0) {
 					const res = astar.search(graph, graph.grid[entity.x][entity.y], graph.grid[i][j]);
 					if (res.length > 0) {
 						let pathCost = 0;
@@ -58,6 +58,7 @@ const EntitySystem = {
 							} else {
 								pathCost += 1;
 							}
+							if (pts[curr.x]?.[curr.y] === 2) pathCost += 1; // water costs +1 per tile
 						}
 						if (pathCost <= entity.range) validMoves.push({x: i, y: j, path: res});
 					}

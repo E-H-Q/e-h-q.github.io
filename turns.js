@@ -611,7 +611,7 @@ var turns = {
         const path = line({x: x1, y: y1}, {x: x2, y: y2});
         for (let i = 1; i < path.length - 1; i++) {
             const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-            if (wall && wall.type !== 'glass') return false;
+            if (wall && wall.type !== 'glass' && wall.type !== 'water') return false;
         }
         return true;
     }
