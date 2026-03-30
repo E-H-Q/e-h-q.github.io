@@ -480,10 +480,11 @@ var turns = {
         let distanceMoved = 0;
         const trimmed = [];
         for (let step of path) {
-            if (distanceMoved + 1 <= entity.range) {
+            const stepCost = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water') ? 2 : 1;
+            if (distanceMoved + stepCost <= entity.range) {
                 const occupied = entities.some(e => e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y);
-                const isWall = walls.some(w => w.x === step.x && w.y === step.y);
-                if (!occupied && !isWall) { trimmed.push(step); distanceMoved++; }
+                const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water');
+                if (!occupied && !isWall) { trimmed.push(step); distanceMoved += stepCost; }
                 else break;
             } else break;
         }
@@ -529,10 +530,10 @@ var turns = {
         let finalY = entity.y;
 
         for (let step of path) {
-            const stepCost = 1;
+            const stepCost = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water') ? 2 : 1;
             if (distanceMoved + stepCost <= entity.range) {
                 const occupied = entities.some(e => e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y);
-                const isWall = walls.some(w => w.x === step.x && w.y === step.y);
+                const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water');
                 if (!occupied && !isWall) {
                     finalX = step.x;
                     finalY = step.y;
