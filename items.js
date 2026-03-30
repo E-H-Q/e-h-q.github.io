@@ -254,9 +254,11 @@ function calculateGrenadeTargeting(entity, endX, endY) {
 	
 	for (let i = 1; i < path.length; i++) {
 		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-		if (wall && (wall.type !== 'glass' || !wall.damaged || wall.type !== 'water')) {
-			path = path.slice(0, i);
-			break;
+		if (wall && (wall.type !== 'water')) {
+			if (wall && (wall.type !== 'glass' || !wall.damaged)) {
+				path = path.slice(0, i);
+				break;
+			}
 		}
 	}
 	
@@ -299,7 +301,7 @@ function calculateEntityTargeting(entity, endX, endY) {
     if (!canDestroy) {
         for (let i = 1; i < path.length; i++) {
             const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-            if (wall && wall.type !== 'glass' && wall.type !== 'water') {
+            if (wall && wall.type == 'wall') {
                 path = path.slice(0, i);
                 break;
             }
@@ -395,7 +397,7 @@ function getTargetedEntities(attacker, endX, endY) {
         // Stop at solid walls
         for (let i = 1; i < path.length; i++) {
             const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-            if (wall && wall.type !== 'glass' && wall.type !== 'water') {
+            if (wall && wall.type == 'wall') {
                 path = path.slice(0, i);
                 break;
             }
@@ -430,7 +432,7 @@ function getTargetedEntities(attacker, endX, endY) {
         
         for (let i = 1; i < path.length; i++) {
             const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-            if (wall && wall.type !== 'glass' && wall.type !== 'water') {
+            if (wall && wall.type == 'wall') {
                 path = path.slice(0, i);
                 break;
             }
@@ -453,7 +455,7 @@ function getTargetedEntities(attacker, endX, endY) {
         if (!canDestroy) {
             for (let i = 1; i < path.length; i++) {
                 const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-                if (wall && wall.type !== 'glass' && wall.type !== 'water') {
+                if (wall && wall.type == 'wall') {
                     path = path.slice(0, i);
                     break;
                 }
@@ -485,7 +487,7 @@ function getTargetedEntities(attacker, endX, endY) {
         
         for (let i = 1; i < path.length; i++) {
             const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-            if (wall && wall.type !== 'glass' && wall.type !== 'water') {
+            if (wall && wall.type == 'wall') {
                 path = path.slice(0, i);
                 break;
             }
@@ -498,7 +500,7 @@ function getTargetedEntities(attacker, endX, endY) {
         
         for (let i = 1; i < path.length; i++) {
             const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-            if (wall && wall.type !== 'glass' && wall.type !== 'water') {
+            if (wall && wall.type == 'wall') {
                 path = path.slice(0, i);
                 break;
             }
@@ -535,9 +537,11 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 	let path = line({x: entity.x, y: entity.y}, {x: targetX, y: targetY});
 	for (let i = 1; i < path.length; i++) {
 		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-		if (wall && (wall.type !== 'glass' || !wall.damaged || wall.type !== 'water')) {
-			path = path.slice(0, i);
-			break;
+		if (wall && (wall.type !== 'water')) {
+			if (wall && (wall.type !== 'glass' || !wall.damaged)) {
+				path = path.slice(0, i);
+				break;
+			}
 		}
 	}
 	
@@ -546,7 +550,7 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 		const wallIndex = walls.findIndex(w => w.x === path[i].x && w.y === path[i].y);
 		if (wallIndex >= 0 && walls[wallIndex].type === 'glass' && walls[wallIndex].damaged) {
 			walls.splice(wallIndex, 1);
-			console.log("Grenade broke through damaged glass!");
+			//console.log("Grenade broke through damaged glass!");
 		}
 	}
 	
@@ -928,7 +932,7 @@ function detonateGrenade(grenade, x, y) {
 						const dist = Math.sqrt((tx - explodeX) ** 2 + (ty - explodeY) ** 2);
 						if (dist <= itemDef.damageRadius) {
 							for (let i = walls.length - 1; i >= 0; i--) {
-								if (walls[i].x === tx && walls[i].y === ty) {
+								if (walls[i].x === tx && walls[i].y === ty && walls[i].type !== 'water') {
 									walls.splice(i, 1);
 									break;
 								}

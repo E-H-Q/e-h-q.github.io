@@ -572,8 +572,8 @@ function update() {
     valid = [];
     canvas.clear();
     canvas.grid();
-    canvas.items();
     canvas.walls();
+    canvas.items();
     canvas.drawOnionskin();
     canvas.player();
 

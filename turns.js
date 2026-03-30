@@ -82,8 +82,8 @@ var turns = {
             canvas.init();
             canvas.clear();
             canvas.grid();
-            canvas.items();
             canvas.walls();
+            canvas.items();
             canvas.player();
             canvas.enemy();
         }
@@ -115,15 +115,13 @@ var turns = {
 
             if (inCombat && inViewport) {
                 isAnimating = true;
-                setTimeout(() => {
-                    populate.reset();
-                    populate.walls();
-                    populate.enemies();
-                    siblings.forEach(s => { if (pts[s.x]?.[s.y] !== undefined) pts[s.x][s.y] = 1; });
-                    this.enemyMoveToward(currentEntity, followTarget.x, followTarget.y);
-                    isAnimating = false;
-                    update();
-                }, parseInt(document.getElementById('turn-delay').value) || 0);
+                populate.reset();
+                populate.walls();
+                populate.enemies();
+                siblings.forEach(s => { if (pts[s.x]?.[s.y] !== undefined) pts[s.x][s.y] = 1; });
+                this.enemyMoveToward(currentEntity, followTarget.x, followTarget.y);
+                isAnimating = false;
+                update();
             } else {
                 populate.reset();
                 populate.walls();
