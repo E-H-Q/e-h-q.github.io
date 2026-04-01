@@ -13,6 +13,7 @@ const DIR_TO_SPRITE = {
 const MOVE_SPRITE_SIZE = 32;
 const SPRITE_ACTIVE    = 8; // star rendered on the current entity
 const SPRITE_CROSSHAIR = 9; // crosshair rendered on the last tile of a LOS path
+const SPRITE_FOLLOWER = 10;
 
 const TILE_SIZE        = 32;
 const TILE_WALL        = 0;
@@ -236,6 +237,12 @@ var canvas = {
 			if (movesImg && movesImg.complete && movesImg.naturalWidth > 0) {
 				ctx.drawImage(movesImg, SPRITE_ACTIVE * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
 					screenX, screenY, tileSize, tileSize);
+			}
+			for (var i = 0; i < entities.length; i++) {
+				if (entities[i].following && entities[i].following == entity) { // show follower circle sprite on followers of current entity only.
+					ctx.drawImage(movesImg, SPRITE_FOLLOWER * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+						(entities[i].x - camera.x) * tileSize, (entities[i].y - camera.y) * tileSize, tileSize, tileSize);
+				}
 			}
 		}
 	},
