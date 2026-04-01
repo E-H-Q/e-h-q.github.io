@@ -162,7 +162,7 @@ function getDestroyableWallsInTiles(tiles, originX, originY, canDestroy) {
     const checkedTiles = new Set();
     
     for (let tile of tiles) {
-        const tileKey = `${tile.x},${tile.y}`;
+        const tileKey = '${tile.x},${tile.y}';
         if (checkedTiles.has(tileKey)) continue;
         checkedTiles.add(tileKey);
         
@@ -603,6 +603,19 @@ function spawnItem(itemType, x, y) {
 	return false;
 }
 
+function sortInventory(entity) {
+	if (!entity.inventory) return;
+	const order = item => {
+		const def = itemTypes[item.itemType];
+		if (!def) return 3;
+		if (def.type === 'consumable') return 0;
+		if (def.type === 'equipment' && def.slot === 'weapon') return 1;
+		if (def.type === 'equipment') return 2;
+		return 3;
+	};
+	entity.inventory.sort((a, b) => order(a) - order(b));
+}
+
 function giveItem(entity, itemType) {
 	if (!entity.inventory) entity.inventory = [];
 	const itemDef = itemTypes[itemType];
@@ -890,20 +903,79 @@ function useItem(entity, inventoryIndex) {
 	return true;
 }
 
-function detonateGrenade(grenade, x, y) {
+let grenadeUpdateTimer = null;
+
+function detonateGrenade(grenade, x, y, isChained = false) {
 	const itemDef = itemTypes.grenade;
 	const explodeX = x !== undefined ? x : grenade.x;
 	const explodeY = y !== undefined ? y : grenade.y;
-	
+
+	if (grenade && grenade.hp !== undefined) grenade.hp = 0;
 	console.log("Grenade explodes at " + explodeX + ", " + explodeY + "!");
-	
-	// Show explosion visual with delay
+
+	function applyDamage() {
+		// Destroy ALL walls in radius
+		if (itemDef.canDestroy) {
+			for (let tx = Math.max(0, explodeX - itemDef.damageRadius); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius); tx++) {
+				for (let ty = Math.max(0, explodeY - itemDef.damageRadius); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius); ty++) {
+					const dist = Math.sqrt((tx - explodeX) ** 2 + (ty - explodeY) ** 2);
+					if (dist <= itemDef.damageRadius) {
+						for (let i = walls.length - 1; i >= 0; i--) {
+							if (walls[i].x === tx && walls[i].y === ty && walls[i].type !== 'water') {
+								walls.splice(i, 1);
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Calculate explosion area for entity damage
+		circle(explodeY, explodeX, itemDef.damageRadius);
+		convert();
+
+		const explosionTiles = [];
+		for (let tx = Math.max(0, explodeX - itemDef.damageRadius - 1); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius + 1); tx++) {
+			for (let ty = Math.max(0, explodeY - itemDef.damageRadius - 1); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius + 1); ty++) {
+				if (pts[tx] && pts[tx][ty] === 1) {
+					explosionTiles.push({x: tx, y: ty});
+				}
+			}
+		}
+
+		// Damage entities
+		for (let tile of explosionTiles) {
+			for (let entity of entities) {
+				if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0 && entity !== grenade) {
+					const armor = entity.armor || 0;
+					const dmg = Math.max(1, itemDef.damage - armor);
+					console.log(entity.name + " takes " + dmg + " damage!");
+					entity.hp -= dmg;
+					if (entity.hp <= 0) EntitySystem.dropAllItems(entity);
+
+					// Chained detonation: apply synchronously so root update catches all damage
+					if (entity.isGrenade && entity.hp <= 0) {
+						detonateGrenade(entity, undefined, undefined, true);
+					}
+				}
+			}
+		}
+	}
+
+	// Chained detonations apply damage synchronously — the root detonation's
+	// grenadeUpdateTimer fires update() after everything is resolved.
+	if (isChained) {
+		applyDamage();
+		return;
+	}
+
+	// Root detonation: show visual, then apply damage async
 	setTimeout(() => {
-		// Draw explosion effect
 		const savedPts = pts.map(row => [...row]);
 		circle(explodeY, explodeX, itemDef.damageRadius);
 		convert();
-		
+
 		ctx.fillStyle = "rgba(255, 0, 0, 0.6)";
 		for (let x = Math.max(0, explodeX - itemDef.damageRadius - 1); x <= Math.min(size - 1, explodeX + itemDef.damageRadius + 1); x++) {
 			for (let y = Math.max(0, explodeY - itemDef.damageRadius - 1); y <= Math.min(size - 1, explodeY + itemDef.damageRadius + 1); y++) {
@@ -917,62 +989,11 @@ function detonateGrenade(grenade, x, y) {
 			}
 		}
 		pts = savedPts;
-		
-		// Apply damage after brief visual delay
+
 		setTimeout(() => {
-			// Mark grenade as dead FIRST to prevent turn system issues
-			if (grenade && grenade.hp !== undefined) {
-				grenade.hp = 0;
-			}
-			
-			// Destroy ALL walls in radius
-			if (itemDef.canDestroy) {
-				for (let tx = Math.max(0, explodeX - itemDef.damageRadius); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius); tx++) {
-					for (let ty = Math.max(0, explodeY - itemDef.damageRadius); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius); ty++) {
-						const dist = Math.sqrt((tx - explodeX) ** 2 + (ty - explodeY) ** 2);
-						if (dist <= itemDef.damageRadius) {
-							for (let i = walls.length - 1; i >= 0; i--) {
-								if (walls[i].x === tx && walls[i].y === ty && walls[i].type !== 'water') {
-									walls.splice(i, 1);
-									break;
-								}
-							}
-						}
-					}
-				}
-			}
-			
-			// Calculate explosion area for entity damage
-			circle(explodeY, explodeX, itemDef.damageRadius);
-			convert();
-			
-			const explosionTiles = [];
-			for (let tx = Math.max(0, explodeX - itemDef.damageRadius - 1); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius + 1); tx++) {
-				for (let ty = Math.max(0, explodeY - itemDef.damageRadius - 1); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius + 1); ty++) {
-					if (pts[tx] && pts[tx][ty] === 1) {
-						explosionTiles.push({x: tx, y: ty});
-					}
-				}
-			}
-			
-			// Damage entities
-			for (let tile of explosionTiles) {
-			    for (let entity of entities) {
-			        if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0 && entity !== grenade) {
-			            const armor = entity.armor || 0;
- 			            const dmg = Math.max(1, itemDef.damage - armor);
-			            console.log(entity.name + " takes " + dmg + " damage!");
-			            entity.hp -= dmg;
-						if (entity.hp <= 0) EntitySystem.dropAllItems(entity);
-            
-			            // Check if damaged entity is a grenade and trigger detonation
-			            if (entity.isGrenade && entity.hp <= 0) {
-			                detonateGrenade(entity);
-        				}
-        			}
-    			}
-			}
-			update();
+			applyDamage();
+			clearTimeout(grenadeUpdateTimer);
+			grenadeUpdateTimer = setTimeout(update, 0);
 		}, timeout);
 	}, 0);
 }

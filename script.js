@@ -231,6 +231,7 @@ function updateInventory() {
     var html = '';
 
     const activeEnt = getActivePlayerEntity();
+    if (typeof sortInventory === 'function') sortInventory(activeEnt);
 
     if (activeEnt.inventory.length === 0) {
         html = '<p style="color: #888;">Empty</p>';
