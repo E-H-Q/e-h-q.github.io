@@ -903,8 +903,6 @@ function useItem(entity, inventoryIndex) {
 	return true;
 }
 
-let grenadeUpdateTimer = null;
-
 function detonateGrenade(grenade, x, y, isChained = false) {
 	const itemDef = itemTypes.grenade;
 	const explodeX = x !== undefined ? x : grenade.x;
@@ -992,8 +990,6 @@ function detonateGrenade(grenade, x, y, isChained = false) {
 
 		setTimeout(() => {
 			applyDamage();
-			clearTimeout(grenadeUpdateTimer);
-			grenadeUpdateTimer = setTimeout(update, 0);
 		}, timeout);
 	}, 0);
 }
