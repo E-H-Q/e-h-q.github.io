@@ -103,7 +103,8 @@ var turns = {
         if (currentEntity.following && currentEntity.following.hp > 0 && currentEntityTurnsRemaining > 0) {
             const followTarget = currentEntity.following;
 
-            if (calc.distance(currentEntity.x, followTarget.x, currentEntity.y, followTarget.y) <= 1) {
+            //if (calc.distance(currentEntity.x, followTarget.x, currentEntity.y, followTarget.y) <= 1) {
+            if (calc.distance(currentEntity.x, followTarget.x, currentEntity.y, followTarget.y) <= followTarget.range) {
                 currentEntityTurnsRemaining--;
                 update();
                 return;
@@ -118,7 +119,7 @@ var turns = {
                 populate.reset();
                 populate.walls();
                 populate.enemies();
-                siblings.forEach(s => { if (pts[s.x]?.[s.y] !== undefined) pts[s.x][s.y] = 1; });
+                siblings.forEach(s => { if (pts[s.x]?.[s.y] !== undefined) pts[s.x][s.y] = 0; });
                 this.enemyMoveToward(currentEntity, followTarget.x, followTarget.y);
                 isAnimating = false;
                 update();
@@ -126,7 +127,7 @@ var turns = {
                 populate.reset();
                 populate.walls();
                 populate.enemies();
-                siblings.forEach(s => { if (pts[s.x]?.[s.y] !== undefined) pts[s.x][s.y] = 1; });
+                siblings.forEach(s => { if (pts[s.x]?.[s.y] !== undefined) pts[s.x][s.y] = 0; });
                 this.enemyMoveToward(currentEntity, followTarget.x, followTarget.y);
                 update();
             }
@@ -235,18 +236,14 @@ var turns = {
                 enemy.seenX = closestVisible.x;
                 enemy.seenY = closestVisible.y;
 
-                // Enemy just entered combat — stop following of the spotted player and clear enemy's own follow state
                 if (wasUnaware) {
+                    // Stop ALL player-entity followings when combat starts
                     [player, ...allPlayers].forEach(p => {
-                        if (p.following === closestVisible) {
-                            console.log(p.name + " stopped following " + closestVisible.name + ".");
+                        if (p.following) {
+                            console.log(p.name + " stopped following " + p.following.name + ".");
                             p.following = null;
                         }
                     });
-                    if (closestVisible.following) {
-                        console.log(closestVisible.name + " stopped following " + closestVisible.following.name + ".");
-                        closestVisible.following = null;
-                    }
                     if (enemy.following) {
                         console.log(enemy.name + " stopped following " + enemy.following.name + ".");
                         enemy.following = null;
