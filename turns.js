@@ -98,13 +98,13 @@ var turns = {
             return;
         }
 
-        // Following entities - skip if adjacent, otherwise move toward follow target.
-        // Siblings (entities following the same target) are made passable in pts so they don't block the path.
+        // Following entities - skip if adjacent to lead, otherwise move toward them.
+        // Siblings are kept passable so pathfinding routes through them; the move loop
+        // stops naturally when it reaches an occupied tile.
         if (currentEntity.following && currentEntity.following.hp > 0 && currentEntityTurnsRemaining > 0) {
             const followTarget = currentEntity.following;
 
-            //if (calc.distance(currentEntity.x, followTarget.x, currentEntity.y, followTarget.y) <= 1) {
-            if (calc.distance(currentEntity.x, followTarget.x, currentEntity.y, followTarget.y) <= currentEntity.range) {
+            if (calc.distance(currentEntity.x, followTarget.x, currentEntity.y, followTarget.y) <= 1) {
                 currentEntityTurnsRemaining--;
                 update();
                 return;
@@ -114,23 +114,16 @@ var turns = {
             const inCombat = currentEntity.seenX !== undefined && (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
             const inViewport = this.isInViewport(currentEntity);
 
-            if (inCombat && inViewport) {
-                isAnimating = true;
-                populate.reset();
-                populate.walls();
-                populate.enemies();
-                siblings.forEach(s => { if (pts[s.x]?.[s.y] !== undefined) pts[s.x][s.y] = 0; });
-                this.enemyMoveToward(currentEntity, followTarget.x, followTarget.y);
-                isAnimating = false;
-                update();
-            } else {
-                populate.reset();
-                populate.walls();
-                populate.enemies();
-                siblings.forEach(s => { if (pts[s.x]?.[s.y] !== undefined) pts[s.x][s.y] = 0; });
-                this.enemyMoveToward(currentEntity, followTarget.x, followTarget.y);
-                update();
-            }
+            populate.reset();
+            populate.walls();
+            populate.enemies();
+            // Re-enable siblings so A* routes through them; the move loop stops when occupied
+            siblings.forEach(s => { if (pts[s.x]?.[s.y] !== undefined) pts[s.x][s.y] = 1; });
+
+            if (inCombat && inViewport) isAnimating = true;
+            this.enemyMoveToward(currentEntity, followTarget.x, followTarget.y, siblings);
+            if (inCombat && inViewport) isAnimating = false;
+            update();
             return;
         }
 
@@ -488,7 +481,8 @@ var turns = {
         return trimmed;
     },
 
-    enemyMoveToward: function(entity, targetX, targetY) {
+    // passable: optional array of entities whose tiles should remain walkable in the graph
+    enemyMoveToward: function(entity, targetX, targetY, passable = []) {
         if (!pts) { currentEntityTurnsRemaining--; return; }
         if (targetX < 0 || targetX >= size || targetY < 0 || targetY >= size) {
             entity.seenX = 0; entity.seenY = 0;
@@ -499,6 +493,7 @@ var turns = {
         const diagonalGraph = new Graph(pts, { diagonal: true });
         entities.forEach(e => {
             if (e !== entity && e.hp > 0 && !(e.x === targetX && e.y === targetY)) {
+                if (passable.some(p => p.x === e.x && p.y === e.y)) return;
                 if (diagonalGraph.grid[e.x]?.[e.y]) diagonalGraph.grid[e.x][e.y].weight = 0;
             }
         });
