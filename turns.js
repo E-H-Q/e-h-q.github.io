@@ -104,7 +104,7 @@ var turns = {
             const followTarget = currentEntity.following;
 
             //if (calc.distance(currentEntity.x, followTarget.x, currentEntity.y, followTarget.y) <= 1) {
-            if (calc.distance(currentEntity.x, followTarget.x, currentEntity.y, followTarget.y) <= followTarget.range) {
+            if (calc.distance(currentEntity.x, followTarget.x, currentEntity.y, followTarget.y) <= currentEntity.range) {
                 currentEntityTurnsRemaining--;
                 update();
                 return;
