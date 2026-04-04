@@ -968,7 +968,9 @@ function detonateGrenade(grenade, x, y, isChained = false) {
 		return;
 	}
 
-	// Root detonation: show visual, then apply damage async
+	// Root detonation: show visual, then apply damage async.
+	// isAnimating blocks turns.check() during the cleanup update so the async
+	// callback cannot disrupt the turn order that was already advanced.
 	setTimeout(() => {
 		const savedPts = pts.map(row => [...row]);
 		circle(explodeY, explodeX, itemDef.damageRadius);
@@ -990,7 +992,10 @@ function detonateGrenade(grenade, x, y, isChained = false) {
 
 		setTimeout(() => {
 			applyDamage();
-			update(); // required to redraw screen and clear grenade explosion, but can sometimes cause turn skipping?
+			isAnimating = true;
+			update();
+			isAnimating = false;
+			update();
 		}, timeout);
 	}, 0);
 }
