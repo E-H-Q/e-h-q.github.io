@@ -137,9 +137,13 @@ var turns = {
             const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
             const enemyInViewport = this.isInViewport(currentEntity);
 
-            if (!willAttack && enemyHasSeenPlayer && enemyInViewport) {
+            // Use canSeeTarget as well: an enemy that just walked into LOS should also
+            // get the animated/delayed treatment even before seenX/seenY are written.
+            const isInCombat = enemyHasSeenPlayer || canSeeTarget;
+
+            if (!willAttack && isInCombat && enemyInViewport) {
                 calc.move(currentEntity);
-                const previewPath = this.computeEnemyPath(currentEntity, currentEntity.seenX, currentEntity.seenY);
+                const previewPath = this.computeEnemyPath(currentEntity, currentEntity.seenX || target.x, currentEntity.seenY || target.y);
                 if (previewPath.length > 0) canvas.path(previewPath, currentEntity.x, currentEntity.y, currentEntity);
             } else if (willAttack && enemyInViewport) {
                 const targetingTiles = calculateEntityTargeting(currentEntity, target.x, target.y);
@@ -147,7 +151,7 @@ var turns = {
                 canvas.crosshair(target.x, target.y);
             }
 
-            if (enemyHasSeenPlayer && enemyInViewport) {
+            if (isInCombat && enemyInViewport) {
                 setTimeout(() => {
                     this.enemyTurn(currentEntity, target, canSeeTarget, dist, effectiveRange);
                     update();
