@@ -116,56 +116,6 @@ var WindowSystem = {
         }
     },
     
-    drawExamineWindow: function(win) { // LOTS OF HARDCODED POSITIONS!!!
-        // Draw entity sprite at top
-        if (win.entity) {
-            const spriteSize = tileSize * 2;
-            const spriteY = win.y + 10;
-            const spriteX = win.x + (win.width / 2) - (spriteSize / 2);
-            
-            // Draw entity using game's rendering method
-            const entity = win.entity;
-            //const color = entity === player ? "rgba(0, 0, 255, 0.5)" : "rgba(125, 125, 0, 0.5)";
-            const imgId = isPlayerControlled(entity) ? "pep" : "enemy";
-            
-            //ctx.fillStyle = color;
-            //ctx.fillRect(spriteX, spriteY, spriteSize, spriteSize);
-            
-            const img = document.getElementById(imgId);
-            if (img && img.complete) {
-                ctx.drawImage(img, spriteX, spriteY, spriteSize, spriteSize);
-            }
-            
-			// Draw entity name and HP below sprite
-            ctx.fillStyle = "#ffffff";
-            ctx.font = "bold 16px monospace";
-            ctx.textAlign = "center";
-            ctx.fillText(entity.name, spriteX + spriteSize / 2, spriteY + spriteSize + 20);
-        	ctx.font = "14px monospace";
-			ctx.fillText(" (X: "+entity.x+", Y: "+entity.y+") ", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
-            //ctx.fillText(entity.hp + " HP", spriteX + spriteSize / 2, spriteY + spriteSize + 40);
-        }
-        
-        // Draw stats
-        const contentY = win.y + (tileSize * 2) + 60;
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "14px monospace";
-        ctx.textAlign = "left";
-        
-        for (let i = 0; i < win.items.length; i++) {
-            const item = win.items[i];
-            const itemY = contentY + (i * 20);
-            ctx.fillText(item.text, win.x + win.padding + 10, itemY);
-        }
-        
-        // Draw footer message
-        const footerY = win.y + win.height - 12;
-        ctx.fillStyle = "#888888";
-        ctx.font = "12px monospace";
-        ctx.textAlign = "center";
-        ctx.fillText("Press ESC or click outside to close", win.x + win.width / 2, footerY);
-    },
-    
     drawItemPickupWindow: function(win) {
         // Calculate content area
         const contentY = win.y + win.headerHeight;
@@ -431,7 +381,7 @@ var WindowSystem = {
         }
         
         if (event.keyCode === 40) { // Down arrow
-            event.preventDefault();
+            event.preventDefault();console.log(type);
             if (win.hoveredIndex < win.items.length - 1) {
                 win.hoveredIndex++;
                 update();
@@ -463,7 +413,7 @@ var WindowSystem = {
                     win.selectedIndices.add(win.hoveredIndex);
                 }
                 update();
-            }
+            }console.log(type);
             return true;
         }
         
@@ -654,7 +604,113 @@ var WindowSystem = {
         return true;
     },
     
-    showExamineWindow: function(entity) {
+    drawExamineWindow: function(win) { // draws the actual window
+        if (!win.entity) return;
+
+        const entity = win.entity;
+        const spriteSize = tileSize * 2;
+        const LINE_HEIGHT = 20;
+        const HEADER_HEIGHT = spriteSize + 80; // sprite + name + coords + gap to content
+        const FOOTER_HEIGHT = 30;
+
+        // --- Pass 1: populate win.items (no drawing yet) ---
+        if (entity.type) { // WALL
+            win.items = [];
+            switch (entity.type) {
+                case "wall":
+                    win.items.push({ text: "A solid wall, blocks sight & attacks." });
+                    win.items.push({ text: "It can be destroyed by explosions." });
+                    break;
+                case "glass":
+                    win.items.push({ text: "Clear glass, can be seen & attacked through." });
+                    win.items.push({ text: "Becomes damaged, then breaks." });
+                    break;
+                case "water":
+                    win.items.push({ text: "Waist high water, difficult to move through." });
+                    win.items.push({ text: "Movement range -50%" });
+                    break;
+            }
+        } else if (entity.itemType) { // ITEMS
+            win.items = [];
+            const itemsAtLocation = mapItems.filter(item => item.x === entity.x && item.y === entity.y);
+            const grouped = {};
+            itemsAtLocation.forEach(item => {
+                grouped[item.itemType] = (grouped[item.itemType] || 0) + 1;
+            });
+            for (const [itemType, count] of Object.entries(grouped)) {
+                const itemDef = itemTypes[itemType];
+                const label = count > 1 ? `${itemDef.displayName} (x${count})` : itemDef.displayName;
+                win.items.push({ text: "- " + label });
+            }
+        }
+        // entity.name (player/enemy): win.items already set by showExamineWindow
+
+        // --- Resize: expand if needed, but never shrink below the height set at creation ---
+        win.height = Math.max(win.height, HEADER_HEIGHT + win.items.length * LINE_HEIGHT + FOOTER_HEIGHT);
+        win.y = (c.height - win.height) / 2;
+
+        // --- Redraw background + border at correct size (overwrites the one from draw()) ---
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(win.x, win.y, win.width, win.height);
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(win.x, win.y, win.width, win.height);
+
+        // --- Pass 2: draw sprite + header labels ---
+        const spriteY = win.y + 10;
+        const spriteX = win.x + (win.width / 2) - (spriteSize / 2);
+
+        if (entity.name) { // PLAYER/ENEMY/ENTITY
+            const imgId = isPlayerControlled(entity) ? "pep" : "enemy";
+            const img = document.getElementById(imgId);
+            if (img && img.complete) ctx.drawImage(img, spriteX, spriteY, spriteSize, spriteSize);
+
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 16px monospace";
+            ctx.textAlign = "center";
+            ctx.fillText(entity.name, spriteX + spriteSize / 2, spriteY + spriteSize + 20);
+            ctx.font = "14px monospace";
+            ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
+
+        } else if (entity.type) { // WALL
+            const tilesImg = document.getElementById("tiles");
+            if (tilesImg && tilesImg.complete) {
+                const tileIndex = { wall: TILE_WALL, glass: TILE_GLASS, water: TILE_WATER }[entity.type];
+                ctx.drawImage(tilesImg, tileIndex * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, spriteX, spriteY, spriteSize, spriteSize);
+            }
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 16px monospace";
+            ctx.textAlign = "center";
+            ctx.fillText(entity.type, spriteX + spriteSize / 2, spriteY + spriteSize + 20);
+            ctx.font = "14px monospace";
+            ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
+
+        } else if (entity.itemType) { // ITEMS
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 16px monospace";
+            ctx.textAlign = "center";
+            ctx.fillText("Item(s)", spriteX + spriteSize / 2, spriteY + spriteSize + 20);
+            ctx.font = "14px monospace";
+            ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
+        }
+
+        // --- Draw stats ---
+        const contentY = win.y + HEADER_HEIGHT;
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "14px monospace";
+        ctx.textAlign = "left";
+        for (let i = 0; i < win.items.length; i++) {
+            ctx.fillText(win.items[i].text, win.x + win.padding + 10, contentY + (i * LINE_HEIGHT));
+        }
+
+        // --- Draw footer ---
+        ctx.fillStyle = "#888888";
+        ctx.font = "12px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("Press ESC or click outside to close", win.x + win.width / 2, win.y + win.height - 12);
+    },
+    
+    showExamineWindow: function(entity) { // reads stats to show in the window, does not draw window.
         const stats = [];
         
         stats.push({ text: `HP: ${entity.hp}${entity.maxHp ? '/' + entity.maxHp : ''}` });
@@ -673,7 +729,7 @@ var WindowSystem = {
         if (entity.equipment) {
             stats.push({ text: "" }); // Blank line
             stats.push({ text: "EQUIPMENT:" });
-            
+        
             if (entity.equipment.weapon) {
                 const weaponDef = itemTypes[entity.equipment.weapon.itemType];
                 const ammo = entity.equipment.weapon.currentAmmo;
@@ -684,12 +740,12 @@ var WindowSystem = {
                 }
                 stats.push({ text: weaponText });
             }
-            
+        
             if (entity.equipment.armor) {
                 const armorDef = itemTypes[entity.equipment.armor.itemType];
                 stats.push({ text: `  Armor: ${armorDef.displayName}` });
             }
-            
+        
             if (entity.equipment.accessory) {
                 const accDef = itemTypes[entity.equipment.accessory.itemType];
                 stats.push({ text: `  Accessory: ${accDef.displayName}` });
@@ -717,26 +773,25 @@ var WindowSystem = {
         if (entity.traits && entity.traits.length > 0) {
             stats.push({ text: `Traits: ${entity.traits.join(', ')}` });
         }
-        
+    
         // Special flags
         if (entity.isGrenade) {
             stats.push({ text: `Grenade Countdown: ${entity.turnsRemaining}` });
         }
         
         const window = this.create({
-            title: `${entity.name}`,
-            width: 400,
-            height: Math.min(600, 200 + stats.length * 22),
-            items: stats,
-            selectedIndices: new Set(),
-            isExamineWindow: true,
-            entity: entity,
-            onConfirm: null,
-            onCancel: function() {
+                title: "examine",
+                width: 450,
+                height: Math.min(600, 200 + stats.length * 22),
+                items: stats,
+                selectedIndices: new Set(),
+                isExamineWindow: true,
+                entity: entity,
+                onConfirm: null,
+                onCancel: function() {
                 //console.log("Closed examine window");
-            }
-        });
-        
+                }
+            });
         this.open(window);
     }
 };

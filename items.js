@@ -990,6 +990,7 @@ function detonateGrenade(grenade, x, y, isChained = false) {
 
 		setTimeout(() => {
 			applyDamage();
+			update(); // required to redraw screen and clear grenade explosion, but can sometimes cause turn skipping?
 		}, timeout);
 	}, 0);
 }

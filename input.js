@@ -598,16 +598,33 @@ var input = {
             e.x === window.cursorWorldPos.x &&
             e.y === window.cursorWorldPos.y
         );
+        const clickedItem = mapItems.find(e =>
+            e.x === window.cursorWorldPos.x &&
+            e.y === window.cursorWorldPos.y
+        );
+        const clickedWall = walls.find(e =>
+            e.x === window.cursorWorldPos.x &&
+            e.y === window.cursorWorldPos.y
+        );
+        
+        if (!clickedEntity && !clickedItem && !clickedWall) {
+            return;
+        }
 
         const activeEnt = getActivePlayerEntity();
         const options = [];
 
-        if (clickedEntity) {
             options.push({
                 text: "(e) Examine",
                 key: "e",
                 action: function() {
-                    WindowSystem.showExamineWindow(clickedEntity);
+                    if (clickedEntity) {
+                        WindowSystem.showExamineWindow(clickedEntity);
+                    } else if (clickedItem) {
+                        WindowSystem.showExamineWindow(clickedItem);
+                    } else if (clickedWall) {
+                        WindowSystem.showExamineWindow(clickedWall);
+                    }
                 }
             });
 
@@ -633,7 +650,6 @@ var input = {
                 	    }});
             		}
 		}
-        }
 
         if (options.length > 0) {
             const rect = c.getBoundingClientRect();
