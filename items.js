@@ -995,7 +995,7 @@ function detonateGrenade(grenade, x, y, isChained = false) {
 			isAnimating = true;
 			update();
 			isAnimating = false;
-			update();
+			//update(); // removing this update 
 		}, timeout);
 	}, 0);
 }
