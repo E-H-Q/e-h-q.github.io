@@ -612,7 +612,10 @@ var WindowSystem = {
         const LINE_HEIGHT = 20;
         const HEADER_HEIGHT = spriteSize + 80; // sprite + name + coords + gap to content
         const FOOTER_HEIGHT = 30;
-        var traitsOnly = win.entity.traits.slice(3);
+        
+        if (entity.traits) {
+            const traitsOnly = entity.traits.slice(3);
+        }
 
         // --- Pass 1: populate win.items (no drawing yet) ---
         if (entity.type) { // WALL ============================================================================================================
