@@ -52,6 +52,7 @@ function updateCamera() {
         lastCameraUpdateCursorX = null;
         lastCameraUpdateCursorY = null;
         const currentEntity = entities[currentEntityIndex] || player;
+
         camera = {
             x: currentEntity.x - Math.round(viewportWidth / 2) + 1,
             y: currentEntity.y - Math.round(viewportHeight / 2) + 1
@@ -201,6 +202,7 @@ var input = {
                     window.cursorWorldPos.x = Math.max(camera.x, Math.min(camera.x + viewportWidth - 1, window.cursorWorldPos.x));
                     window.cursorWorldPos.y = Math.max(camera.y, Math.min(camera.y + viewportHeight - 1, window.cursorWorldPos.y));
                 }
+                update();
             }
             if (window.throwingGrenadeIndex !== undefined) {
                 window.throwingGrenadeIndex = undefined;
@@ -469,18 +471,13 @@ var input = {
                         action.disabled = true;
                         currentEntityTurnsRemaining--;
                         if (currentEntityTurnsRemaining <= 0) {
-                            if (typeof processInventoryGrenades !== 'undefined') {
-                                processInventoryGrenades(peekEntity);
-                            }
+                            currentEntityIndex++;
+                            if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+                            currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
                         }
                         update();
                     } else {
                         turns.move(activeEnt, click_pos.x, click_pos.y);
-                        if (currentEntityTurnsRemaining <= 0) {
-                            if (typeof processInventoryGrenades !== 'undefined') {
-                                processInventoryGrenades(activeEnt);
-                            }
-                        }
                     }
                 }
                 break;
@@ -492,12 +489,7 @@ var input = {
                         window.throwingGrenadeIndex = undefined;
 
                         currentEntityTurnsRemaining--;
-                        if (currentEntityTurnsRemaining <= 0) {
-                            if (typeof processInventoryGrenades !== 'undefined') {
-                                processInventoryGrenades(activeEnt);
-                            }
-                        }
-
+                        
                         if (isPeekMode) {
                             if (peekStep === 2) {
                                 peekEntity.x = peekStartX;
@@ -550,6 +542,10 @@ var input = {
                             if (typeof processInventoryGrenades !== 'undefined') {
                                 processInventoryGrenades(peekEntity);
                             }
+                            // Advance index so turns.check does not double-tick inventory grenades.
+                            currentEntityIndex++;
+                            if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+                            currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
                         }
                     }
                     peekEntity.x = peekStartX;
@@ -569,6 +565,10 @@ var input = {
                             if (typeof processInventoryGrenades !== 'undefined') {
                                 processInventoryGrenades(activeEnt);
                             }
+                            // Advance index so turns.check does not double-tick inventory grenades.
+                            currentEntityIndex++;
+                            if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+                            currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
                         }
                     }
                     update();
@@ -576,6 +576,11 @@ var input = {
                 break;
 
             default:
+                if (currentEntityTurnsRemaining <= 0) {
+                    if (typeof processInventoryGrenades !== 'undefined') {
+                        processInventoryGrenades(activeEnt);
+                    }
+                }
                 update();
         }
     },
@@ -629,10 +634,10 @@ var input = {
             });
 
             // Show Follow option when right-clicking a different player-controlled entity
-	if (isPlayerControlled(clickedEntity) && clickedEntity !== activeEnt) {
-		if (clickedEntity.following === activeEnt) {
-			options.push({
-			text: "(f) remove Follower",
+		if (isPlayerControlled(clickedEntity) && clickedEntity !== activeEnt) {
+			if (clickedEntity.following === activeEnt) {
+				options.push({
+				text: "(f) remove Follower",
                 	key: "f",
                 	action: function() {
                 		    console.log(clickedEntity.name + " stopped following " + activeEnt.name + ".");
@@ -640,7 +645,7 @@ var input = {
                 		    update();
                 		}
             		});
-		} else {
+			} else {
                 	options.push({
                 	    text: "(f) Follow",
                 	    key: "f",

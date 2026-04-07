@@ -11,8 +11,8 @@ const DIR_TO_SPRITE = {
 	"-1,-1":7   // up-left
 };
 const MOVE_SPRITE_SIZE = 32;
-const SPRITE_ACTIVE    = 8; // star rendered on the current entity
-const SPRITE_CROSSHAIR = 9; // crosshair rendered on the last tile of a LOS path
+const SPRITE_ACTIVE    = 8;
+const SPRITE_CROSSHAIR = 9;
 const SPRITE_FOLLOWER = 10;
 
 const TILE_SIZE        = 32;
@@ -41,7 +41,6 @@ var canvas = {
 				const screenX = i * tileSize;
 				const screenY = j * tileSize;
 				if (worldX < 0 || worldY < 0 || worldX >= size || worldY >= size) {
-					// Out of bounds: draw X marker
 					ctx.strokeStyle = "rgba(255, 0, 0, 0.2)";
 					ctx.lineWidth = 1;
 					ctx.beginPath();
@@ -56,7 +55,6 @@ var canvas = {
 			}
 		}
 
-		// Grid lines
 		ctx.beginPath();
 		ctx.lineWidth = 0.1;
 		ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
@@ -123,27 +121,6 @@ var canvas = {
 				ctx.textAlign = 'left';
 			}
 		});
-
-		for (let entity of entities) {
-			if (entity.isGrenade && entity.hp > 0) {
-				const screenX = entity.x - camera.x;
-				const screenY = entity.y - camera.y;
-				if (screenX >= 0 && screenX < viewportWidth && screenY >= 0 && screenY < viewportHeight) {
-					ctx.fillStyle = "#FFFFFF";
-					ctx.font = (tileSize / 3) + "px monospace";
-					ctx.textAlign = "center";
-					ctx.fillText("Gnade",
-						(screenX * tileSize) + (tileSize / 2),
-						(screenY * tileSize) + 2);
-					ctx.fillStyle = "#FF0000";
-					ctx.font = "bold " + (tileSize / 2) + "px monospace";
-					ctx.textAlign = "center";
-					ctx.fillText(entity.turnsRemaining.toString(),
-						(screenX * tileSize) + (tileSize / 2),
-						(screenY * tileSize) + (tileSize * 0.65));
-				}
-			}
-		}
 	},
 
 	range: (res, entity) => {
@@ -173,9 +150,6 @@ var canvas = {
 		}
 	},
 
-	// path: draws directional move arrows along the pathfinding result.
-	// startX/startY: the entity's current tile (used to determine the first arrow's direction).
-	// entity: the moving entity, used for the onion skin on the last tile.
 	path: (path, startX, startY, entity) => {
 		if (!path || path.length === 0) return;
 
@@ -183,13 +157,11 @@ var canvas = {
 		const useSprites = moveImg && moveImg.complete && moveImg.naturalWidth > 0
 			&& startX !== undefined && startY !== undefined;
 
-		// Pass 1: yellow background tiles
 		ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
 		path.forEach(point => {
 			ctx.fillRect((point.x - camera.x) * tileSize, (point.y - camera.y) * tileSize, tileSize, tileSize);
 		});
 
-		// Pass 2: directional arrow sprites (skip last tile — onion skin renders there)
 		if (useSprites) {
 			path.forEach((point, i) => {
 				if (i === path.length - 1) return;
@@ -205,7 +177,6 @@ var canvas = {
 			});
 		}
 
-		// Pass 3: onion skin of the entity on the last tile
 		if (entity) {
 			const last = path[path.length - 1];
 			const pepImg = document.getElementById(isPlayerControlled(entity) ? "pep" : "enemy");
@@ -230,7 +201,6 @@ var canvas = {
 			ctx.textAlign = 'left';
 			ctx.fillText(entity.hp, screenX, screenY + tileSize);
 		}
-		// Draw active-entity indicator circle on the current turn's entity
 		const isActive = entities[currentEntityIndex] === entity;
 		if (isActive) {
 			const movesImg = document.getElementById("moves");
@@ -239,7 +209,7 @@ var canvas = {
 					screenX, screenY, tileSize, tileSize);
 			}
 			for (var i = 0; i < entities.length; i++) {
-				if (entities[i].following && entities[i].following == entity) { // show follower circle sprite on followers of current entity only.
+				if (entities[i].following && entities[i].following == entity) {
 					ctx.drawImage(movesImg, SPRITE_FOLLOWER * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
 						(entities[i].x - camera.x) * tileSize, (entities[i].y - camera.y) * tileSize, tileSize, tileSize);
 				}
@@ -248,7 +218,6 @@ var canvas = {
 	},
 
 	drawOnionskin: () => {
-		// Draw ghost image at peek start position for the peeking entity
 		if (isPeekMode && peekStep > 0) {
 			const screenX = (peekStartX - camera.x) * tileSize;
 			const screenY = (peekStartY - camera.y) * tileSize;
@@ -273,18 +242,66 @@ var canvas = {
 	},
 
 	player: () => {
-		// Draw original player
 		if (player.hp >= 1) canvas.drawEntity(player, player.playerColor || "rgba(0, 0, 255, 0.5)", "pep");
-		// Draw extra player-controlled entities with their assigned colors using pep.png
 		allPlayers.forEach(e => {
 			if (e.hp >= 1) canvas.drawEntity(e, e.playerColor || PLAYER_COLORS[0], "pep");
 		});
 	},
 
+	grenadeAreas: (grenade) => {
+		const itemDef = itemTypes.grenade;
+		if (!itemDef) return;
+			if (helper.hasTrait(grenade, 'explode')) {
+				const damageRadius = itemDef.damageRadius;
+				
+				// Save current pts state
+				const savedPts = pts.map(row => [...row]);
+				
+				// Calculate explosion area
+				circle(grenade.y, grenade.x, damageRadius);
+				convert();
+				
+				ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+				for (let x = Math.max(0, grenade.x - damageRadius - 1); x <= Math.min(size - 1, grenade.x + damageRadius + 1); x++) {
+					for (let y = Math.max(0, grenade.y - damageRadius - 1); y <= Math.min(size - 1, grenade.y + damageRadius + 1); y++) {
+						if (pts[x] && pts[x][y] === 1) {
+							const screenX = (x - camera.x) * tileSize;
+							const screenY = (y - camera.y) * tileSize;
+							if (screenX >= -tileSize && screenX < c.width && screenY >= -tileSize && screenY < c.height) {
+								ctx.fillRect(screenX, screenY, tileSize, tileSize);
+							}
+						}
+					}
+				}
+				
+				// Restore pts
+				pts = savedPts;
+			}
+	},
+
 	enemy: () => {
-		allEnemies.forEach(enemy => {
-			if (enemy.isGrenade) return;
-			if (enemy.hp >= 1) canvas.drawEntity(enemy, "rgba(125, 125, 0, 0.5)", "enemy");
+		allEnemies.forEach(entity => {
+			// Draw grenades (entities with explode trait)
+			if (helper.hasTrait(entity, 'explode') && entity.hp > 0) {
+				const screenX = entity.x - camera.x;
+				const screenY = entity.y - camera.y;
+				if (screenX >= 0 && screenX < viewportWidth && screenY >= 0 && screenY < viewportHeight) {
+					ctx.fillStyle = "#FFFFFF";
+					ctx.font = (tileSize / 3) + "px monospace";
+					ctx.textAlign = "center";
+					ctx.fillText("Gnade",
+						(screenX * tileSize) + (tileSize / 2),
+						(screenY * tileSize) + 2);
+					ctx.fillStyle = "#FF0000";
+					ctx.font = "bold " + (tileSize / 2) + "px monospace";
+					ctx.textAlign = "center";
+					ctx.fillText(entity.turnsRemaining.toString(),
+						(screenX * tileSize) + (tileSize / 2),
+						(screenY * tileSize) + (tileSize * 0.65));
+				}
+			} else { // not grenade
+				if (entity.hp >= 1) canvas.drawEntity(entity, "rgba(125, 125, 0, 0.5)", "enemy");
+			}
 		});
 	},
 

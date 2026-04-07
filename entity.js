@@ -58,7 +58,7 @@ const EntitySystem = {
 							} else {
 								pathCost += 1;
 							}
-							if (pts[curr.x]?.[curr.y] === 2) pathCost += 1; // water costs +1 per tile
+							if (pts[curr.x]?.[curr.y] === 2) pathCost += 1;
 						}
 						if (pathCost <= entity.range) validMoves.push({x: i, y: j, path: res});
 					}
@@ -143,10 +143,10 @@ const EntitySystem = {
 
 						console.log(attacker.name + " hits " + enemy.name + " for " + dmgRoll + " DMG!");
 
-						if (enemy.isGrenade && enemy.hp <= 0) {
-							detonateGrenade(enemy);
+						// Handle death - trait system will handle explosions
+						if (enemy.hp <= 0) {
+							this.death(enemy);
 						}
-						if (enemy.hp <= 0 && !enemy.isGrenade) this.dropAllItems(enemy);
 					} else {
 						console.log(attacker.name + " attacks and misses " + enemy.name + "...");
 					}
@@ -222,6 +222,91 @@ const EntitySystem = {
 			}
 			entity.equipment = {};
 		}
+	},
+
+	// Unified death handler - checks for explode trait and triggers explosion
+	death: function(entity) {
+		if (entity.hp > 0) return;
+
+		// Check for explode trait
+		if (helper.hasTrait(entity, 'explode')) {
+			this.triggerExplosion(entity);
+		}
+
+		// Drop items for non-grenade entities
+		if (!helper.hasTrait(entity, 'explode')) {
+			this.dropAllItems(entity);
+		}
+	},
+
+	// Explosion logic for entities with explode trait
+	triggerExplosion: function(grenade) {
+		const itemDef = itemTypes.grenade;
+		const explodeX = grenade.x;
+		const explodeY = grenade.y;
+
+		console.log(grenade.name + " explodes at " + explodeX + ", " + explodeY + "!");
+			
+		// Destroy ALL walls in radius
+		if (itemDef.canDestroy) {
+			for (let tx = Math.max(0, explodeX - itemDef.damageRadius); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius); tx++) {
+				for (let ty = Math.max(0, explodeY - itemDef.damageRadius); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius); ty++) {
+					const dist = Math.sqrt((tx - explodeX) ** 2 + (ty - explodeY) ** 2);
+					if (dist <= itemDef.damageRadius) {
+						for (let i = walls.length - 1; i >= 0; i--) {
+							if (walls[i].x === tx && walls[i].y === ty && walls[i].type !== 'water') {
+								walls.splice(i, 1);
+								break;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Calculate explosion area for entity damage
+		circle(explodeY, explodeX, itemDef.damageRadius);
+		convert();
+
+		const explosionTiles = [];
+		for (let tx = Math.max(0, explodeX - itemDef.damageRadius - 1); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius + 1); tx++) {
+			for (let ty = Math.max(0, explodeY - itemDef.damageRadius - 1); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius + 1); ty++) {
+				if (pts[tx] && pts[tx][ty] === 1) {
+					explosionTiles.push({x: tx, y: ty});
+				}
+			}
+		}
+
+		// Damage entities - collect all entities to damage first
+		const entitiesToDamage = [];
+		for (let tile of explosionTiles) {
+			for (let entity of entities) {
+				if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0 && entity !== grenade) {
+					if (!entitiesToDamage.includes(entity)) {
+						entitiesToDamage.push(entity);
+					}
+				}
+			}
+		}
+	
+		// Apply damage to all entities synchronously
+		for (let entity of entitiesToDamage) {
+			const armor = entity.armor || 0;
+			const dmg = Math.max(1, itemDef.damage - armor);
+			console.log(entity.name + " takes " + dmg + " explosion damage!");
+			entity.hp -= dmg;
+
+			// Chain explosions through death handler
+			if (entity.hp <= 0) {
+				this.death(entity);
+			}
+		}
+		setTimeout(() => { // exploding "animation": works well and does not seem to be skipping turns!!
+			canvas.grenadeAreas(grenade);
+			setTimeout(() => {
+				update();
+			}, timeout);
+		}, 0);
 	},
 
 	isAI: function(entity) {
