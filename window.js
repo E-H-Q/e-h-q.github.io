@@ -615,6 +615,8 @@ var WindowSystem = {
         
         if (entity.traits) {
             const traitsOnly = entity.traits.slice(3);
+        } else {
+            const traitsOnly = [];
         }
 
         // --- Pass 1: populate win.items (no drawing yet) ---
