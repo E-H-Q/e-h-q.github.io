@@ -612,9 +612,10 @@ var WindowSystem = {
         const LINE_HEIGHT = 20;
         const HEADER_HEIGHT = spriteSize + 80; // sprite + name + coords + gap to content
         const FOOTER_HEIGHT = 30;
+        var traitsOnly = win.entity.traits.slice(3);
 
         // --- Pass 1: populate win.items (no drawing yet) ---
-        if (entity.type) { // WALL
+        if (entity.type) { // WALL ============================================================================================================
             win.items = [];
             switch (entity.type) {
                 case "wall":
@@ -630,7 +631,7 @@ var WindowSystem = {
                     win.items.push({ text: "Movement range -50%" });
                     break;
             }
-        } else if (entity.itemType) { // ITEMS
+        } else if (entity.itemType) { // ITEMS ================================================================================================
             win.items = [];
             const itemsAtLocation = mapItems.filter(item => item.x === entity.x && item.y === entity.y);
             const grouped = {};
@@ -642,8 +643,15 @@ var WindowSystem = {
                 const label = count > 1 ? `${itemDef.displayName} (x${count})` : itemDef.displayName;
                 win.items.push({ text: "- " + label });
             }
+        } else if (helper.hasTrait(entity, "explode") && entity.turnsRemaining) { // GRENADES ================================================
+            win.items = [... traitsOnly];
+            win.items.push({ text: "Detonation Countdown: " + entity.turnsRemaining});
+            win.items.push({ text: " "});
+            win.items.push({ text: "(" + entityTraits.explode.name + "): " + entityTraits.explode.description });
+            win.items.push({ text: "(" + entityTraits.active.name + "): " + entityTraits.active.description });
         }
-        // entity.name (player/enemy): win.items already set by showExamineWindow
+        
+        // ===================================================================================================================================
 
         // --- Resize: expand if needed, but never shrink below the height set at creation ---
         win.height = Math.max(win.height, HEADER_HEIGHT + win.items.length * LINE_HEIGHT + FOOTER_HEIGHT);
@@ -659,7 +667,7 @@ var WindowSystem = {
         // --- Pass 2: draw sprite + header labels ---
         const spriteY = win.y + 10;
         const spriteX = win.x + (win.width / 2) - (spriteSize / 2);
-
+        
         if (entity.name) { // PLAYER/ENEMY/ENTITY
             const imgId = isPlayerControlled(entity) ? "pep" : "enemy";
             const img = document.getElementById(imgId);
@@ -769,16 +777,37 @@ var WindowSystem = {
             });
         }
         
-        // Traits
-        if (entity.traits && entity.traits.length > 0) {
-            stats.push({ text: `Traits: ${entity.traits.join(', ')}` });
+        // entityTraits from main.js
+        if (entity.traits) {
+            for (var i = 0; i < entity.traits.length; i++) {
+                switch (entity.traits[i]) {
+                    case "default":
+                        stats.push({ text: "(" + entityTraits.default.name + "): " + entityTraits.default.description });
+                        break;
+                    case "aggressive":
+                        stats.push({ text: "(" + entityTraits.aggressive.name + "): " + entityTraits.aggressive.description });
+                        break;
+                    case "defensive":
+                        stats.push({ text: "(" + entityTraits.defensive.name + "): " + entityTraits.defensive.description });
+                        break;
+                    case "player":
+                        stats.push({ text: "(" + entityTraits.player.name + "): " + entityTraits.player.description });
+                        break;
+                        /*
+                    case "explode":
+                        stats.push({ text: "(" + entityTraits.explode.name + "): " + entityTraits.explode.description });
+                        break;
+                    case "active":
+                        stats.push({ text: "(" + entityTraits.active.name + "): " + entityTraits.active.description });
+                        break;
+                        */
+                    default:
+                        stats.push({ text: `Traits: ${entity.traits.join(', ')}` });
+                        break;
+                    }
+                }
         }
     
-        // Special flags
-        if (entity.isGrenade) {
-            stats.push({ text: `Grenade Countdown: ${entity.turnsRemaining}` });
-        }
-        
         const window = this.create({
                 title: "examine",
                 width: 450,

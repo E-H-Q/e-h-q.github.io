@@ -426,7 +426,6 @@ var input = {
             }
             return;
         }
-
         update();
     },
 

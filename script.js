@@ -372,7 +372,7 @@ function unequipSlot(slot) {
 	}
 }
 
-function killEntity(index) {
+function killEntity(index) { // ONLY used for the "x" button for enemies in the turn order
 	if (index >= 0 && index < entities.length && !isPlayerControlled(entities[index])) {
 		entities[index].hp = 0;
 		if (index < currentEntityIndex) currentEntityIndex--;
@@ -536,7 +536,8 @@ function update() {
 		entities.push(e);
 	}
 
-	if (currentEntityIndex >= entities.length) {
+	//if (currentEntityIndex >= entities.length) {
+	if (currentEntityIndex == undefined) { // prevents turn skipping from grenades detonated by enemy attacks?
 		currentEntityIndex = 0;
 		currentEntityTurnsRemaining = 0;
 	}

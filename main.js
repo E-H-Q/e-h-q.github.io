@@ -36,10 +36,12 @@ const PLAYER_COLORS = [
 
 // Trait definitions
 var entityTraits = {
-	default:    { name: "Default",    description: "Standard behavior" },
-	aggressive: { name: "Aggressive", description: "Searches area after losing sight of target" },
+	default:    { name: "Default",    description: "Basic enemy behavior" },
+	aggressive: { name: "Aggressive", description: "Chases and hunts target" },
 	defensive:  { name: "Defensive",  description: "Seeks cover after taking damage" },
-	player:     { name: "Player",     description: "Player-controlled entity" }
+	player:     { name: "Player",     description: "Player-controlled entity" },
+	explode: 	{ name: "Explode",	  description: "Explodes on death/countdown"},
+	active: 	{ name: "Active", 	  description: "Countdown has been activated"}
 };
 
 // Console override for logging
