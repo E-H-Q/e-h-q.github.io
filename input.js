@@ -567,6 +567,7 @@ var input = {
                             // Advance index so turns.check does not double-tick inventory grenades.
                             currentEntityIndex++;
                             if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+                            if (currentEntityIndex >= entities.length) currentEntityIndex = 0; // failsafe defaults to player1
                             currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
                         }
                     }

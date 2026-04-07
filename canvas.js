@@ -282,7 +282,7 @@ var canvas = {
 	enemy: () => {
 		allEnemies.forEach(entity => {
 			// Draw grenades (entities with explode trait)
-			if (helper.hasTrait(entity, 'explode') && entity.hp > 0) {
+			if (helper.hasTrait(entity, 'explode') && entity.hp > 0 && entity.turnsRemaining) {
 				const screenX = entity.x - camera.x;
 				const screenY = entity.y - camera.y;
 				if (screenX >= 0 && screenX < viewportWidth && screenY >= 0 && screenY < viewportHeight) {

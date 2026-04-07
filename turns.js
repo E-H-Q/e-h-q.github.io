@@ -20,6 +20,8 @@ function startFollowing(follower, followed) {
 
 var turns = {
 	check: function() {
+        if (currentEntityIndex >= entities.length) currentEntityIndex = 0; // failsafe defaults to player1
+        
 		if (player.hp < 1 && allPlayers.length === 0) {
 			const music = new Audio('sound.wav');
 			music.play();
@@ -28,7 +30,7 @@ var turns = {
 			console.log("YOU DIED\n");
 			return;
 		}
-
+        
 		if (currentEntityTurnsRemaining <= 0) {
 			const previousEntity = entities[currentEntityIndex];
 
@@ -47,7 +49,8 @@ var turns = {
 				currentEntityIndex++;
 				if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 
-				const currentEntity = entities[currentEntityIndex];
+				let currentEntity = entities[currentEntityIndex];
+                if (currentEntity == undefined) currentEntity = player; // failsafe defaults to player1
 
 				// Check if enemy is in active range
 				const buffer = 5;
@@ -60,6 +63,7 @@ var turns = {
 				if (inActiveRange) break;
 			} while (currentEntityIndex !== 0);
 
+            if (!entities[currentEntityIndex]) currentEntityIndex = 0;
 			currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
 
 			const currentEntity = entities[currentEntityIndex];
@@ -81,10 +85,11 @@ var turns = {
 			canvas.enemy();
 		}
 
-		const currentEntity = entities[currentEntityIndex];
+		let currentEntity = entities[currentEntityIndex];
+        if (currentEntity == undefined) currentEntity = player; // failsafe defaults to player1
 
 		// Handle grenade turns - countdown with delay if in viewport
-		if (helper.hasTrait(currentEntity, 'explode')) {			
+		if (helper.hasTrait(currentEntity, 'explode') && currentEntity.turnsRemaining) {			
 			const processGrenadeTurn = () => {
 				currentEntity.turnsRemaining--;
 				
@@ -202,7 +207,7 @@ var turns = {
 		const playerEntities = entities.filter(e => isPlayerControlled(e) && e.hp > 0);
 
 		allEnemies.forEach(enemy => {
-			if (enemy.hp < 1 || helper.hasTrait(enemy, 'explode')) return;
+			if (enemy.hp < 1) return;
 			const inActiveRange = (
 				enemy.x >= camera.x - buffer &&
 				enemy.x <= camera.x + viewportWidth + buffer &&

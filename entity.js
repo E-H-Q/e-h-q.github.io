@@ -231,12 +231,12 @@ const EntitySystem = {
 		// Check for explode trait
 		if (helper.hasTrait(entity, 'explode')) {
 			this.triggerExplosion(entity);
+			if (entity.name != "Grenade") { // non-grenade entities explode
+				return; // prevent turn skipping when multiple non-grenade enemies explode/chain explode
+			}
 		}
-
-		// Drop items for non-grenade entities
-		if (!helper.hasTrait(entity, 'explode')) {
-			this.dropAllItems(entity);
-		}
+		
+		this.dropAllItems(entity);
 	},
 
 	// Explosion logic for entities with explode trait

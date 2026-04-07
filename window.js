@@ -613,6 +613,8 @@ var WindowSystem = {
         const HEADER_HEIGHT = spriteSize + 80; // sprite + name + coords + gap to content
         const FOOTER_HEIGHT = 30;
         
+        const traitsOnly = [];
+        
         if (entity.traits) {
             const traitsOnly = entity.traits.slice(3);
         } else {
@@ -649,7 +651,9 @@ var WindowSystem = {
                 win.items.push({ text: "- " + label });
             }
         } else if (helper.hasTrait(entity, "explode") && entity.turnsRemaining) { // GRENADES ================================================
-            win.items = [... traitsOnly];
+            if (traitsOnly) {
+                win.items = [... traitsOnly];
+            }
             win.items.push({ text: "Detonation Countdown: " + entity.turnsRemaining});
             win.items.push({ text: " "});
             win.items.push({ text: "(" + entityTraits.explode.name + "): " + entityTraits.explode.description });
@@ -798,10 +802,10 @@ var WindowSystem = {
                     case "player":
                         stats.push({ text: "(" + entityTraits.player.name + "): " + entityTraits.player.description });
                         break;
-                        /*
                     case "explode":
                         stats.push({ text: "(" + entityTraits.explode.name + "): " + entityTraits.explode.description });
                         break;
+                        /*
                     case "active":
                         stats.push({ text: "(" + entityTraits.active.name + "): " + entityTraits.active.description });
                         break;

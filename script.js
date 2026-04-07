@@ -200,14 +200,14 @@ function updateTurnOrder() {
 		const entity = entities[i];
 
 		// Show grenades always, other enemies only if spotted
-		if (!isPlayerControlled(entity) && !helper.hasTrait(entity, 'explode')) {
+		if (!isPlayerControlled(entity)) {
 			const hasSeenPlayer = (entity.seenX !== 0 || entity.seenY !== 0);
 			if (!hasSeenPlayer) continue;
 		}
 
 		const isActive = (i === currentEntityIndex);
 		const turnsDisplay = isActive ? ` (${currentEntityTurnsRemaining}/${entity.turns})` : ` (${entity.turns})`;
-		const killButton = !isPlayerControlled(entity) && !helper.hasTrait(entity, 'explode') ?
+		const killButton = !isPlayerControlled(entity) ?
 			`<button onclick="killEntity(${i})" style="float: right; background: #ff0000; color: #fff; border: none; margin-left: 6px; cursor: pointer; position: absolute;">X</button>` : '';
 
 		html += '<div class="turn-entity ' + (isActive ? 'active' : '') + '">' +

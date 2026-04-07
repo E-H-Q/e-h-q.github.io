@@ -260,6 +260,7 @@ var helper = {
 	},
 
 	hasTrait: (entity, trait) => {
+		if (!entity) return;
 		return entity.traits && entity.traits.includes(trait);
 	},
 
