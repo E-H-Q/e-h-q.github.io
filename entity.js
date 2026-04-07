@@ -305,7 +305,7 @@ const EntitySystem = {
 			canvas.grenadeAreas(grenade);
 			setTimeout(() => {
 				update();
-			}, timeout);
+			}, document.getElementById("turn-delay").value);
 		}, 0);
 	},
 
