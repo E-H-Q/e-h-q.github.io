@@ -426,7 +426,7 @@ var turns = {
 			const newX = entity.x + dx;
 			const newY = entity.y + dy;
 			if (newX < 0 || newY < 0 || newX >= size || newY >= size) continue;
-			const isWall = walls.some(w => w.x === newX && w.y === newY && w.type !== 'water' && w.type !== 'fire');
+			const isWall = walls.some(w => w.x === newX && w.y === newY && w.type !== 'water');
 			const isOccupied = entities.some(e => e !== entity && e.hp > 0 && e.x === newX && e.y === newY);
 			if (!isWall && !isOccupied && entity.range > 0) {
 				entity.x = newX;
