@@ -38,6 +38,11 @@ var turns = {
 			if (previousEntity && typeof processInventoryGrenades !== 'undefined') {
 				processInventoryGrenades(previousEntity);
 			}
+            
+			// Apply fire damage at end of turn
+            if (previousEntity) {
+                helper.applyStatusEffects(previousEntity); // PROCESSES FIRE DAMAGE
+            }
 
 			const playerCamera = {
 				x: player.x - Math.round(viewportWidth / 2) + 1,
@@ -51,7 +56,7 @@ var turns = {
 
 				let currentEntity = entities[currentEntityIndex];
                 if (currentEntity == undefined) currentEntity = player; // failsafe defaults to player1
-
+                
 				// Check if enemy is in active range
 				const buffer = 5;
 				const inActiveRange = (
@@ -411,7 +416,7 @@ var turns = {
 		}
 	},
 
-	enemyRandomMove: function(entity) {
+	enemyRandomMove: function(entity) { // only move 1 tiles randomly, fire check should be fine for the time being
 		const moves = [[-1,-1],[0,-1],[1,-1],[-1,0],[0,0],[1,0],[-1,1],[0,1],[1,1]];
 		for (let i = moves.length - 1; i > 0; i--) {
 			const j = Math.floor(Math.random() * (i + 1));
@@ -421,11 +426,19 @@ var turns = {
 			const newX = entity.x + dx;
 			const newY = entity.y + dy;
 			if (newX < 0 || newY < 0 || newX >= size || newY >= size) continue;
-			const isWall = walls.some(w => w.x === newX && w.y === newY);
+			const isWall = walls.some(w => w.x === newX && w.y === newY && w.type !== 'water' && w.type !== 'fire');
 			const isOccupied = entities.some(e => e !== entity && e.hp > 0 && e.x === newX && e.y === newY);
 			if (!isWall && !isOccupied && entity.range > 0) {
 				entity.x = newX;
 				entity.y = newY;
+				
+				// Check if entity moved onto a fire tile
+				const fireTile = walls.find(w => w.x === newX && w.y === newY && w.type === 'fire');
+				if (fireTile && !helper.hasTrait(entity, 'fire')) {
+					if (!entity.traits) entity.traits = [];
+					entity.traits.push('fire');
+					console.log(entity.name + " caught fire!");
+				}
 				break;
 			}
 		}
@@ -463,7 +476,7 @@ var turns = {
 			const stepCost = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water') ? 2 : 1;
 			if (distanceMoved + stepCost <= entity.range) {
 				const occupied = entities.some(e => e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y);
-				const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water');
+				const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water' && w.type !== 'fire');
 				if (!occupied && !isWall) { trimmed.push(step); distanceMoved += stepCost; }
 				else break;
 			} else break;
@@ -506,29 +519,50 @@ var turns = {
 			return;
 		}
 
-		let distanceMoved = 0;
-		let finalX = entity.x;
-		let finalY = entity.y;
+        let distanceMoved = 0;
+        let currentX = entity.x;
+        let currentY = entity.y;
 
-		for (let step of path) {
-			const stepCost = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water') ? 2 : 1;
-			if (distanceMoved + stepCost <= entity.range) {
-				const occupied = entities.some(e => e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y);
-				const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water');
-				if (!occupied && !isWall) {
-					finalX = step.x;
-					finalY = step.y;
-					distanceMoved += stepCost;
-				} else break;
-			} else break;
-		}
+        // Walk through the path tile by tile and check for fire on every step
+        for (let step of path) {
+            const stepCost = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water') ? 2 : 1;
+            if (distanceMoved + stepCost > entity.range) break;
 
-		if (finalX !== entity.x || finalY !== entity.y) {
-			entity.x = finalX;
-			entity.y = finalY;
-		}
-		currentEntityTurnsRemaining--;
-	},
+            const occupied = entities.some(e => e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y);
+            const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water' && w.type !== 'fire');
+
+            if (occupied || isWall) break;
+
+            // check for fire tiles and water tiles
+            const fireTiles = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'fire');
+            const waterTiles = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water');
+
+            if (fireTiles && !helper.hasTrait(entity, 'fire')) {
+                if (!entity.traits) entity.traits = [];
+                    entity.traits.push('fire');
+                    console.log(entity.name + " caught fire!");
+                    caughtFire = true;
+                    break; // stop checking once they catch fire
+            }
+            if (waterTiles && helper.hasTrait(entity, 'fire')) {
+                if (!entity.traits) entity.traits = [];
+                    entity.traits = entity.traits.filter(t => t !== "fire");
+                    console.log(entity.name + " got wet!");
+                    caughtFire = false;
+                    break; // stop checking once they touch water
+            }
+
+            currentX = step.x;
+            currentY = step.y;
+            distanceMoved += stepCost;
+        }
+
+        // Apply final position
+        entity.x = currentX;
+        entity.y = currentY;
+
+        currentEntityTurnsRemaining--;
+    },
 
 	move: function(entity, x, y) {
 		if (EntitySystem.moveEntity(entity, x, y)) {
@@ -537,6 +571,7 @@ var turns = {
                 if (typeof processInventoryGrenades !== 'undefined') {
                     processInventoryGrenades(entity);
                 }
+                helper.applyStatusEffects(entity); // PROCESSES FIRE DAMAGE
             }
 
 			if (isPlayerControlled(entity) && currentEntityTurnsRemaining <= 0) {
@@ -580,7 +615,7 @@ var turns = {
 		const path = line({x: x1, y: y1}, {x: x2, y: y2});
 		for (let i = 1; i < path.length - 1; i++) {
 			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-			if (wall && wall.type !== 'glass' && wall.type !== 'water') return false;
+			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire') return false;
 		}
 		return true;
 	}

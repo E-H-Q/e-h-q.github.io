@@ -561,6 +561,8 @@ var input = {
                     if (EntitySystem.attack(activeEnt, click_pos.x, click_pos.y)) {
                         currentEntityTurnsRemaining--;
                         if (currentEntityTurnsRemaining <= 0) {
+                            helper.applyStatusEffects(activeEnt); // PROCESSES STATUS EFFECTS AFTER LAST ACTION !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                
                             if (typeof processInventoryGrenades !== 'undefined') {
                                 processInventoryGrenades(activeEnt);
                             }

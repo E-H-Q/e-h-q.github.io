@@ -17,6 +17,9 @@ var size = 50;
 var viewportWidth = Math.floor((window.innerWidth * 0.5) / tileSize);
 var viewportHeight = Math.floor((window.innerWidth * 0.5) / tileSize);
 
+// Fire damage configuration
+var fireDamage = 5;
+
 // Peek mode variables
 var isPeekMode = false;
 var peekStep = 0;
@@ -41,7 +44,8 @@ var entityTraits = {
 	defensive:  { name: "Defensive",  description: "Seeks cover after taking damage" },
 	player:     { name: "Player",     description: "Player-controlled entity" },
 	explode: 	{ name: "Explode",	  description: "Explodes on death/countdown"},
-	active: 	{ name: "Active", 	  description: "Countdown has been activated"}
+	active: 	{ name: "Active", 	  description: "Countdown has been activated"},
+	fire:       { name: "On Fire",    description: "Takes fire damage each turn" }
 };
 
 // Console override for logging
@@ -225,7 +229,15 @@ var populate = {
 	reset: () => resizePtsArray(),
 	walls: () => {
 		walls.forEach(w => {
-			if (pts[w.x]?.[w.y] !== undefined) pts[w.x][w.y] = w.type === 'water' ? 2 : 0;
+			if (pts[w.x]?.[w.y] !== undefined) {
+				if (w.type === 'water') {
+					pts[w.x][w.y] = 2;
+				} else if (w.type === 'fire') {
+					pts[w.x][w.y] = 3;
+				} else {
+					pts[w.x][w.y] = 0;
+				}
+			}
 		});
 	},
 	enemies: () => {
@@ -244,7 +256,7 @@ var populate = {
 
 var helper = {
 	tileBlocked: (x, y) => {
-		return walls.some(w => w.x === x && w.y === y && w.type !== 'water') ||
+		return walls.some(w => w.x === x && w.y === y && w.type !== 'water' && w.type !== 'fire') ||
 		       allEnemies.some(e => e.hp > 0 && e.x === x && e.y === y) ||
 		       allPlayers.some(e => e.hp > 0 && e.x === x && e.y === y) ||
 		       (player.x === x && player.y === y);
@@ -280,7 +292,17 @@ var helper = {
 		if (coverTiles.length === 0) return null;
 		coverTiles.sort((a, b) => a.distance - b.distance);
 		return coverTiles[0];
-	}
+	},
+	applyStatusEffects: function(entity) { // only for fire damage right now!!!
+		if (!entity || !helper.hasTrait(entity, 'fire')) return;
+
+		entity.hp -= fireDamage;
+		console.log(entity.name + " takes " + fireDamage + " fire damage!");
+
+		if (entity.hp <= 0) {
+			EntitySystem.death(entity);
+		}
+	},
 };
 
 var calc = {

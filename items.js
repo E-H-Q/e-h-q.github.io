@@ -537,8 +537,8 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 	// Stop at solid walls
 	for (let i = 1; i < path.length; i++) {
 		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-		if (wall && wall.type !== 'water') {
-			if (wall.type !== 'glass' || !wall.damaged) {
+		if (wall && wall.type !== 'water' && wall.type !== 'fire') {
+			if (wall.type !== 'glass' && wall.type !== 'fire' || !wall.damaged) {
 				path = path.slice(0, i);
 				break;
 			}

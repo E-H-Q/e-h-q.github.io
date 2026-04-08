@@ -45,7 +45,13 @@ function convert() {
 	
 	walls.forEach(wall => {
 		if (pts[wall.x]?.[wall.y] !== undefined) {
-			pts[wall.x][wall.y] = wall.type === 'water' ? 2 : 0;
+			if (wall.type === 'water') {
+				pts[wall.x][wall.y] = 2;
+			} else if (wall.type === 'fire') {
+				pts[wall.x][wall.y] = 3;
+			} else {
+				pts[wall.x][wall.y] = 0;
+			}
 		}
 	});
 

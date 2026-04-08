@@ -52,7 +52,7 @@ function hasPermissiveLOS(startX, startY, endX, endY) {
 		for (let i = 1; i < path.length - 1; i++) {
 			const point = path[i];
 			const wall = walls.find(w => w.x === point.x && w.y === point.y);
-			if (wall && wall.type !== 'glass' && wall.type !== 'water') {
+			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire') {
 				blocked = true;
 				break;
 			}
@@ -107,13 +107,13 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 			const rayEndX = Math.round(startX + dirX * maxRange + perpX * offset * side);
 			const rayEndY = Math.round(startY + dirY * maxRange + perpY * offset * side);
 			
-			// Build path that sees through glass
+			// Build path that sees through glass and fire
 			let sidePath = line({x: startX, y: startY}, {x: rayEndX, y: rayEndY});
 			
 			// Stop at solid walls only
 			for (let i = 1; i < sidePath.length; i++) {
 				const wall = walls.find(w => w.x === sidePath[i].x && w.y === sidePath[i].y);
-				if (wall && wall.type !== 'glass' && wall.type !== 'water') {
+				if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire') {
 					sidePath = sidePath.slice(0, i);
 					break;
 				}
@@ -161,7 +161,7 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 			
 			const fillLine = line({x: pt1.x, y: pt1.y}, {x: pt2.x, y: pt2.y});
 			for (let pt of fillLine) {
-				// Add all tiles including glass
+				// Add all tiles including glass and fire
 				coneTiles.add(`${pt.x},${pt.y}`);
 			}
 		}

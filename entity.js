@@ -10,7 +10,7 @@ const EntitySystem = {
 		if (path.length < dist + 1) return false;
 		for (let i = 1; i < path.length - 1; i++) {
 			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-			if (wall && wall.type !== 'glass' && wall.type !== 'water') return false;
+			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire') return false;
 		}
 		return true;
 	},
@@ -58,7 +58,8 @@ const EntitySystem = {
 							} else {
 								pathCost += 1;
 							}
-							if (pts[curr.x]?.[curr.y] === 2) pathCost += 1;
+							if (pts[curr.x]?.[curr.y] === 2) pathCost += 1; // Water
+							//if (pts[curr.x]?.[curr.y] === 3) pathCost += 10; // Fire - high cost to avoid
 						}
 						if (pathCost <= entity.range) validMoves.push({x: i, y: j, path: res});
 					}
@@ -79,18 +80,44 @@ const EntitySystem = {
 		});
 	},
 
-	moveEntity: function(entity, x, y) {
-		if (isAiming) {
-			isAiming = false;
-			update();
-		}
-		if (pts[x]?.[y] !== 0) {
-			entity.x = x;
-			entity.y = y;
-			return true;
-		}
-		return false;
-	},
+    moveEntity: function(entity, x, y) {
+        if (isAiming) {
+            isAiming = false;
+            update();
+        }
+
+        if (pts[x]?.[y] !== 0) {
+            const path = line({x: entity.x, y: entity.y}, {x: x, y: y}); // check movement path for fire
+            let caughtFire = false;
+            for (let i = 0; i < path.length; i++) {
+                const step = path[i];
+                const fireTiles = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'fire');
+				const waterTiles = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water');
+
+                if (fireTiles && !helper.hasTrait(entity, 'fire')) {
+                    if (!entity.traits) entity.traits = [];
+                    entity.traits.push('fire');
+                    console.log(entity.name + " caught fire!");
+                    caughtFire = true;
+                    break; // stop checking once they catch fire
+                }
+                if (waterTiles && helper.hasTrait(entity, 'fire')) {
+                    if (!entity.traits) entity.traits = [];
+                    entity.traits = entity.traits.filter(t => t !== "fire");
+                    console.log(entity.name + " got wet!");
+                    caughtFire = false;
+                    break; // stop checking once they touch water
+                }
+            }
+
+            // Move the entity
+            entity.x = x;
+            entity.y = y;
+
+            return true;
+        }
+        return false;
+    },
 
 	canAttack: function(entity, target) {
 		const dist = calc.distance(entity.x, target.x, entity.y, target.y);
@@ -254,7 +281,7 @@ const EntitySystem = {
 					const dist = Math.sqrt((tx - explodeX) ** 2 + (ty - explodeY) ** 2);
 					if (dist <= itemDef.damageRadius) {
 						for (let i = walls.length - 1; i >= 0; i--) {
-							if (walls[i].x === tx && walls[i].y === ty && walls[i].type !== 'water') {
+							if (walls[i].x === tx && walls[i].y === ty && walls[i].type !== 'water' && walls[i].type !== 'fire') {
 								walls.splice(i, 1);
 								break;
 							}

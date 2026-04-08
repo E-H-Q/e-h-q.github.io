@@ -14,6 +14,7 @@ const MOVE_SPRITE_SIZE = 32;
 const SPRITE_ACTIVE    = 8;
 const SPRITE_CROSSHAIR = 9;
 const SPRITE_FOLLOWER = 10;
+const SPRITE_FIRE_STATUS = 11;
 
 const TILE_SIZE        = 32;
 const TILE_WALL        = 0;
@@ -21,6 +22,7 @@ const TILE_FLOOR       = 1;
 const TILE_GLASS       = 2;
 const TILE_BROKEN      = 3;
 const TILE_WATER       = 4;
+const TILE_FIRE        = 5;
 
 var canvas = {
 	init: () => {
@@ -90,6 +92,13 @@ var canvas = {
 					ctx.drawImage(tilesImg, TILE_WATER * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
 				} else {
 					ctx.fillStyle = "rgba(0, 50, 200, 0.5)";
+					ctx.fillRect(screenX, screenY, tileSize, tileSize);
+				}
+			} else if (wall.type === 'fire') {
+				if (hasSprites) {
+					ctx.drawImage(tilesImg, TILE_FIRE * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+				} else {
+					ctx.fillStyle = "rgba(255, 100, 0, 0.6)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
 			} else {
@@ -188,6 +197,34 @@ var canvas = {
 		}
 	},
 
+	drawEntityStatusSprites: (entity, screenX, screenY) => {
+		const movesImg = document.getElementById("moves");
+		if (!movesImg || !movesImg.complete || !movesImg.naturalWidth) return;
+
+		// Draw fire status if entity has fire trait
+		if (helper.hasTrait(entity, 'fire')) {
+			ctx.drawImage(movesImg, SPRITE_FIRE_STATUS * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+				screenX, screenY, tileSize, tileSize);
+		}
+
+		// Draw active indicator if this is the current entity
+		const isActive = entities[currentEntityIndex] === entity;
+		if (isActive) {
+			ctx.drawImage(movesImg, SPRITE_ACTIVE * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+				screenX, screenY, tileSize, tileSize);
+		}
+
+		// Draw follower indicators
+		if (isActive) {
+			for (var i = 0; i < entities.length; i++) {
+				if (entities[i].following && entities[i].following == entity) {
+					ctx.drawImage(movesImg, SPRITE_FOLLOWER * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+						(entities[i].x - camera.x) * tileSize, (entities[i].y - camera.y) * tileSize, tileSize, tileSize);
+				}
+			}
+		}
+	},
+
 	drawEntity: (entity, color, imgId) => {
 		ctx.fillStyle = color;
 		const screenX = (entity.x - camera.x) * tileSize;
@@ -201,20 +238,9 @@ var canvas = {
 			ctx.textAlign = 'left';
 			ctx.fillText(entity.hp, screenX, screenY + tileSize);
 		}
-		const isActive = entities[currentEntityIndex] === entity;
-		if (isActive) {
-			const movesImg = document.getElementById("moves");
-			if (movesImg && movesImg.complete && movesImg.naturalWidth > 0) {
-				ctx.drawImage(movesImg, SPRITE_ACTIVE * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-					screenX, screenY, tileSize, tileSize);
-			}
-			for (var i = 0; i < entities.length; i++) {
-				if (entities[i].following && entities[i].following == entity) {
-					ctx.drawImage(movesImg, SPRITE_FOLLOWER * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-						(entities[i].x - camera.x) * tileSize, (entities[i].y - camera.y) * tileSize, tileSize, tileSize);
-				}
-			}
-		}
+		
+		// Draw status sprites
+		canvas.drawEntityStatusSprites(entity, screenX, screenY);
 	},
 
 	drawOnionskin: () => {
