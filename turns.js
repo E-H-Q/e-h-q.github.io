@@ -19,9 +19,7 @@ function startFollowing(follower, followed) {
 }
 
 var turns = {
-	check: function() {
-        if (currentEntityIndex >= entities.length) currentEntityIndex = 0; // failsafe defaults to player1
-        
+	check: function() {        
 		if (player.hp < 1 && allPlayers.length === 0) {
 			const music = new Audio('sound.wav');
 			music.play();
