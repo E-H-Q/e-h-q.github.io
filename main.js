@@ -293,16 +293,34 @@ var helper = {
 		coverTiles.sort((a, b) => a.distance - b.distance);
 		return coverTiles[0];
 	},
-	applyStatusEffects: function(entity) { // only for fire damage right now!!!
+	
+	applyStatusEffects: function(entity) {
 		if (!entity || !helper.hasTrait(entity, 'fire')) return;
 
-		entity.hp -= fireDamage;
-		console.log(entity.name + " takes " + fireDamage + " fire damage!");
+		// 1 in 3 chance to remove fire tile
+		if (calc.roll(3) == 1) {
+			entity.traits = entity.traits.filter(trait => trait != "fire");
+			console.log(entity.name + " stopped burning.");
+		} else {
+			entity.hp -= fireDamage;
+			console.log(entity.name + " takes " + fireDamage + " fire damage!");
+		}
 
 		if (entity.hp <= 0) {
 			EntitySystem.death(entity);
 		}
 	},
+	
+	removeRandomFireTiles: function() {
+		for (let i = walls.length - 1; i >= 0; i--) {
+			if (walls[i].type === 'fire') {
+				// 1 in 5 chance to remove fire tile
+				if (calc.roll(5) === 1) {
+					walls.splice(i, 1);
+				}
+			}
+		}
+	}
 };
 
 var calc = {

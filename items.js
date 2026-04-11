@@ -123,6 +123,13 @@ const equipmentData = {
 		slot: "accessory",
 		grantsDestroy: true,
 		displayName: "Breaching Kit"
+	},
+	flameBadge: {
+		name: "Flame Badge",
+		type: "equipment",
+		slot: "accessory",
+		grantsImmolate: true,
+		displayName: "Flame Badge"
 	}
 };
 
@@ -141,7 +148,8 @@ const itemLabels = {
 	rocketLauncher: "RPG",
 	machinegun: "SMG",
 	breachingKit: "Breach",
-	knife: "Knife"
+	knife: "Knife",
+	flameBadge: "Flame"
 };
 
 function getWeaponAimStyle(entity) {
@@ -153,6 +161,11 @@ function canEntityDestroyWalls(entity) {
 	const accessoryDef = entity.equipment?.accessory ? itemTypes[entity.equipment.accessory.itemType] : null;
 	const weaponDef = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
 	return weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
+}
+
+function canEntityImmolate(entity) {
+	const accessoryDef = entity.equipment?.accessory ? itemTypes[entity.equipment.accessory.itemType] : null;
+	return accessoryDef?.grantsImmolate || false;
 }
 
 function getDestroyableWallsInTiles(tiles, originX, originY, canDestroy) {
@@ -557,6 +570,14 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 	
 	const landingSpot = path[Math.min(path.length - 1, throwRange)];
 	
+	// Build grenade traits array
+	const grenadeTraits = ['explode', 'active'];
+	
+	// If thrower has immolate trait (Flame Badge), add it to the grenade
+	if (canEntityImmolate(entity)) {
+		grenadeTraits.push('immolate');
+	}
+	
 	// Spawn grenade entity with explode trait
 	const grenadeEntity = {
 		name: "Grenade",
@@ -568,7 +589,7 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 		turns: 1,
 		turnsRemaining: item.turnsRemaining,
 		inventory: [],
-		traits: ['explode', 'active']
+		traits: grenadeTraits
 	};
 	
 	allEnemies.push(grenadeEntity);
@@ -900,6 +921,14 @@ function processInventoryGrenades(entity) {
 				// Remove from inventory
 				entity.inventory.splice(i, 1);
 				
+				// Build grenade traits array
+				const grenadeTraits = ['explode', 'active'];
+				
+				// If holder has immolate trait (Flame Badge), add it to the grenade
+				if (canEntityImmolate(entity)) {
+					grenadeTraits.push('immolate');
+				}
+				
 				// Spawn grenade entity at holder's position with 0 turns remaining (will explode immediately)
 				const grenadeEntity = {
 					name: "Grenade",
@@ -911,7 +940,7 @@ function processInventoryGrenades(entity) {
 					turns: 1,
 					turnsRemaining: 0,
 					inventory: [],
-					traits: ['explode', 'active']
+					traits: grenadeTraits
 				};
 				
 				allEnemies.push(grenadeEntity);

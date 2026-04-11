@@ -20,7 +20,7 @@ function startFollowing(follower, followed) {
 
 var turns = {
 	check: function() {
-        //if (currentEntityIndex >= entities.length) currentEntityIndex = 0; // failsafe defaults to player1
+        if (currentEntityIndex >= entities.length) currentEntityIndex = 0; // failsafe defaults to player1
         
 		if (player.hp < 1 && allPlayers.length === 0) {
 			const music = new Audio('sound.wav');
@@ -31,7 +31,7 @@ var turns = {
 			return;
 		}
         
-		if (currentEntityTurnsRemaining <= 0) {
+		if (currentEntityTurnsRemaining <= 0) { // ONLY RUNS WHEN NON-PLAYER ENTITIES ARE ALSO PRESENT!? NEEDS TO TRIGGER AFTER *ALL* ENTITY TURNS!!!
 			const previousEntity = entities[currentEntityIndex];
 
 			// Process inventory grenades only when an entity's ALL turns are consumed
@@ -41,8 +41,11 @@ var turns = {
             
 			// Apply fire damage at end of turn
             if (previousEntity) {
-                helper.applyStatusEffects(previousEntity); // PROCESSES FIRE DAMAGE
+                helper.applyStatusEffects(previousEntity);
             }
+			
+			// Remove random fire tiles at end of each entity's turn
+			helper.removeRandomFireTiles();
 
 			const playerCamera = {
 				x: player.x - Math.round(viewportWidth / 2) + 1,
@@ -55,6 +58,7 @@ var turns = {
 				if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 
 				let currentEntity = entities[currentEntityIndex];
+                helper.applyStatusEffects(currentEntity);
                 if (currentEntity == undefined) currentEntity = player; // failsafe defaults to player1
                 
 				// Check if enemy is in active range
@@ -104,6 +108,9 @@ var turns = {
                     if (currentEntityIndex != entities.length) currentEntityIndex--;
 				}
                 currentEntityTurnsRemaining--;
+				
+				// Remove random fire tiles after grenade turn
+				helper.removeRandomFireTiles();
                 update();
 			};
 			processGrenadeTurn();

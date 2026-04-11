@@ -139,6 +139,7 @@ const EntitySystem = {
 		}
 
 		const weaponDef = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType] : null;
+		const aimStyle = getWeaponAimStyle(attacker);
 		const targets = getTargetedEntities(attacker, targetX, targetY);
 		const enemies = targets.filter(e => e !== attacker && e.hp > 0);
 
@@ -184,6 +185,45 @@ const EntitySystem = {
 
 		if (attackedAnyone) {
 			consumeAmmo(attacker);
+			
+			// Check for immolate trait and spawn fire tiles based on aim style
+			if (canEntityImmolate(attacker)) {
+				let tilesToIgnite = [];
+				
+				// Determine which tiles should have fire spawn chance based on aim style
+				if (aimStyle === "pierce" || aimStyle === "cone") {
+					// Burst/Pierce/Cone: All tiles in LOS
+					const targetingTiles = calculateEntityTargeting(attacker, targetX, targetY);
+					tilesToIgnite = targetingTiles;
+				} else if (aimStyle === "area") {
+					// Area: All tiles in explosion area
+					const targetingTiles = calculateEntityTargeting(attacker, targetX, targetY);
+					tilesToIgnite = targetingTiles;
+				} else {
+					// Direct/Default/Standard/Melee: Only tiles where enemies were hit
+					tilesToIgnite = enemies.map(e => ({x: e.x, y: e.y}));
+				}
+				
+				// Spawn fire with 1/3 chance on each tile
+				for (let tile of tilesToIgnite) {
+					if (calc.roll(3) === 1) {
+						const existingWall = walls.find(w => w.x === tile.x && w.y === tile.y);
+						const hasEntity = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
+						
+						// Only spawn fire on empty tiles or replace non-fire walls
+						if (!hasEntity && (!existingWall || existingWall.type !== 'fire' && existingWall.type !== 'water')) {
+							// Remove existing wall if present
+							if (existingWall) {
+								const wallIndex = walls.indexOf(existingWall);
+								walls.splice(wallIndex, 1);
+							}
+							// Spawn fire tile
+							walls.push({x: tile.x, y: tile.y, type: 'fire'});
+						}
+					}
+				}
+			}
+			
 			return true;
 		}
 		return false;
@@ -271,6 +311,7 @@ const EntitySystem = {
 		const itemDef = itemTypes.grenade;
 		const explodeX = grenade.x;
 		const explodeY = grenade.y;
+		const hasImmolate = helper.hasTrait(grenade, 'immolate');
 
 		console.log(grenade.name + " explodes at " + explodeX + ", " + explodeY + "!");
 			
@@ -328,6 +369,28 @@ const EntitySystem = {
 				this.death(entity);
 			}
 		}
+		
+		// If grenade has immolate trait, spawn fire tiles in explosion area
+		if (hasImmolate) {
+			for (let tile of explosionTiles) {
+				if (calc.roll(3) === 1) {
+					const existingWall = walls.find(w => w.x === tile.x && w.y === tile.y);
+					const hasEntity = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
+					
+					// Only spawn fire on empty tiles or replace non-fire walls
+					if (!hasEntity && (!existingWall || existingWall.type !== 'fire')) {
+						// Remove existing wall if present
+						if (existingWall) {
+							const wallIndex = walls.indexOf(existingWall);
+							walls.splice(wallIndex, 1);
+						}
+						// Spawn fire tile
+						walls.push({x: tile.x, y: tile.y, type: 'fire'});
+					}
+				}
+			}
+		}
+		
 		setTimeout(() => { // exploding "animation": works well and does not seem to be skipping turns!!
 			canvas.grenadeAreas(grenade);
 			setTimeout(() => {
