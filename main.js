@@ -45,7 +45,7 @@ var entityTraits = {
 	player:     { name: "Player",     description: "Player-controlled entity" },
 	explode: 	{ name: "Explode",	  description: "Explodes on death/countdown"},
 	active: 	{ name: "Active", 	  description: "Countdown has been activated"},
-	fire:       { name: "On Fire",    description: "Takes fire damage each turn" }
+	fire:       { name: "On Fire",    description: "Takes " + fireDamage + " fire damage each turn" }
 };
 
 // Console override for logging
@@ -295,15 +295,17 @@ var helper = {
 	},
 	
 	applyStatusEffects: function(entity) {
-		if (!entity || !helper.hasTrait(entity, 'fire')) return;
+		if (!entity) return;
 
-		// 1 in 3 chance to remove fire tile
-		if (calc.roll(3) == 1) {
-			entity.traits = entity.traits.filter(trait => trait != "fire");
-			console.log(entity.name + " stopped burning.");
-		} else {
-			entity.hp -= fireDamage;
-			console.log(entity.name + " takes " + fireDamage + " fire damage!");
+		if (helper.hasTrait(entity, "fire")) {
+			// 1 in 3 chance to remove fire tile
+			if (calc.roll(3) == 1) {
+				entity.traits = entity.traits.filter(trait => trait != "fire");
+				console.log(entity.name + " stopped burning.");
+			} else {
+				entity.hp -= fireDamage;
+				console.log(entity.name + " takes " + fireDamage + " fire damage!");
+			}
 		}
 
 		if (entity.hp <= 0) {

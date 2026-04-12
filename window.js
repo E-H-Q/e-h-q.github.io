@@ -637,6 +637,14 @@ var WindowSystem = {
                     win.items.push({ text: "Waist high water, difficult to move through." });
                     win.items.push({ text: "Movement range -50%" });
                     break;
+                case "fire":
+                    win.items.push({ text: "Blazing flames, walk carefully!" });
+                    win.items.push({ text: 'Moving through fire inflicts "Fire" status effect.' });
+                    win.items.push({ text: ""});
+                    win.items.push({ text: "Entities on fire take " + fireDamage + "DMG at end of turn."});
+                    win.items.push({ text: "1 in 5 chance tile despawns at end of turn." });
+                    win.items.push({ text: '1 in 3 chance to remove "Fire" status effect.' });
+                    break;
             }
         } else if (entity.itemType) { // ITEMS ================================================================================================
             win.items = [];
@@ -692,7 +700,7 @@ var WindowSystem = {
         } else if (entity.type) { // WALL
             const tilesImg = document.getElementById("tiles");
             if (tilesImg && tilesImg.complete) {
-                const tileIndex = { wall: TILE_WALL, glass: TILE_GLASS, water: TILE_WATER }[entity.type];
+                const tileIndex = { wall: TILE_WALL, glass: TILE_GLASS, water: TILE_WATER, fire:TILE_FIRE }[entity.type];
                 ctx.drawImage(tilesImg, tileIndex * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, spriteX, spriteY, spriteSize, spriteSize);
             }
             ctx.fillStyle = "#ffffff";
@@ -804,6 +812,9 @@ var WindowSystem = {
                         break;
                     case "explode":
                         stats.push({ text: "(" + entityTraits.explode.name + "): " + entityTraits.explode.description });
+                        break;
+                    case "fire":
+                        stats.push({ text: "(" + entityTraits.fire.name + "): " + entityTraits.fire.description });
                         break;
                         /*
                     case "active":

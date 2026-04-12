@@ -200,25 +200,24 @@ const EntitySystem = {
 					const targetingTiles = calculateEntityTargeting(attacker, targetX, targetY);
 					tilesToIgnite = targetingTiles;
 				} else {
-					// Direct/Default/Standard/Melee: Only tiles where enemies were hit
-					tilesToIgnite = enemies.map(e => ({x: e.x, y: e.y}));
+					// Direct/Default/Standard/Melee
+					const targetingTiles = calculateEntityTargeting(attacker, targetX, targetY);
+					tilesToIgnite = targetingTiles;
 				}
 				
-				// Spawn fire with 1/3 chance on each tile
+				// Spawn fire with 1/2 chance on each tile
 				for (let tile of tilesToIgnite) {
-					if (calc.roll(3) === 1) {
+					if (calc.roll(2) === 1) {
 						const existingWall = walls.find(w => w.x === tile.x && w.y === tile.y);
 						const hasEntity = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
 						
-						// Only spawn fire on empty tiles or replace non-fire walls
-						if (!hasEntity && (!existingWall || existingWall.type !== 'fire' && existingWall.type !== 'water')) {
-							// Remove existing wall if present
-							if (existingWall) {
-								const wallIndex = walls.indexOf(existingWall);
-								walls.splice(wallIndex, 1);
-							}
+						// Only spawn fire on empty tiles
+						if (!existingWall || existingWall.type == 'fire') {
 							// Spawn fire tile
 							walls.push({x: tile.x, y: tile.y, type: 'fire'});
+						}
+						if (hasEntity) {
+							hasEntity.traits.push("fire");
 						}
 					}
 				}
