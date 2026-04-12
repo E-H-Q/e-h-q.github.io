@@ -558,20 +558,21 @@ var input = {
                     console.log("Exited peek mode.");
                     update();
                 } else {
+                    const explosionsBefore = EntitySystem._explosionQueue.length + (EntitySystem._explosionPending ? 1 : 0);
                     if (EntitySystem.attack(activeEnt, click_pos.x, click_pos.y)) {
                         currentEntityTurnsRemaining--;
-                        if (currentEntityTurnsRemaining <= 0) {
-                            helper.applyStatusEffects(activeEnt); // PROCESSES STATUS EFFECTS AFTER LAST ACTION !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                
+                        const explosionQueued = (EntitySystem._explosionQueue.length + (EntitySystem._explosionPending ? 1 : 0)) > explosionsBefore;
+                        if (currentEntityTurnsRemaining <= 0 && !explosionQueued) {
+                            helper.applyStatusEffects(activeEnt);
                             if (typeof processInventoryGrenades !== 'undefined') {
                                 processInventoryGrenades(activeEnt);
                             }
-                            // Advance index so turns.check does not double-tick inventory grenades.
                             currentEntityIndex++;
                             if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-                            if (currentEntityIndex >= entities.length) currentEntityIndex = 0; // failsafe defaults to player1
                             currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
                         }
+                        // If an explosion was queued, skip update() here - _processBatchExplosions will call it
+                        if (explosionQueued) return;
                     }
                     update();
                 }

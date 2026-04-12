@@ -517,6 +517,8 @@ function update() {
 	if (player.hp < 1 && allPlayers.length > 0) {
 		player = allPlayers.shift();
 		player.traits = player.traits.filter(t => t !== 'player');
+		currentEntityIndex = 0;
+		currentEntityTurnsRemaining = player.turns;
 		if (typeof updatePlayerSelect === 'function') updatePlayerSelect();
 	}
 
