@@ -642,7 +642,7 @@ var WindowSystem = {
                     win.items.push({ text: 'Moving through fire inflicts "Fire" status effect.' });
                     win.items.push({ text: ""});
                     win.items.push({ text: "Entities on fire take " + fireDamage + "DMG at end of turn."});
-                    win.items.push({ text: "1 in 5 chance tile despawns at end of turn." });
+                    win.items.push({ text: "1 in 15 chance tile despawns at end of turn." });
                     win.items.push({ text: '1 in 3 chance to remove "Fire" status effect.' });
                     break;
             }
@@ -816,11 +816,9 @@ var WindowSystem = {
                     case "fire":
                         stats.push({ text: "(" + entityTraits.fire.name + "): " + entityTraits.fire.description });
                         break;
-                        /*
                     case "active":
                         stats.push({ text: "(" + entityTraits.active.name + "): " + entityTraits.active.description });
                         break;
-                        */
                     default:
                         stats.push({ text: `Traits: ${entity.traits.join(', ')}` });
                         break;

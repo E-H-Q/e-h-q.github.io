@@ -316,8 +316,8 @@ var helper = {
 	removeRandomFireTiles: function() {
 		for (let i = walls.length - 1; i >= 0; i--) {
 			if (walls[i].type === 'fire') {
-				// 1 in 5 chance to remove fire tile
-				if (calc.roll(5) === 1) {
+				// 1 in 15 chance to remove fire tile
+				if (calc.roll(15) === 1) {
 					walls.splice(i, 1);
 				}
 			}
