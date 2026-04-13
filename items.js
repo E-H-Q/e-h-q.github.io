@@ -75,6 +75,7 @@ const weaponsData = {
 		aimStyle: "area",
 		areaRadius: 2,
 		canDestroy: true,
+		grantsImmolate: true,
 		maxAmmo: 1,
 		effects: [
 			{stat: "damage", value: 25},
@@ -164,8 +165,9 @@ function canEntityDestroyWalls(entity) {
 }
 
 function canEntityImmolate(entity) {
+	const weaponDef   = entity.equipment?.weapon    ? itemTypes[entity.equipment.weapon.itemType]    : null;
 	const accessoryDef = entity.equipment?.accessory ? itemTypes[entity.equipment.accessory.itemType] : null;
-	return accessoryDef?.grantsImmolate || false;
+	return weaponDef?.grantsImmolate || accessoryDef?.grantsImmolate || false;
 }
 
 function getDestroyableWallsInTiles(tiles, originX, originY, canDestroy) {

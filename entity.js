@@ -109,6 +109,22 @@ const EntitySystem = {
 		}
 
 		const weaponDef = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType] : null;
+
+		// Area weapons (rocket launcher) use explosion logic directly
+		if (weaponDef?.aimStyle === 'area') {
+			consumeAmmo(attacker);
+			const rocket = {
+				name: attacker.name,
+				x: targetX, y: targetY,
+				traits: canEntityImmolate(attacker) ? ['explode', 'immolate'] : ['explode'],
+				_damage: attacker.damage || 0,
+				_radius: weaponDef.areaRadius
+			};
+			this._explosionQueue.push(rocket);
+			if (!this._explosionPending) this._processBatchExplosions();
+			return true;
+		}
+
 		const targets = getTargetedEntities(attacker, targetX, targetY);
 		const enemies = targets.filter(e => e !== attacker && e.hp > 0);
 		let attackedAnyone = false;
@@ -162,9 +178,7 @@ const EntitySystem = {
 			const idx = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
 			if (idx < 0) continue;
 			const wall = walls[idx];
-			if (wall.type == "fire") { // Prevent fire tiles from being destroyed
-				let destroyedAny = false;
-			} else if (wall.type === 'glass') {
+			if (wall.type === 'glass') {
 				if (canDestroy || wall.damaged) {
 					walls.splice(idx, 1);
 					console.log(attacker.name + " destroyed glass!");
@@ -236,7 +250,8 @@ const EntitySystem = {
 	_resolveExplosion: function(grenade) {
 		const itemDef  = itemTypes.grenade;
 		const { x: ex, y: ey } = grenade;
-		const r = itemDef.damageRadius;
+		const r      = grenade._radius  ?? itemDef.damageRadius;
+		const damage = grenade._damage  ?? itemDef.damage;
 
 		console.log(grenade.name + " explodes at " + ex + ", " + ey + "!");
 
@@ -269,7 +284,7 @@ const EntitySystem = {
 			}
 		}
 		for (const entity of hit) {
-			const dmg = Math.max(1, itemDef.damage - (entity.armor || 0));
+			const dmg = Math.max(1, damage - (entity.armor || 0));
 			console.log(entity.name + " takes " + dmg + " explosion damage!");
 			entity.hp -= dmg;
 			if (entity.hp <= 0) this.death(entity);
