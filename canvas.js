@@ -290,7 +290,7 @@ var canvas = {
 				ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
 				for (let x = Math.max(0, grenade.x - damageRadius - 1); x <= Math.min(size - 1, grenade.x + damageRadius + 1); x++) {
 					for (let y = Math.max(0, grenade.y - damageRadius - 1); y <= Math.min(size - 1, grenade.y + damageRadius + 1); y++) {
-						if (pts[x] && pts[x][y] === 1) {
+						if (pts[x] && pts[x][y] > 0) {
 							const screenX = (x - camera.x) * tileSize;
 							const screenY = (y - camera.y) * tileSize;
 							if (screenX >= -tileSize && screenX < c.width && screenY >= -tileSize && screenY < c.height) {
