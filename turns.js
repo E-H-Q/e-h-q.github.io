@@ -21,9 +21,6 @@ function startFollowing(follower, followed) {
 var turns = {
 	check: function() {
 		if (EntitySystem._explosionPending) return; // explosion animation in progress
-        if (entities.length == 1 && currentEntityIndex >= entities.length) { // here to fix a game freeze bug when all enemies died at once
-            currentEntityIndex = 0;
-        }
 		if (player.hp < 1 && allPlayers.length === 0) {
 			const music = new Audio('sound.wav');
 			music.play();
@@ -33,7 +30,7 @@ var turns = {
 			return;
 		}
         
-		if (currentEntityTurnsRemaining <= 0) { 
+		if (currentEntityTurnsRemaining <= 0) {
 			const previousEntity = entities[currentEntityIndex];
 
 			// Process inventory grenades only when an entity's ALL turns are consumed
@@ -60,7 +57,7 @@ var turns = {
 				if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 
 				let currentEntity = entities[currentEntityIndex];
-                if (currentEntity == undefined) currentEntity = player; // failsafe defaults to player1
+                //if (currentEntity == undefined) currentEntity = player; // failsafe defaults to player1
                 
 				// Check if enemy is in active range
 				const buffer = 5;
