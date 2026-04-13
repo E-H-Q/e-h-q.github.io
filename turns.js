@@ -19,7 +19,10 @@ function startFollowing(follower, followed) {
 }
 
 var turns = {
-	check: function() {        
+	check: function() {
+        if (entities.length == 1 && currentEntityIndex >= entities.length) { // here to fix a game freeze bug when all enemies died at once
+            currentEntityIndex = 0;
+        }
 		if (player.hp < 1 && allPlayers.length === 0) {
 			const music = new Audio('sound.wav');
 			music.play();
