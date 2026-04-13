@@ -305,14 +305,6 @@ var input = {
                 const activeEnt = getActivePlayerEntity();
                 currentEntityTurnsRemaining--;
                 console.log(activeEnt.name + " waits...");
-                if (currentEntityTurnsRemaining <= 0) {
-                    currentEntityIndex++;
-                    if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-                    currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
-                    if (typeof processInventoryGrenades !== 'undefined') {
-                        processInventoryGrenades(activeEnt);
-                    }
-                }
                 update();
             }
             return;
@@ -469,11 +461,6 @@ var input = {
                         action.value = "attack";
                         action.disabled = true;
                         currentEntityTurnsRemaining--;
-                        if (currentEntityTurnsRemaining <= 0) {
-                            currentEntityIndex++;
-                            if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-                            currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
-                        }
                         update();
                     } else {
                         turns.move(activeEnt, click_pos.x, click_pos.y);
@@ -537,15 +524,6 @@ var input = {
                 if (isPeekMode && peekStep === 2) {
                     if (EntitySystem.attack(peekEntity, click_pos.x, click_pos.y)) {
                         currentEntityTurnsRemaining--;
-                        if (currentEntityTurnsRemaining <= 0) {
-                            if (typeof processInventoryGrenades !== 'undefined') {
-                                processInventoryGrenades(peekEntity);
-                            }
-                            // Advance index so turns.check does not double-tick inventory grenades.
-                            currentEntityIndex++;
-                            if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-                            currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
-                        }
                     }
                     peekEntity.x = peekStartX;
                     peekEntity.y = peekStartY;
@@ -558,21 +536,10 @@ var input = {
                     console.log("Exited peek mode.");
                     update();
                 } else {
-                    const explosionsBefore = EntitySystem._explosionQueue.length + (EntitySystem._explosionPending ? 1 : 0);
                     if (EntitySystem.attack(activeEnt, click_pos.x, click_pos.y)) {
                         currentEntityTurnsRemaining--;
-                        const explosionQueued = (EntitySystem._explosionQueue.length + (EntitySystem._explosionPending ? 1 : 0)) > explosionsBefore;
-                        if (currentEntityTurnsRemaining <= 0 && !explosionQueued) {
-                            helper.applyStatusEffects(activeEnt);
-                            if (typeof processInventoryGrenades !== 'undefined') {
-                                processInventoryGrenades(activeEnt);
-                            }
-                            currentEntityIndex++;
-                            if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-                            currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
-                        }
-                        // If an explosion was queued, skip update() here - _processBatchExplosions will call it
-                        if (explosionQueued) return;
+                        const newExplosion = EntitySystem._explosionPending || EntitySystem._explosionQueue.length > 0;
+                        if (newExplosion) return;
                     }
                     update();
                 }

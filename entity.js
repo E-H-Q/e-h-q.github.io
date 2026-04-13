@@ -1,17 +1,13 @@
 // ENTITY.JS: UNIFIED ENTITY SYSTEM FOR ALL CHARACTERS
 
 const EntitySystem = {
-	// Queue for pending chain explosions - prevents overlapping setTimeout stacks
 	_explosionQueue: [],
 	_explosionPending: false,
 
 	hasLOS: function(entity, targetX, targetY, usePermissive = false) {
 		if (usePermissive) return hasPermissiveLOS(entity.x, entity.y, targetX, targetY);
-
 		const path = line({x: entity.x, y: entity.y}, {x: targetX, y: targetY});
-		const dist = calc.distance(entity.x, targetX, entity.y, targetY);
-
-		if (path.length < dist + 1) return false;
+		if (path.length < calc.distance(entity.x, targetX, entity.y, targetY) + 1) return false;
 		for (let i = 1; i < path.length - 1; i++) {
 			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
 			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire') return false;
@@ -21,9 +17,9 @@ const EntitySystem = {
 
 	calculateMovement: function(entity, specialMode = null) {
 		if (entity.range === 1) {
-			const adjacentTiles = helper.getAdjacentTiles(entity.x, entity.y, true)
-				.filter(tile => !helper.tileBlocked(tile.x, tile.y));
-			return adjacentTiles.map(tile => ({x: tile.x, y: tile.y, path: [tile]}));
+			return helper.getAdjacentTiles(entity.x, entity.y, true)
+				.filter(tile => !helper.tileBlocked(tile.x, tile.y))
+				.map(tile => ({x: tile.x, y: tile.y, path: [tile]}));
 		}
 
 		circle(entity.y, entity.x, entity.range);
@@ -35,9 +31,7 @@ const EntitySystem = {
 			if (e !== entity && e.hp > 0 && pts[e.x]?.[e.y] !== undefined) pts[e.x][e.y] = 0;
 		});
 
-		if (specialMode === 'peek') {
-			entity.range = Math.floor(savedPlayerRange / 2);
-		}
+		if (specialMode === 'peek') entity.range = Math.floor(savedPlayerRange / 2);
 
 		const validMoves = [];
 		const minX = Math.max(0, entity.x - entity.range - 1);
@@ -47,192 +41,143 @@ const EntitySystem = {
 
 		for (let i = minX; i <= maxX; i++) {
 			for (let j = minY; j <= maxY; j++) {
-				if (pts[i][j] > 0) {
-					const res = astar.search(graph, graph.grid[entity.x][entity.y], graph.grid[i][j]);
-					if (res.length > 0) {
-						let pathCost = 0;
-						let diagonalCount = 0;
-						for (let k = 0; k < res.length; k++) {
-							const prev = k === 0 ? {x: entity.x, y: entity.y} : res[k - 1];
-							const curr = res[k];
-							const isDiagonal = (prev.x !== curr.x && prev.y !== curr.y);
-							if (isDiagonal) {
-								diagonalCount++;
-								pathCost += (diagonalCount % 2 === 0) ? 2 : 1;
-							} else {
-								pathCost += 1;
-							}
-							if (pts[curr.x]?.[curr.y] === 2) pathCost += 1; // Water
-						}
-						if (pathCost <= entity.range) validMoves.push({x: i, y: j, path: res});
+				if (pts[i][j] <= 0) continue;
+				const res = astar.search(graph, graph.grid[entity.x][entity.y], graph.grid[i][j]);
+				if (!res.length) continue;
+				let pathCost = 0, diagonalCount = 0;
+				for (let k = 0; k < res.length; k++) {
+					const prev = k === 0 ? {x: entity.x, y: entity.y} : res[k - 1];
+					const curr = res[k];
+					if (prev.x !== curr.x && prev.y !== curr.y) {
+						pathCost += (++diagonalCount % 2 === 0) ? 2 : 1;
+					} else {
+						pathCost++;
 					}
+					if (pts[curr.x]?.[curr.y] === 2) pathCost++; // Water
 				}
+				if (pathCost <= entity.range) validMoves.push({x: i, y: j, path: res});
 			}
 		}
 		return validMoves;
 	},
 
 	displayMovement: function(entity, specialMode = null) {
+		ctx.fillStyle = "rgba(0, 255, 0, 0.5)";
 		this.calculateMovement(entity, specialMode).forEach(move => {
 			const coord = new calc.coordinate(move.x, move.y);
-			if (isPlayerControlled(entity) && !valid.find(item => item.x === coord.x && item.y === coord.y)) {
-				valid.push(coord);
-			}
-			ctx.fillStyle = "rgba(0, 255, 0, 0.5)";
+			if (isPlayerControlled(entity) && !valid.find(v => v.x === coord.x && v.y === coord.y)) valid.push(coord);
 			ctx.fillRect((coord.x - camera.x) * tileSize, (coord.y - camera.y) * tileSize, tileSize, tileSize);
 		});
 	},
 
 	moveEntity: function(entity, x, y) {
-		if (isAiming) {
-			isAiming = false;
-			update();
-		}
+		if (isAiming) { isAiming = false; update(); }
+		if (pts[x]?.[y] === 0) return false;
 
-		if (pts[x]?.[y] !== 0) {
-			const path = line({x: entity.x, y: entity.y}, {x: x, y: y});
-			for (let i = 0; i < path.length; i++) {
-				const step = path[i];
-				const fireTile = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'fire');
-				const waterTile = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water');
-
-				if (fireTile && !helper.hasTrait(entity, 'fire')) {
-					if (!entity.traits) entity.traits = [];
-					entity.traits.push('fire');
-					console.log(entity.name + " caught fire!");
-					break;
-				}
-				if (waterTile && helper.hasTrait(entity, 'fire')) {
-					entity.traits = entity.traits.filter(t => t !== "fire");
-					console.log(entity.name + " got wet!");
-					break;
-				}
+		for (const step of line({x: entity.x, y: entity.y}, {x, y})) {
+			const onFire  = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'fire');
+			const onWater = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water');
+			if (onFire && !helper.hasTrait(entity, 'fire')) {
+				if (!entity.traits) entity.traits = [];
+				entity.traits.push('fire');
+				console.log(entity.name + " caught fire!");
+				break;
 			}
-
-			entity.x = x;
-			entity.y = y;
-			return true;
+			if (onWater && helper.hasTrait(entity, 'fire')) {
+				entity.traits = entity.traits.filter(t => t !== "fire");
+				console.log(entity.name + " got wet!");
+				break;
+			}
 		}
-		return false;
+
+		entity.x = x;
+		entity.y = y;
+		return true;
 	},
 
 	canAttack: function(entity, target) {
-		const dist = calc.distance(entity.x, target.x, entity.y, target.y);
-		if (dist > entity.attack_range) return false;
-		return this.hasLOS(entity, target.x, target.y, isPlayerControlled(entity));
+		return calc.distance(entity.x, target.x, entity.y, target.y) <= entity.attack_range &&
+			this.hasLOS(entity, target.x, target.y, isPlayerControlled(entity));
 	},
 
 	attack: function(attacker, targetX, targetY) {
-		if (isAiming) {
-			isAiming = false;
-			update();
-		}
+		if (isAiming) { isAiming = false; update(); }
 
 		if (!hasAmmo(attacker)) {
-			if (isPlayerControlled(attacker)) {
-				console.log("Out of ammo! Press R to reload.");
-			}
+			if (isPlayerControlled(attacker)) console.log("Out of ammo! Press R to reload.");
 			return false;
 		}
 
 		const weaponDef = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType] : null;
-		const aimStyle = getWeaponAimStyle(attacker);
 		const targets = getTargetedEntities(attacker, targetX, targetY);
 		const enemies = targets.filter(e => e !== attacker && e.hp > 0);
-
 		let attackedAnyone = false;
 
-		const burstCount = weaponDef?.burst || 1;
-		for (let burst = 0; burst < burstCount; burst++) {
-			if (this.destroyWalls(attacker, targetX, targetY)) {
+		for (let burst = 0; burst < (weaponDef?.burst || 1); burst++) {
+			if (this.destroyWalls(attacker, targetX, targetY)) attackedAnyone = true;
+
+			for (const enemy of enemies) {
+				if (enemy.hp <= 0) continue;
+				if (calc.roll(6) >= 4) {
+					const dmg = Math.max(1, calc.roll(6) + (attacker.damage || 0) - (enemy.armor || 0));
+					enemy.hp -= dmg;
+					if (enemy.lastAttacker !== undefined) enemy.lastAttacker = attacker;
+					if (enemy.seenX !== undefined) { enemy.seenX = attacker.x; enemy.seenY = attacker.y; }
+					console.log(attacker.name + " hits " + enemy.name + " for " + dmg + " DMG!");
+					if (enemy.hp <= 0) this.death(enemy);
+				} else {
+					console.log(attacker.name + " attacks and misses " + enemy.name + "...");
+				}
 				attackedAnyone = true;
 			}
+		}
 
-			for (let enemy of enemies) {
-				if (enemy.hp > 0) {
-					const hitRoll = calc.roll(6);
-					if (hitRoll >= 4) {
-						const baseDmg = calc.roll(6) + (attacker.damage || 0);
-						const armor = enemy.armor || 0;
-						const dmgRoll = Math.max(1, baseDmg - armor);
-						const previousHp = enemy.hp;
-						enemy.hp -= dmgRoll;
+		if (!attackedAnyone) return false;
 
-						if (enemy.hp < previousHp && enemy.lastAttacker !== undefined) {
-							enemy.lastAttacker = attacker;
-						}
-						if (enemy.seenX !== undefined) {
-							enemy.seenX = attacker.x;
-							enemy.seenY = attacker.y;
-						}
+		consumeAmmo(attacker);
 
-						console.log(attacker.name + " hits " + enemy.name + " for " + dmgRoll + " DMG!");
-
-						if (enemy.hp <= 0) {
-							this.death(enemy);
-						}
-					} else {
-						console.log(attacker.name + " attacks and misses " + enemy.name + "...");
-					}
-					attackedAnyone = true;
+		if (canEntityImmolate(attacker)) {
+			for (const tile of calculateEntityTargeting(attacker, targetX, targetY)) {
+				if (calc.roll(2) !== 1) continue;
+				const existing = walls.find(w => w.x === tile.x && w.y === tile.y);
+				if (!existing || existing.type === 'fire') walls.push({x: tile.x, y: tile.y, type: 'fire'});
+				const ent = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
+				if (ent && !helper.hasTrait(ent, 'fire')) {
+					if (!ent.traits) ent.traits = [];
+					ent.traits.push("fire");
 				}
 			}
 		}
 
-		if (attackedAnyone) {
-			consumeAmmo(attacker);
-
-			if (canEntityImmolate(attacker)) {
-				const tilesToIgnite = calculateEntityTargeting(attacker, targetX, targetY);
-				for (let tile of tilesToIgnite) {
-					if (calc.roll(2) === 1) {
-						const existingWall = walls.find(w => w.x === tile.x && w.y === tile.y);
-						const hasEntity = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
-						if (!existingWall || existingWall.type === 'fire') {
-							walls.push({x: tile.x, y: tile.y, type: 'fire'});
-						}
-						if (hasEntity && !helper.hasTrait(hasEntity, 'fire')) {
-							if (!hasEntity.traits) hasEntity.traits = [];
-							hasEntity.traits.push("fire");
-						}
-					}
-				}
-			}
-
-			return true;
-		}
-		return false;
+		return true;
 	},
 
 	destroyWalls: function(attacker, targetX, targetY) {
-		const weaponDef = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType] : null;
-		const accessoryDef = attacker.equipment?.accessory ? itemTypes[attacker.equipment.accessory.itemType] : null;
-		const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
-
-		const targetingTiles = calculateEntityTargeting(attacker, targetX, targetY);
+		const weaponDef  = attacker.equipment?.weapon    ? itemTypes[attacker.equipment.weapon.itemType]    : null;
+		const accessory  = attacker.equipment?.accessory ? itemTypes[attacker.equipment.accessory.itemType] : null;
+		const canDestroy = weaponDef?.canDestroy || accessory?.grantsDestroy;
 		let destroyedAny = false;
 
-		targetingTiles.forEach(tile => {
-			const wallIndex = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
-			if (wallIndex >= 0) {
-				const wall = walls[wallIndex];
-				if (wall.type === 'glass') {
-					if (canDestroy || wall.damaged) {
-						walls.splice(wallIndex, 1);
-						console.log(attacker.name + " destroyed glass!");
-						destroyedAny = true;
-					} else {
-						wall.damaged = true;
-						destroyedAny = true;
-					}
-				} else if (canDestroy) {
-					walls.splice(wallIndex, 1);
-					console.log(attacker.name + " destroyed a wall!");
-					destroyedAny = true;
+		for (const tile of calculateEntityTargeting(attacker, targetX, targetY)) {
+			const idx = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
+			if (idx < 0) continue;
+			const wall = walls[idx];
+			if (wall.type == "fire") { // Prevent fire tiles from being destroyed
+				let destroyedAny = false;
+			} else if (wall.type === 'glass') {
+				if (canDestroy || wall.damaged) {
+					walls.splice(idx, 1);
+					console.log(attacker.name + " destroyed glass!");
+				} else {
+					wall.damaged = true;
 				}
+				destroyedAny = true;
+			} else if (canDestroy) {
+				walls.splice(idx, 1);
+				console.log(attacker.name + " destroyed a wall!");
+				destroyedAny = true;
 			}
-		});
-
+		}
 		return destroyedAny;
 	},
 
@@ -241,54 +186,40 @@ const EntitySystem = {
 
 		entity.inventory?.forEach(item => {
 			const itemDef = itemTypes[item.itemType];
-			if (itemDef.type === "consumable" && item.quantity && item.quantity > 1) {
-				for (let i = 0; i < item.quantity; i++) {
-					mapItems.push({x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++});
-				}
-				console.log(entity.name + " dropped " + item.quantity + " " + itemDef.name + (item.quantity > 1 ? "s" : ""));
-			} else {
-				mapItems.push({x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++});
-				console.log(entity.name + " dropped " + itemDef.name);
-			}
+			const qty = (itemDef.type === "consumable" && item.quantity > 1) ? item.quantity : 1;
+			for (let i = 0; i < qty; i++) mapItems.push({x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++});
+			console.log(entity.name + " dropped " + (qty > 1 ? qty + " " : "") + itemDef.name + (qty > 1 ? "s" : ""));
 		});
 		entity.inventory = [];
 
-		if (entity.equipment) {
-			for (let slot in entity.equipment) {
-				if (entity.equipment[slot]) {
-					mapItems.push({x: entity.x, y: entity.y, itemType: entity.equipment[slot].itemType, id: nextItemId++});
-					console.log(entity.name + " dropped " + itemTypes[entity.equipment[slot].itemType].name);
-				}
-			}
-			entity.equipment = {};
+		for (const slot in entity.equipment ?? {}) {
+			if (!entity.equipment[slot]) continue;
+			mapItems.push({x: entity.x, y: entity.y, itemType: entity.equipment[slot].itemType, id: nextItemId++});
+			console.log(entity.name + " dropped " + itemTypes[entity.equipment[slot].itemType].name);
 		}
+		entity.equipment = {};
 	},
 
-	// Unified death handler - queues explosion entities for batch processing
 	death: function(entity) {
 		if (entity.hp > 0) return;
-
 		if (helper.hasTrait(entity, 'explode')) {
 			this._explosionQueue.push(entity);
-			if (!this._explosionPending) {
-				this._processBatchExplosions();
-			}
+			if (!this._explosionPending) this._processBatchExplosions();
 			if (entity.name !== "Grenade") return;
 		}
-
 		this.dropAllItems(entity);
 	},
 
-	// Drain the entire queue synchronously (chains included), then do ONE setTimeout for the flash
+	// Drains the entire queue synchronously (chains included), then one setTimeout for the flash
 	_processBatchExplosions: function() {
-		if (this._explosionPending || this._explosionQueue.length === 0) return;
+		if (this._explosionPending || !this._explosionQueue.length) return;
 		this._explosionPending = true;
 
 		const exploded = [];
-		while (this._explosionQueue.length > 0) {
+		while (this._explosionQueue.length) {
 			const grenade = this._explosionQueue.shift();
 			exploded.push(grenade);
-			this._resolveExplosion(grenade); // sync: may push more onto _explosionQueue via death()
+			this._resolveExplosion(grenade); // sync — chain deaths re-queue, picked up by next iteration
 		}
 
 		const delay = parseInt(document.getElementById("turn-delay").value) || 0;
@@ -296,59 +227,48 @@ const EntitySystem = {
 			exploded.forEach(g => canvas.grenadeAreas(g));
 			setTimeout(() => {
 				this._explosionPending = false;
-				if (currentEntityTurnsRemaining <= 0) {
-					currentEntityIndex++;
-					if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-					currentEntityTurnsRemaining = entities[currentEntityIndex]?.turns || 1;
-				}
 				update();
 			}, delay);
 		}, 0);
 	},
 
-	// Pure sync: damage, walls, immolate. Chain deaths re-queue; the while loop above picks them up.
+	// Pure sync: damage + walls + immolate for one grenade
 	_resolveExplosion: function(grenade) {
-		const itemDef = itemTypes.grenade;
-		const explodeX = grenade.x;
-		const explodeY = grenade.y;
+		const itemDef  = itemTypes.grenade;
+		const { x: ex, y: ey } = grenade;
+		const r = itemDef.damageRadius;
 
-		console.log(grenade.name + " explodes at " + explodeX + ", " + explodeY + "!");
+		console.log(grenade.name + " explodes at " + ex + ", " + ey + "!");
 
 		if (itemDef.canDestroy) {
-			for (let tx = Math.max(0, explodeX - itemDef.damageRadius); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius); tx++) {
-				for (let ty = Math.max(0, explodeY - itemDef.damageRadius); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius); ty++) {
-					if (Math.sqrt((tx - explodeX) ** 2 + (ty - explodeY) ** 2) <= itemDef.damageRadius) {
-						for (let i = walls.length - 1; i >= 0; i--) {
-							if (walls[i].x === tx && walls[i].y === ty && walls[i].type !== 'water' && walls[i].type !== 'fire') {
-								walls.splice(i, 1);
-								break;
-							}
-						}
-					}
+			for (let tx = Math.max(0, ex - r); tx <= Math.min(size - 1, ex + r); tx++) {
+				for (let ty = Math.max(0, ey - r); ty <= Math.min(size - 1, ey + r); ty++) {
+					if (Math.hypot(tx - ex, ty - ey) > r) continue;
+					const wi = walls.findIndex(w => w.x === tx && w.y === ty && w.type !== 'water' && w.type !== 'fire');
+					if (wi >= 0) walls.splice(wi, 1);
 				}
 			}
 		}
 
-		circle(explodeY, explodeX, itemDef.damageRadius);
+		circle(ey, ex, r);
 		convert();
 
-		const explosionTiles = [];
-		for (let tx = Math.max(0, explodeX - itemDef.damageRadius - 1); tx <= Math.min(size - 1, explodeX + itemDef.damageRadius + 1); tx++) {
-			for (let ty = Math.max(0, explodeY - itemDef.damageRadius - 1); ty <= Math.min(size - 1, explodeY + itemDef.damageRadius + 1); ty++) {
-				if (pts[tx] && pts[tx][ty] === 1) explosionTiles.push({x: tx, y: ty});
+		const tiles = [];
+		for (let tx = Math.max(0, ex - r - 1); tx <= Math.min(size - 1, ex + r + 1); tx++) {
+			for (let ty = Math.max(0, ey - r - 1); ty <= Math.min(size - 1, ey + r + 1); ty++) {
+				if (pts[tx]?.[ty] === 1) tiles.push({x: tx, y: ty});
 			}
 		}
 
-		const entitiesToDamage = [];
-		for (let tile of explosionTiles) {
-			for (let entity of entities) {
-				if (entity.x === tile.x && entity.y === tile.y && entity.hp > 0 && entity !== grenade) {
-					if (!entitiesToDamage.includes(entity)) entitiesToDamage.push(entity);
-				}
+		// Collect unique entities in blast, then damage — avoids hitting the same entity twice
+		const hit = [];
+		for (const tile of tiles) {
+			for (const entity of entities) {
+				if (entity !== grenade && entity.hp > 0 && entity.x === tile.x && entity.y === tile.y && !hit.includes(entity))
+					hit.push(entity);
 			}
 		}
-
-		for (let entity of entitiesToDamage) {
+		for (const entity of hit) {
 			const dmg = Math.max(1, itemDef.damage - (entity.armor || 0));
 			console.log(entity.name + " takes " + dmg + " explosion damage!");
 			entity.hp -= dmg;
@@ -356,21 +276,19 @@ const EntitySystem = {
 		}
 
 		if (helper.hasTrait(grenade, 'immolate')) {
-			for (let tile of explosionTiles) {
-				if (calc.roll(3) === 1) {
-					const existingWall = walls.find(w => w.x === tile.x && w.y === tile.y);
-					if (!existingWall) {
-						walls.push({x: tile.x, y: tile.y, type: 'fire'});
-					} else if (existingWall.type !== 'fire') {
-						walls.splice(walls.indexOf(existingWall), 1);
-						walls.push({x: tile.x, y: tile.y, type: 'fire'});
-					}
+			for (const tile of tiles) {
+				if (calc.roll(3) !== 1) continue;
+				const wi = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
+				if (wi >= 0) {
+					if (walls[wi].type === 'fire') continue;
+					walls.splice(wi, 1);
 				}
+				walls.push({x: tile.x, y: tile.y, type: 'fire'});
 			}
 		}
 	},
 
-	// Public entry point for external callers (turns.js grenade countdown)
+	// Public entry point for turns.js grenade countdown
 	triggerExplosion: function(grenade) {
 		this._explosionQueue.push(grenade);
 		this._processBatchExplosions();

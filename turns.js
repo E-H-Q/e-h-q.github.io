@@ -20,6 +20,7 @@ function startFollowing(follower, followed) {
 
 var turns = {
 	check: function() {
+		if (EntitySystem._explosionPending) return; // explosion animation in progress
         if (entities.length == 1 && currentEntityIndex >= entities.length) { // here to fix a game freeze bug when all enemies died at once
             currentEntityIndex = 0;
         }
@@ -32,7 +33,7 @@ var turns = {
 			return;
 		}
         
-		if (currentEntityTurnsRemaining <= 0) { // ONLY RUNS WHEN NON-PLAYER ENTITIES ARE ALSO PRESENT!? NEEDS TO TRIGGER AFTER *ALL* ENTITY TURNS!!!
+		if (currentEntityTurnsRemaining <= 0) { 
 			const previousEntity = entities[currentEntityIndex];
 
 			// Process inventory grenades only when an entity's ALL turns are consumed
@@ -59,7 +60,6 @@ var turns = {
 				if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 
 				let currentEntity = entities[currentEntityIndex];
-                helper.applyStatusEffects(currentEntity);
                 if (currentEntity == undefined) currentEntity = player; // failsafe defaults to player1
                 
 				// Check if enemy is in active range
@@ -575,19 +575,6 @@ var turns = {
 	move: function(entity, x, y) {
 		if (EntitySystem.moveEntity(entity, x, y)) {
 			currentEntityTurnsRemaining--;
-            if (currentEntityTurnsRemaining <= 0) { // PROCESSES INVENTORY GRENADES WHEN MOVING
-                if (typeof processInventoryGrenades !== 'undefined') {
-                    processInventoryGrenades(entity);
-                }
-                helper.applyStatusEffects(entity); // PROCESSES FIRE DAMAGE
-            }
-
-			if (isPlayerControlled(entity) && currentEntityTurnsRemaining <= 0) {
-				currentEntityIndex++;
-				if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-				currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
-			}
-
 			if (isPlayerControlled(entity)) this.checkEnemyLOS();
 			update();
 
@@ -611,12 +598,6 @@ var turns = {
 	attack: function(target, entity) {
 		EntitySystem.attack(entity, target);
 		currentEntityTurnsRemaining--;
-
-		if (isPlayerControlled(entity) && currentEntityTurnsRemaining <= 0) {
-			currentEntityIndex++;
-			if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-			currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
-		}
 	},
 
 	hasStrictLOS: function(x1, y1, x2, y2) {
