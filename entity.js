@@ -246,8 +246,10 @@ const EntitySystem = {
 		}, 0);
 	},
 
-	// Pure sync: damage + walls + immolate for one grenade
+	// Pure sync: damage + walls
 	_resolveExplosion: function(grenade) {
+		grenade.traits.push("immolate"); // ADDS IMMOLATE TRAIT, (might be too overpowered?)
+		
 		const itemDef  = itemTypes.grenade;
 		const { x: ex, y: ey } = grenade;
 		const r      = grenade._radius  ?? itemDef.damageRadius;
