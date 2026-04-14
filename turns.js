@@ -14,8 +14,11 @@ function startFollowing(follower, followed) {
 		if (cursor === follower) return;
 		cursor = cursor.following;
 	}
-	follower.following = followed;
-	console.log(follower.name + " is following " + followed.name + ".");
+	// Always follow the root of the chain directly
+	let root = followed;
+	while (root.following) root = root.following;
+	follower.following = root;
+	console.log(follower.name + " is following " + root.name + ".");
 }
 
 var turns = {
@@ -30,7 +33,7 @@ var turns = {
 			return;
 		}
         
-		if (currentEntityTurnsRemaining <= 0) {
+		if (currentEntityTurnsRemaining <= 0) { // ONLY RUNS WHEN NON-PLAYER ENTITIES ARE ALSO PRESENT!? NEEDS TO TRIGGER AFTER *ALL* ENTITY TURNS!!!
 			const previousEntity = entities[currentEntityIndex];
 
 			// Process inventory grenades only when an entity's ALL turns are consumed
@@ -57,7 +60,7 @@ var turns = {
 				if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
 
 				let currentEntity = entities[currentEntityIndex];
-                //if (currentEntity == undefined) currentEntity = player; // failsafe defaults to player1
+                if (currentEntity == undefined) currentEntity = player; // failsafe defaults to player1
                 
 				// Check if enemy is in active range
 				const buffer = 5;
@@ -572,6 +575,19 @@ var turns = {
 	move: function(entity, x, y) {
 		if (EntitySystem.moveEntity(entity, x, y)) {
 			currentEntityTurnsRemaining--;
+
+			// Move all followers toward this entity on the same action
+			const followers = entities.filter(e => e.following === entity && e.hp > 0);
+			if (followers.length) {
+				populate.reset();
+				populate.walls();
+				populate.enemies();
+				followers.forEach(f => { if (pts[f.x]?.[f.y] !== undefined) pts[f.x][f.y] = 1; });
+				followers.forEach(f => this.enemyMoveToward(f, entity.x, entity.y, followers));
+				// enemyMoveToward decrements currentEntityTurnsRemaining each call — undo those
+				currentEntityTurnsRemaining += followers.length;
+			}
+
 			if (isPlayerControlled(entity)) this.checkEnemyLOS();
 			update();
 
