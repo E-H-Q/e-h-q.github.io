@@ -270,7 +270,7 @@ function calculateGrenadeTargeting(entity, endX, endY) {
 	// Stop at solid walls (not water, glass passes through if damaged)
 	for (let i = 1; i < path.length; i++) {
 		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-		if (wall && wall.type !== 'water') {
+		if (wall && wall.type !== 'water' && wall.type !== 'fire') {
 			if (wall.type !== 'glass' || !wall.damaged) {
 				path = path.slice(0, i);
 				break;
