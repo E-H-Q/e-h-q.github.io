@@ -22,9 +22,7 @@ update();
 function getSelectedPlayer() {
 	const sel = document.getElementById('player_select');
 	if (!sel) return player;
-	const val = sel.value;
-	if (val === 'original') return player;
-	const idx = parseInt(val);
+	const idx = parseInt(sel.value);
 	return (idx >= 0 && idx < allPlayers.length) ? allPlayers[idx] : player;
 }
 
@@ -40,7 +38,7 @@ function updatePlayerSelect() {
 	const sel = document.getElementById('player_select');
 	if (!sel) return;
 	const current = sel.value;
-	sel.innerHTML = '<option value="original">' + player.name + '</option>';
+	sel.innerHTML = '';
 	allPlayers.forEach((p, i) => {
 		const opt = document.createElement('option');
 		opt.value = i;
@@ -60,7 +58,7 @@ function spawnExtraPlayer() {
 
 	const nameField = document.getElementById('player_name').value;
 	const name = (nameField === "" || nameField === "player")
-		? ("player" + (allPlayers.length + 2))
+		? ("player" + (allPlayers.length + 1))
 		: nameField;
 	const hp           = parseInt(document.getElementById('player_hp').value) || 20;
 	const range        = parseInt(document.getElementById('player_range').value) || 3;
@@ -514,29 +512,18 @@ function update() {
 		if (e.following && e.following.hp < 1) e.following = null;
 	});
 
-	if (player.hp < 1 && allPlayers.length > 0) {
-		player = allPlayers.shift();
-		player.traits = player.traits.filter(t => t !== 'player');
-		currentEntityIndex = 0;
-		currentEntityTurnsRemaining = player.turns;
-		if (typeof updatePlayerSelect === 'function') updatePlayerSelect();
-	}
+	// player is always allPlayers[0]; keep the alias current
+	if (allPlayers.length > 0) player = allPlayers[0];
 
-	// Build entity list: players, enemies, and grenades last
+	// Build entity list: players first, then enemies, grenades last
 	const nonGrenadeEnemies = allEnemies.filter(e => !helper.hasTrait(e, 'explode') && e.hp >= 1);
-	const grenades = allEnemies.filter(e => helper.hasTrait(e, 'explode') && e.hp >= 1);	
-	
-	entities = [];
-	if (player.hp >= 1) entities.push(player);
-	for (let p of allPlayers) {
-		if (p.hp >= 1) entities.push(p);
-	}
-	for (let e of nonGrenadeEnemies) {
-		entities.push(e);
-	}
-	for (let e of grenades) {
-		entities.push(e);
-	}
+	const grenades = allEnemies.filter(e => helper.hasTrait(e, 'explode') && e.hp >= 1);
+
+	entities = [
+		...allPlayers,
+		...nonGrenadeEnemies,
+		...grenades
+	];
 
 	//if (currentEntityIndex >= entities.length) {
 	if (currentEntityIndex == undefined) { // prevents turn skipping from grenades detonated by enemy attacks?
@@ -606,7 +593,7 @@ function update() {
 
 	if (isPlayerControlled(currentEntity)) {
 		const sel = document.getElementById('player_select');
-		if (sel) sel.value = currentEntity === player ? 'original' : allPlayers.indexOf(currentEntity);
+		if (sel) sel.value = allPlayers.indexOf(currentEntity);
 		onPlayerSelectChange();
 	}
 
@@ -617,7 +604,7 @@ function update() {
 action.selectedIndex = 0;
 
 function handleMouseMove(event) {
-	if (player.hp < 1 && allPlayers.length === 0) return;
+	if (allPlayers.length === 0) return;
 	if (currentEntityIndex >= 0 && !isPlayerControlled(entities[currentEntityIndex])) return;
 	input.mouse(event);
 }

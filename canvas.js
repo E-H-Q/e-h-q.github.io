@@ -226,18 +226,25 @@ var canvas = {
 	},
 
 	drawEntity: (entity, color, imgId) => {
+		const entityIdx = entities.indexOf(entity);
+		const hasActed = isPlayerControlled(entity) && entityIdx >= 0 && entityIdx < currentEntityIndex;
 		ctx.fillStyle = color;
 		const screenX = (entity.x - camera.x) * tileSize;
 		const screenY = (entity.y - camera.y) * tileSize;
-		ctx.fillRect(screenX, screenY, tileSize, tileSize);
 		const img = document.getElementById(imgId);
+		
+		if (hasActed) ctx.filter = "grayscale(75%)";
+		ctx.fillRect(screenX, screenY, tileSize, tileSize);
+		if (hasActed) ctx.filter = "brightness(75%)";
 		ctx.drawImage(img, screenX, screenY, tileSize, tileSize);
+		
 		if (!isZoomedOut) {
 			ctx.fillStyle = "rgba(255, 255, 255, 1)";
 			ctx.font = '16px serif';
 			ctx.textAlign = 'left';
 			ctx.fillText(entity.hp, screenX, screenY + tileSize);
 		}
+		ctx.filter = 'none';
 		
 		// Draw status sprites
 		canvas.drawEntityStatusSprites(entity, screenX, screenY);
@@ -268,9 +275,8 @@ var canvas = {
 	},
 
 	player: () => {
-		if (player.hp >= 1) canvas.drawEntity(player, player.playerColor || "rgba(0, 0, 255, 0.5)", "pep");
 		allPlayers.forEach(e => {
-			if (e.hp >= 1) canvas.drawEntity(e, e.playerColor || PLAYER_COLORS[0], "pep");
+			if (e.hp >= 1) canvas.drawEntity(e, e.playerColor || "rgba(0, 0, 255, 0.5)", "pep");
 		});
 	},
 
@@ -290,7 +296,7 @@ var canvas = {
 				ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
 				for (let x = Math.max(0, grenade.x - damageRadius - 1); x <= Math.min(size - 1, grenade.x + damageRadius + 1); x++) {
 					for (let y = Math.max(0, grenade.y - damageRadius - 1); y <= Math.min(size - 1, grenade.y + damageRadius + 1); y++) {
-						if (pts[x] && pts[x][y] > 0) {
+						if (pts[x] && pts[x][y] === 1) {
 							const screenX = (x - camera.x) * tileSize;
 							const screenY = (y - camera.y) * tileSize;
 							if (screenX >= -tileSize && screenX < c.width && screenY >= -tileSize && screenY < c.height) {
@@ -326,7 +332,11 @@ var canvas = {
 						(screenY * tileSize) + (tileSize * 0.65));
 				}
 			} else { // not grenade
+				//const entityIdx = entities.indexOf(entity);
+				//const hasActed = entityIdx >= 0 && entityIdx < currentEntityIndex;
+				//if (hasActed) ctx.filter = 'grayscale(1)';
 				if (entity.hp >= 1) canvas.drawEntity(entity, "rgba(125, 125, 0, 0.5)", "enemy");
+				//ctx.filter = 'none';
 			}
 		});
 	},

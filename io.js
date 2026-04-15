@@ -1,10 +1,9 @@
 // IO.JS: HANDLES LOADING + SAVING MAP DATA
 
 function save_map() {
-	// Build a flat list of all entities in the same order used at runtime
-	const allEntities = [player, ...allPlayers, ...allEnemies];
+	// player is allPlayers[0]; serialize all together
+	const allEntities = [...allPlayers, ...allEnemies];
 
-	// Replace following references with their index in allEntities before serializing
 	function serializeEntities(arr) {
 		return arr.map(e => {
 			const out = Object.assign({}, e);
@@ -16,14 +15,13 @@ function save_map() {
 
 	const save_walls   = JSON.stringify(walls);
 	const save_enemies = JSON.stringify(serializeEntities(allEnemies));
-	const save_player  = JSON.stringify(serializeEntities([player])[0]);
-	const save_items   = JSON.stringify(mapItems);
 	const save_players = JSON.stringify(serializeEntities(allPlayers));
+	const save_items   = JSON.stringify(mapItems);
 	const name = "map";
 	const type = "text/plain";
 
 	const file = new Blob(
-		[size + "\n" + save_walls + "\n" + save_enemies + "\n" + save_player + "\n" + save_items + "\n" + save_players],
+		[size + "\n" + save_walls + "\n" + save_enemies + "\n" + save_players + "\n" + save_items],
 		{type: type}
 	);
 	save_button.href = URL.createObjectURL(file);
@@ -45,9 +43,12 @@ function load_map() {
 
 		const loaded_walls   = lines[1];
 		const loaded_enemies = lines[2];
-		const loaded_player  = lines[3];
-		const loaded_items   = lines[4];
-		const loaded_players = lines[5];
+		// Detect legacy format: line 3 was a single player object {}, new format is array []
+		const line3 = lines[3] ? lines[3].trim() : '';
+		const isLegacy = line3.startsWith('{');
+		const legacy_player  = isLegacy ? line3 : null;
+		const loaded_players = isLegacy ? lines[5] : lines[3];
+		const loaded_items   = isLegacy ? lines[4] : lines[4];
 
 		if (!loaded_walls) {
 			console.log("Failed to load map!");
@@ -59,20 +60,49 @@ function load_map() {
 
 		allEnemies = loaded_enemies ? JSON.parse(loaded_enemies) : [];
 
-		if (loaded_player) {
-			player = JSON.parse(loaded_player);
-			if (player.equipment) {
-				player.attack_range = 4;
-				player.damage = 0;
-				player.armor = 0;
-				for (let slot in player.equipment) {
-					if (player.equipment[slot]) {
-						const itemDef = itemTypes[player.equipment[slot].itemType];
-						if (itemDef) applyEquipmentEffects(player, itemDef, true);
+		if (legacy_player && !loaded_players) {
+			// Legacy: reconstruct allPlayers from the single saved player object
+			try {
+				const p = JSON.parse(legacy_player);
+				if (!p.traits) p.traits = [];
+				if (!p.traits.includes('player')) p.traits.push('player');
+				if (!p.playerColor) p.playerColor = "rgba(0, 0, 255, 0.5)";
+				allPlayers = [p];
+				player = allPlayers[0];
+			} catch(e) { console.log("Failed to load legacy player."); }
+		}
+
+		if (loaded_players) {
+			try {
+				allPlayers = JSON.parse(loaded_players);
+				// Restore equipment effects for all players
+				allPlayers.forEach(p => {
+					if (p.equipment) {
+						p.attack_range = p.attack_range || 4;
+						p.damage = 0;
+						p.armor = 0;
+						for (let slot in p.equipment) {
+							if (p.equipment[slot]) {
+								const itemDef = itemTypes[p.equipment[slot].itemType];
+								if (itemDef) applyEquipmentEffects(p, itemDef, true);
+							}
+						}
 					}
+					// Ensure player trait
+					if (!p.traits) p.traits = [];
+					if (!p.traits.includes('player')) p.traits.push('player');
+				});
+				// player variable always points to allPlayers[0]
+				if (allPlayers.length > 0) player = allPlayers[0];
+				else {
+					// fallback: no players saved, reset default
+					updatePlayer();
 				}
+			} catch(e) {
+				console.log("Failed to load players, using default.");
 			}
 		} else {
+			// Legacy map format: no players line
 			updatePlayer();
 		}
 
@@ -91,14 +121,8 @@ function load_map() {
 			mapItems = [];
 		}
 
-		try {
-			allPlayers = loaded_players ? JSON.parse(loaded_players) : [];
-		} catch (e) {
-			allPlayers = [];
-		}
-
 		// Restore following references from saved indices
-		const allEntities = [player, ...allPlayers, ...allEnemies];
+		const allEntities = [...allPlayers, ...allEnemies];
 		allEntities.forEach(e => {
 			if (typeof e.following === 'number') {
 				e.following = allEntities[e.following] || null;

@@ -89,7 +89,7 @@ var input = {
     },
 
     keyboard: function(event) {
-        if (player.hp < 1 && allPlayers.length === 0) return;
+        if (allPlayers.length === 0) return;
 
         if (typeof WindowSystem !== 'undefined') {
             if (activeContextMenu || WindowSystem.isOpen()) {
@@ -179,7 +179,7 @@ var input = {
             return;
         }
 
-        if (event.keyCode === 17) { // CTRL - act as right-click
+        if (event.keyCode === 191) { // CTRL - act as right-click
             event.preventDefault();
             if (window.cursorWorldPos) {
                 const rect = c.getBoundingClientRect();
@@ -269,11 +269,18 @@ var input = {
                         hasPermissiveLOS(activeEnt.x, activeEnt.y, item.x, item.y) &&
                         item.x >= camera.x && item.x < camera.x + viewportWidth &&
                         item.y >= camera.y && item.y < camera.y + viewportHeight
+                        );
+                    const visibleFriends = allPlayers.filter(friend =>
+                        friend != activeEnt && 
+                        hasPermissiveLOS(activeEnt.x, activeEnt.y, friend.x, friend.y) &&
+                        friend.x >= camera.x && friend.x < camera.x + viewportWidth &&
+                        friend.y >= camera.y && friend.y < camera.y + viewportHeight
                     );
-                    if (visibleItems.length > 0) {
+                    const visibleTargets = [...new Set([...visibleItems, ...visibleFriends])];
+                    if (visibleTargets.length > 0) {
                         if (window.itemTargetIndex === undefined) window.itemTargetIndex = 0;
-                        else window.itemTargetIndex = (window.itemTargetIndex + 1) % visibleItems.length;
-                        const target = visibleItems[window.itemTargetIndex];
+                        else window.itemTargetIndex = (window.itemTargetIndex + 1) % visibleTargets.length;
+                        const target = visibleTargets[window.itemTargetIndex];
                         window.cursorWorldPos = {x: target.x, y: target.y};
                         update();
                     }
@@ -351,7 +358,7 @@ var input = {
     },
 
     mouse: function(event) {
-        if (player.hp < 1 && allPlayers.length === 0) return;
+        if (allPlayers.length === 0) return;
 
         const rect = c.getBoundingClientRect();
         const canvasX = event.clientX - rect.left;
@@ -422,7 +429,7 @@ var input = {
     },
 
     click: function() {
-        if (player.hp < 1 && allPlayers.length === 0) return;
+        if (allPlayers.length === 0) return;
         if (edit.checked) return;
 
         if (typeof WindowSystem !== 'undefined' && activeContextMenu) {
@@ -589,21 +596,37 @@ var input = {
         const activeEnt = getActivePlayerEntity();
         const options = [];
 
-            options.push({
-                text: "(e) Examine",
-                key: "e",
-                action: function() {
-                    if (clickedEntity) {
-                        WindowSystem.showExamineWindow(clickedEntity);
-                    } else if (clickedItem) {
-                        WindowSystem.showExamineWindow(clickedItem);
-                    } else if (clickedWall) {
-                        WindowSystem.showExamineWindow(clickedWall);
-                    }
-                }
-            });
+        const clickedObject = clickedEntity || clickedWall || clickedItem;
+        let displayName = "Unknown";
 
-            // Show Follow option when right-clicking a different player-controlled entity
+        if (clickedEntity) {
+            displayName = clickedEntity.name || "Entity";
+        } else if (clickedWall) {
+            displayName = clickedWall.type || "Wall";
+        } else if (clickedItem) {
+            displayName = "Items";
+        }
+
+        options.push({
+            text: displayName.toUpperCase()
+        });
+        if (clickedObject == activeEnt) options[0].text += " (current)";
+        
+        options.push({
+            text: "(e) Examine",
+            key: "e",
+            action: function() {
+                if (clickedEntity) {
+                    WindowSystem.showExamineWindow(clickedEntity);
+                } else if (clickedItem) {
+                    WindowSystem.showExamineWindow(clickedItem);
+                } else if (clickedWall) {
+                    WindowSystem.showExamineWindow(clickedWall);
+                }
+            }
+        });
+
+            // Show Follow/Transfer options when right-clicking a different player-controlled entity
 		if (isPlayerControlled(clickedEntity) && clickedEntity !== activeEnt) {
 			if (clickedEntity.following === activeEnt) {
 				options.push({
@@ -624,12 +647,37 @@ var input = {
                 	        update();
                 	    }});
             		}
+
+			// Transfer turn: available when it's the active player's turn and target hasn't gone yet this round
+			const clickedIdx = entities.indexOf(clickedEntity);
+			const isActiveTurn = isPlayerControlled(entities[currentEntityIndex]) && entities[currentEntityIndex] === activeEnt;
+			const turnAvailable = clickedIdx > currentEntityIndex;
+            
+			if (isActiveTurn && turnAvailable && currentEntityTurnsRemaining >= activeEnt.turns) { // ONLY WORKS WITH A FULL TURN
+				options.push({
+					text: "(t) Transfer Turn",
+					key: "t",
+					action: function() {
+						// Swap giver and receiver positions in allPlayers (affects future round order)
+						const giverIdx    = allPlayers.indexOf(activeEnt);
+						const receiverIdx = allPlayers.indexOf(clickedEntity);
+						if (giverIdx >= 0 && receiverIdx >= 0) {
+							allPlayers[giverIdx]    = clickedEntity;
+							allPlayers[receiverIdx] = activeEnt;
+						}
+						console.log(activeEnt.name + " transfers turn to " + clickedEntity.name + ".");
+
+						update();
+					}
+				});
+			}
 		}
 
         if (options.length > 0) {
             const rect = c.getBoundingClientRect();
-            const menuX = event.clientX - rect.left;
-            const menuY = event.clientY - rect.top;
+            const menuX = Math.ceil((event.clientX - rect.left) / tileSize) * tileSize - tileSize + 8; // puts menu in center-left of clicked tile
+            const menuY = Math.ceil((event.clientY - rect.top) / tileSize) * tileSize - tileSize / 2;
+            
 
             const menu = WindowSystem.createContextMenu({
                 x: menuX,

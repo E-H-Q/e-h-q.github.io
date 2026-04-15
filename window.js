@@ -483,26 +483,34 @@ var WindowSystem = {
         
         // Draw menu border
         ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1;
         ctx.strokeRect(menu.x, menu.y, menu.width, height);
         
         // Draw options
         ctx.font = "14px monospace";
         ctx.textAlign = "left";
         
+        let isFirst = true;
         for (let i = 0; i < menu.options.length; i++) {
             const option = menu.options[i];
             const itemY = menu.y + menu.padding + i * menu.itemHeight;
-            
-            // Highlight hovered option
-            if (i === menu.hoveredIndex) {
-                ctx.fillStyle = "#333333";
-                ctx.fillRect(menu.x + menu.padding, itemY, menu.width - menu.padding * 2, menu.itemHeight);
+            if (isFirst) {
+                // FIRST MENU ITEM (ENTITY NAME/WALL TYPE)
+                ctx.fillStyle = "#ffdf00";
+                ctx.textAlign = "center";
+                ctx.fillText(option.text, menu.x + menu.padding + menu.width/2, itemY + 17);
+                isFirst = false;
+                ctx.textAlign = "left";
+            } else {
+                // Highlight hovered option
+                if (i === menu.hoveredIndex) {
+                    ctx.fillStyle = "#333333";
+                    ctx.fillRect(menu.x + menu.padding, itemY, menu.width - menu.padding * 2, menu.itemHeight);
+                }
+                // Draw option text
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(option.text, menu.x + menu.padding + 5, itemY + 17);
             }
-            
-            // Draw option text
-            ctx.fillStyle = "#ffffff";
-            ctx.fillText(option.text, menu.x + menu.padding + 5, itemY + 17);
         }
     },
     
@@ -592,8 +600,8 @@ var WindowSystem = {
             }
         }
         
-        // Escape to close
-        if (event.keyCode === 27 || event.key === 'Escape') {
+        // Close context menu, (closes on any key but the one that opened it)
+        if (event.key && event.keyCode != 191) {
             event.preventDefault();
             this.closeContextMenu();
             return true;

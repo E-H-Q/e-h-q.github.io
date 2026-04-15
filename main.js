@@ -83,7 +83,8 @@ var player = {
 	turns: 2,
 	inventory: [],
 	equipment: {},
-	traits: []
+	traits: ['player'],
+	playerColor: "rgba(0, 0, 255, 0.5)"
 };
 
 var enemy = {
@@ -101,12 +102,12 @@ var enemy = {
 };
 
 var allEnemies = [];
-var allPlayers = []; // Extra player-controlled entities
+var allPlayers = [player]; // All player-controlled entities; player is always allPlayers[0]
 var entities = [];
 
-// Returns true if entity is the original player or has the 'player' trait
+// Returns true if entity has the 'player' trait
 function isPlayerControlled(entity) {
-	return entity === player || (entity && entity.traits && entity.traits.includes('player'));
+	return entity && entity.traits && entity.traits.includes('player');
 }
 
 // Returns the active player-controlled entity this turn, or original player as fallback
@@ -316,8 +317,8 @@ var helper = {
 	removeRandomFireTiles: function() {
 		for (let i = walls.length - 1; i >= 0; i--) {
 			if (walls[i].type === 'fire') {
-				// 1 in 15 chance to remove fire tile
-				if (calc.roll(15) === 1) {
+				// 1 in 5 chance to remove fire tile
+				if (calc.roll(5) === 1) {
 					walls.splice(i, 1);
 				}
 			}

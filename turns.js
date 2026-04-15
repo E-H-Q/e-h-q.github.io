@@ -24,7 +24,7 @@ function startFollowing(follower, followed) {
 var turns = {
 	check: function() {
 		if (EntitySystem._explosionPending) return; // explosion animation in progress
-		if (player.hp < 1 && allPlayers.length === 0) {
+		if (allPlayers.length === 0) {
 			const music = new Audio('sound.wav');
 			music.play();
 			music.loop = false;
@@ -244,7 +244,7 @@ var turns = {
 				enemy.seenY = closestVisible.y;
 
 				if (wasUnaware) {
-					[player, ...allPlayers].forEach(p => {
+					allPlayers.forEach(p => {
 						if (p.following) {
 							console.log(p.name + " stopped following " + p.following.name + ".");
 							p.following = null;
