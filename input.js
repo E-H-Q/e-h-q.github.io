@@ -249,13 +249,15 @@ var input = {
                 const activeEnt = getActivePlayerEntity();
 
                 if (action.value === "attack") {
+                    const range = getEntityAttackRange(activeEnt);
                     const visibleEnemies = entities.filter(e =>
                         !isPlayerControlled(e) &&
                         e.hp > 0 &&
                         (e.seenX !== 0 || e.seenY !== 0) &&
                         EntitySystem.hasLOS(activeEnt, e.x, e.y, true) &&
                         e.x >= camera.x && e.x < camera.x + viewportWidth &&
-                        e.y >= camera.y && e.y < camera.y + viewportHeight
+                        e.y >= camera.y && e.y < camera.y + viewportHeight &&
+                        calc.distance(activeEnt.x, e.x, activeEnt.y, e.y) <= range // ONLY ENTITIES WITHIN RANGE
                     );
                     if (visibleEnemies.length > 0) {
                         if (window.targetIndex === undefined) window.targetIndex = 0;
