@@ -601,7 +601,7 @@ var WindowSystem = {
         }
         
         // Close context menu, (closes on any key but the one that opened it)
-        if (event.key && event.keyCode != 191) {
+        if (event.key && event.keyCode != 191 && event.keyCode != 32) {
             event.preventDefault();
             this.closeContextMenu();
             return true;
