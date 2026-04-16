@@ -206,7 +206,7 @@ var input = {
             }
             if (window.throwingGrenadeIndex !== undefined) {
                 window.throwingGrenadeIndex = undefined;
-                action.value = "move";
+                //action.value = "move";
                 console.log("Grenade throw cancelled");
                 update();
             } else if (isPeekMode) {

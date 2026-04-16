@@ -199,8 +199,10 @@ var turns = {
 
 		if (isPlayerControlled(currentEntity) && action.value === "attack") {
 			canvas.attackRangeDim(currentEntity);
-			const targetingTiles = calculateEntityTargeting(currentEntity, window.cursorWorldPos.x, window.cursorWorldPos.y);
-			if (targetingTiles.length > 0) canvas.los(targetingTiles);
+            if (window.throwingGrenadeIndex == undefined) {
+			    const targetingTiles = calculateEntityTargeting(currentEntity, window.cursorWorldPos.x, window.cursorWorldPos.y);
+			    if (targetingTiles.length > 0) canvas.los(targetingTiles);
+            }
 		}
 
 		if (isPlayerControlled(currentEntity)) this.checkEnemyLOS();
