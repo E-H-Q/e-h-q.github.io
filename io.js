@@ -41,70 +41,114 @@ function load_map() {
 		size = JSON.parse(lines[0]);
 		resizePtsArray();
 
-		const loaded_walls   = lines[1];
-		const loaded_enemies = lines[2];
-		// Detect legacy format: line 3 was a single player object {}, new format is array []
-		const line3 = lines[3] ? lines[3].trim() : '';
-		const isLegacy = line3.startsWith('{');
-		const legacy_player  = isLegacy ? line3 : null;
-		const loaded_players = isLegacy ? lines[5] : lines[3];
-		const loaded_items   = isLegacy ? lines[4] : lines[4];
+        const loaded_walls   = lines[1];
+        const loaded_enemies = lines[2];
 
-		if (!loaded_walls) {
-			console.log("Failed to load map!");
-			return;
-		}
+        const line3 = lines[3] ? lines[3].trim() : '';
+        const isLegacy = line3.startsWith('{');
+        const legacy_player  = isLegacy ? line3 : null;
+        const loaded_players = isLegacy ? lines[5] : lines[3];
+        const loaded_items   = lines[4];
 
-		walls = JSON.parse(loaded_walls);
-		walls = walls.map(wall => wall.type ? wall : {x: wall.x, y: wall.y, type: 'wall'});
+        if (!loaded_walls) {
+            console.log("Failed to load map!");
+            return;
+        }
 
-		allEnemies = loaded_enemies ? JSON.parse(loaded_enemies) : [];
+        walls = JSON.parse(loaded_walls);
+        walls = walls.map(wall => wall.type ? wall : {x: wall.x, y: wall.y, type: 'wall'});
 
-		if (legacy_player && !loaded_players) {
-			// Legacy: reconstruct allPlayers from the single saved player object
-			try {
-				const p = JSON.parse(legacy_player);
-				if (!p.traits) p.traits = [];
-				if (!p.traits.includes('player')) p.traits.push('player');
-				if (!p.playerColor) p.playerColor = "rgba(0, 0, 255, 0.5)";
-				allPlayers = [p];
-				player = allPlayers[0];
-			} catch(e) { console.log("Failed to load legacy player."); }
-		}
+        allEnemies = loaded_enemies ? JSON.parse(loaded_enemies) : [];
 
-		if (loaded_players) {
-			try {
-				allPlayers = JSON.parse(loaded_players);
-				// Restore equipment effects for all players
-				allPlayers.forEach(p => {
-					if (p.equipment) {
-						p.attack_range = p.attack_range || 4;
-						p.damage = 0;
-						p.armor = 0;
-						for (let slot in p.equipment) {
-							if (p.equipment[slot]) {
-								const itemDef = itemTypes[p.equipment[slot].itemType];
-								if (itemDef) applyEquipmentEffects(p, itemDef, true);
-							}
-						}
-					}
-					// Ensure player trait
-					if (!p.traits) p.traits = [];
-					if (!p.traits.includes('player')) p.traits.push('player');
-				});
-				// player variable always points to allPlayers[0]
-				if (allPlayers.length > 0) player = allPlayers[0];
-				else {
-					// fallback: no players saved, reset default
-					updatePlayer();
-				}
-			} catch(e) {
-				console.log("Failed to load players, using default.");
-			}
-		} else {
-			// Legacy map format: no players line
-			updatePlayer();
-		}
+        if (legacy_player) {
+            try {
+                const p = JSON.parse(legacy_player);
+                if (!p.traits) p.traits = [];
+                if (!p.traits.includes('player')) p.traits.push('player');
+                if (!p.playerColor) p.playerColor = "rgba(0, 0, 255, 0.5)";
+
+                if (loaded_players) {
+                    // if legacy player and line 5 players exist, append legacy player to allPlayers[]
+                    allPlayers = JSON.parse(loaded_players);
+                    allPlayers.push(p);
+                } else {
+                    allPlayers = [p];
+                }
+                player = allPlayers[0];
+
+                // restore equipment + traits for every player (including the appended one)
+                allPlayers.forEach(pp => {
+                    if (pp.equipment) {
+                        pp.attack_range = pp.attack_range || 4;
+                        pp.damage = 0;
+                        pp.armor = 0;
+                        for (let slot in pp.equipment) {
+                            if (pp.equipment[slot]) {
+                                const itemDef = itemTypes[pp.equipment[slot].itemType];
+                                if (itemDef) applyEquipmentEffects(pp, itemDef, true);
+                            }
+                        }
+                    }
+                    if (!pp.traits) pp.traits = [];
+                    if (!pp.traits.includes('player')) pp.traits.push('player');
+                });
+            } catch(e) { console.log("Failed to load legacy player."); }
+        }
+
+        if (loaded_players && !legacy_player) {
+            try {
+                allPlayers = JSON.parse(loaded_players);
+                allPlayers.forEach(p => {
+                    if (p.equipment) {
+                        p.attack_range = p.attack_range || 4;
+                        p.damage = 0;
+                        p.armor = 0;
+                        for (let slot in p.equipment) {
+                            if (p.equipment[slot]) {
+                                const itemDef = itemTypes[p.equipment[slot].itemType];
+                                if (itemDef) applyEquipmentEffects(p, itemDef, true);
+                            }
+                        }
+                    }
+                    if (!p.traits) p.traits = [];
+                    if (!p.traits.includes('player')) p.traits.push('player');
+                });
+                if (allPlayers.length > 0) player = allPlayers[0];
+                else updatePlayer();
+            } catch(e) {
+                console.log("Failed to load players, using default.");
+            }
+        } else if (!legacy_player) {
+            updatePlayer();
+        }
+
+        if (loaded_items) {
+            try {
+                mapItems = JSON.parse(loaded_items);
+                if (mapItems.length > 0) {
+                    const maxId = Math.max(...mapItems.map(item => item.id));
+                    nextItemId = maxId + 1;
+                }
+            } catch (e) {
+                mapItems = [];
+            }
+        } else {
+            mapItems = [];
+        }
+
+        if (loaded_items) {
+            try {
+                mapItems = JSON.parse(loaded_items);
+                if (mapItems.length > 0) {
+                    const maxId = Math.max(...mapItems.map(item => item.id));
+                    nextItemId = maxId + 1;
+                }
+            } catch (e) {
+                mapItems = [];
+            }
+        } else {
+            mapItems = [];
+        }
 
 		if (loaded_items) {
 			try {
