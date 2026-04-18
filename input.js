@@ -26,13 +26,16 @@ function updateCamera() {
         const dy = window.cursorWorldPos.y - activeEnt.y;
         const euclideanDist = Math.sqrt(dx * dx + dy * dy);
         const dampening = euclideanDist < 5 ? 0.2 + (euclideanDist / 5) * 0.8 : 1.0;
-        const maxPanDistance = Math.round(euclideanDist / 3) * dampening;
+        const maxPanDistance = (euclideanDist / 3) * dampening;
 
-        const playerCameraX = activeEnt.x - Math.floor(viewportWidth / 2) + 1;
-        const playerCameraY = activeEnt.y - Math.floor(viewportHeight / 2) + 1;
+        const halfW = Math.round(viewportWidth / 2);
+        const halfH = Math.round(viewportHeight / 2);
 
-        let desiredCameraX = window.cursorWorldPos.x - Math.floor(viewportWidth / 2) + 1;
-        let desiredCameraY = window.cursorWorldPos.y - Math.floor(viewportHeight / 2) + 1;
+        const playerCameraX = activeEnt.x - halfW + 1;
+        const playerCameraY = activeEnt.y - halfH + 1;
+
+        let desiredCameraX = window.cursorWorldPos.x - halfW + 1;
+        let desiredCameraY = window.cursorWorldPos.y - halfH + 1;
 
         const deltaX = desiredCameraX - playerCameraX;
         const deltaY = desiredCameraY - playerCameraY;
