@@ -540,7 +540,7 @@ function update() {
 	} else {
 		if (isAiming) {
 			updateCamera();
-		} else {
+		} else if (!EntitySystem._explosionPending) {
 			camera = {
 				x: currentEntity.x - Math.round((viewportWidth / 2)) + 1,
 				y: currentEntity.y - Math.round((viewportHeight / 2)) + 1

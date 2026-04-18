@@ -229,21 +229,31 @@ const EntitySystem = {
 		if (this._explosionPending || !this._explosionQueue.length) return;
 		this._explosionPending = true;
 
-		const exploded = [];
-		while (this._explosionQueue.length) {
-			const grenade = this._explosionQueue.shift();
-			exploded.push(grenade);
-			this._resolveExplosion(grenade); // sync — chain deaths re-queue, picked up by next iteration
-		}
-
 		const delay = parseInt(document.getElementById("turn-delay").value) || 0;
+
+		const firstGrenade = this._explosionQueue[0];
+		camera = {
+			x: firstGrenade.x - Math.round(viewportWidth / 2) + 1,
+			y: firstGrenade.y - Math.round(viewportHeight / 2) + 1
+		};
+		canvas.init();
+		update();
+
 		setTimeout(() => {
+			const exploded = [];
+			while (this._explosionQueue.length) {
+				const grenade = this._explosionQueue.shift();
+				exploded.push(grenade);
+				this._resolveExplosion(grenade);
+			}
+
 			exploded.forEach(g => canvas.grenadeAreas(g));
+
 			setTimeout(() => {
 				this._explosionPending = false;
 				update();
 			}, delay);
-		}, 0);
+		}, delay);
 	},
 
 	// Pure sync: damage + walls
@@ -257,25 +267,30 @@ const EntitySystem = {
 
 		console.log(grenade.name + " explodes at " + ex + ", " + ey + "!");
 
-		if (itemDef.canDestroy) {
-			for (let tx = Math.max(0, ex - r); tx <= Math.min(size - 1, ex + r); tx++) {
-				for (let ty = Math.max(0, ey - r); ty <= Math.min(size - 1, ey + r); ty++) {
-					if (Math.hypot(tx - ex, ty - ey) > r) continue;
-					const wi = walls.findIndex(w => w.x === tx && w.y === ty && w.type !== 'water' && w.type !== 'fire');
-					if (wi >= 0) walls.splice(wi, 1);
-				}
+		// circle(xc, yc, r) is always called as circle(ey, ex, r) throughout this codebase.
+		// Inside hl(), array is written as array[y1 * size + xw] where the first param (xc=ey)
+		// drives the scanline x-offset and second param (yc=ex) drives y1/y2.
+		// Reading back: world tile (wx, wy) is stored at array[wx * size + wy].
+		circle(ey, ex, r);
+		const blastTiles = [];
+		for (let wx = Math.max(0, ex - r - 1); wx <= Math.min(size - 1, ex + r + 1); wx++) {
+			for (let wy = Math.max(0, ey - r - 1); wy <= Math.min(size - 1, ey + r + 1); wy++) {
+				if (array[wx * size + wy] === 1) blastTiles.push({x: wx, y: wy});
 			}
 		}
 
-		circle(ey, ex, r);
+		// Destroy walls within the circle-shaped blast area
+		if (itemDef.canDestroy) {
+			for (const tile of blastTiles) {
+				const wi = walls.findIndex(w => w.x === tile.x && w.y === tile.y && w.type !== 'water' && w.type !== 'fire');
+				if (wi >= 0) walls.splice(wi, 1);
+			}
+		}
+
+		// Now convert() for entity damage (walls already removed above won't affect entity hits)
 		convert();
 
-		const tiles = [];
-		for (let tx = Math.max(0, ex - r - 1); tx <= Math.min(size - 1, ex + r + 1); tx++) {
-			for (let ty = Math.max(0, ey - r - 1); ty <= Math.min(size - 1, ey + r + 1); ty++) {
-				if (pts[tx]?.[ty] === 1) tiles.push({x: tx, y: ty});
-			}
-		}
+		const tiles = blastTiles;
 
 		// Collect unique entities in blast, then damage — avoids hitting the same entity twice
 		const hit = [];
@@ -295,11 +310,6 @@ const EntitySystem = {
 		if (helper.hasTrait(grenade, 'immolate')) {
 			for (const tile of tiles) {
 				if (calc.roll(3) !== 1) continue;
-				const wi = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
-				if (wi >= 0) {
-					if (walls[wi].type === 'fire') continue;
-					walls.splice(wi, 1);
-				}
 				walls.push({x: tile.x, y: tile.y, type: 'fire'});
 			}
 		}
