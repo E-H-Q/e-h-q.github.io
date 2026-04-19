@@ -10,6 +10,57 @@ var isZoomedOut = false;
 var lastCameraUpdateCursorX = null;
 var lastCameraUpdateCursorY = null;
 
+// Grab mode variables
+var isGrabMode = false;
+
+function exitGrabMode() {
+	if (!isGrabMode) return;
+	isGrabMode = false;
+	console.log("Exited grab mode.");
+	update();
+}
+
+function activateGrabMode() {
+	if (currentEntityIndex < 0 || !isPlayerControlled(entities[currentEntityIndex])) return;
+	const activeEnt = getActivePlayerEntity();
+	const hasItemsOnSelf = mapItems.some(item => item.x === activeEnt.x && item.y === activeEnt.y);
+	const adjacentWithItems = helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
+		.filter(tile => mapItems.some(item => item.x === tile.x && item.y === tile.y));
+
+	// If standing on items with nothing adjacent, just pick up immediately
+	if (hasItemsOnSelf && adjacentWithItems.length === 0) {
+		grabItemsFromTile(activeEnt.x, activeEnt.y);
+		update();
+		return;
+	}
+
+	if (!hasItemsOnSelf && adjacentWithItems.length === 0) {
+		console.log("No items within reach.");
+		return;
+	}
+
+	isGrabMode = true;
+	console.log("Grab mode: select an adjacent tile to grab items from.");
+	update();
+}
+
+// Grab items from a tile without spending a turn
+function grabItemsFromTile(x, y) {
+	const activeEnt = getActivePlayerEntity();
+	const itemsAtTile = mapItems.filter(item => item.x === x && item.y === y);
+	if (itemsAtTile.length === 0) return false;
+
+	// Temporarily move entity to that tile for pickup, then restore
+	const origX = activeEnt.x;
+	const origY = activeEnt.y;
+	activeEnt.x = x;
+	activeEnt.y = y;
+	pickupItem(activeEnt, x, y);
+	activeEnt.x = origX;
+	activeEnt.y = origY;
+	return true;
+}
+
 function updateCamera() {
     if (isAiming && window.cursorWorldPos && !isZoomedOut && !edit.checked) {
         const deadZone = 2;
@@ -209,9 +260,10 @@ var input = {
             }
             if (window.throwingGrenadeIndex !== undefined) {
                 window.throwingGrenadeIndex = undefined;
-                //action.value = "move";
                 console.log("Grenade throw cancelled");
                 update();
+            } else if (isGrabMode) {
+                exitGrabMode();
             } else if (isPeekMode) {
                 exitPeekMode();
             } else if (edit.checked) {
@@ -244,6 +296,15 @@ var input = {
             return;
         }
 
+        if (event.keyCode === 71) { // G - Grab mode
+            if (!isGrabMode) {
+                activateGrabMode();
+            } else {
+                exitGrabMode();
+            }
+            return;
+        }
+
         if (event.keyCode === 222) { // ' - Cycle targets
             event.preventDefault();
             if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex])) {
@@ -260,7 +321,7 @@ var input = {
                         EntitySystem.hasLOS(activeEnt, e.x, e.y, true) &&
                         e.x >= camera.x && e.x < camera.x + viewportWidth &&
                         e.y >= camera.y && e.y < camera.y + viewportHeight &&
-                        calc.distance(activeEnt.x, e.x, activeEnt.y, e.y) <= range // ONLY ENTITIES WITHIN RANGE
+                        calc.distance(activeEnt.x, e.x, activeEnt.y, e.y) <= range
                     );
                     if (visibleEnemies.length > 0) {
                         if (window.targetIndex === undefined) window.targetIndex = 0;
@@ -458,6 +519,21 @@ var input = {
             y: window.cursorWorldPos.y
         };
 
+        // GRAB MODE - pick up item from adjacent tile or own tile (no turn cost)
+        if (isGrabMode) {
+            const activeEnt = getActivePlayerEntity();
+            const dist = calc.distance(activeEnt.x, click_pos.x, activeEnt.y, click_pos.y);
+            const hasItemsHere = mapItems.some(item => item.x === click_pos.x && item.y === click_pos.y);
+            if (dist <= 1 && hasItemsHere) {
+                grabItemsFromTile(click_pos.x, click_pos.y);
+                if (!WindowSystem.isOpen()) {
+                    isGrabMode = false;
+                }
+                update();
+            }
+            return;
+        }
+
         const activeEnt = getActivePlayerEntity();
 
         switch (action.value) {
@@ -631,7 +707,23 @@ var input = {
             }
         });
 
-            // Show Follow/Transfer options when right-clicking a different player-controlled entity
+        // Grab option: show when right-clicking a tile with items that the active player is adjacent to
+        if (clickedItem && !clickedEntity) {
+            const isActiveTurn = currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]);
+            const dist = calc.distance(activeEnt.x, window.cursorWorldPos.x, activeEnt.y, window.cursorWorldPos.y);
+            if (isActiveTurn && dist <= 1 && dist > 0) {
+                options.push({
+                    text: "(g) Grab",
+                    key: "g",
+                    action: function() {
+                        grabItemsFromTile(window.cursorWorldPos.x, window.cursorWorldPos.y);
+                        update();
+                    }
+                });
+            }
+        }
+
+        // Show Follow/Transfer options when right-clicking a different player-controlled entity
 		if (isPlayerControlled(clickedEntity) && clickedEntity !== activeEnt) {
 			if (clickedEntity.following === activeEnt) {
 				options.push({
@@ -658,12 +750,11 @@ var input = {
 			const isActiveTurn = isPlayerControlled(entities[currentEntityIndex]) && entities[currentEntityIndex] === activeEnt;
 			const turnAvailable = clickedIdx > currentEntityIndex;
             
-			if (isActiveTurn && turnAvailable && currentEntityTurnsRemaining >= activeEnt.turns) { // ONLY WORKS WITH A FULL TURN
+			if (isActiveTurn && turnAvailable && currentEntityTurnsRemaining >= activeEnt.turns) {
 				options.push({
 					text: "(t) Transfer Turn",
 					key: "t",
 					action: function() {
-						// Swap giver and receiver positions in allPlayers (affects future round order)
 						const giverIdx    = allPlayers.indexOf(activeEnt);
 						const receiverIdx = allPlayers.indexOf(clickedEntity);
 						if (giverIdx >= 0 && receiverIdx >= 0) {
@@ -671,7 +762,6 @@ var input = {
 							allPlayers[receiverIdx] = activeEnt;
 						}
 						console.log(activeEnt.name + " transfers turn to " + clickedEntity.name + ".");
-
 						update();
 					}
 				});
@@ -680,9 +770,8 @@ var input = {
 
         if (options.length > 0) {
             const rect = c.getBoundingClientRect();
-            const menuX = Math.ceil((event.clientX - rect.left) / tileSize) * tileSize - tileSize + 8; // puts menu in center-left of clicked tile
+            const menuX = Math.ceil((event.clientX - rect.left) / tileSize) * tileSize - tileSize + 8;
             const menuY = Math.ceil((event.clientY - rect.top) / tileSize) * tileSize - tileSize / 2;
-            
 
             const menu = WindowSystem.createContextMenu({
                 x: menuX,

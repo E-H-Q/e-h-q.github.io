@@ -190,6 +190,22 @@ function exitPeekMode() {
 	update();
 }
 
+function drawGrabMode() {
+	if (!isGrabMode) return;
+	const activeEnt = getActivePlayerEntity();
+	// Include player's own tile plus all adjacent tiles
+	const grabTiles = [
+		{x: activeEnt.x, y: activeEnt.y},
+		...helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
+	];
+	ctx.fillStyle = "rgba(0, 220, 255, 0.45)";
+	for (const tile of grabTiles) {
+		if (mapItems.some(item => item.x === tile.x && item.y === tile.y)) {
+			ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
+		}
+	}
+}
+
 function updateTurnOrder() {
 	var turnOrder = document.getElementById("turn-order");
 	var html = '';
@@ -280,7 +296,7 @@ function dropInventoryItem(event, inventoryIndex) {
 			const quantity = item.quantity || 1;
 
 			if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
-				if (item.isLive && itemDef.effect === "grenade") { // spawn dropped grenade
+				if (item.isLive && itemDef.effect === "grenade") {
 					const grenadeEntity = {
 						name: "Grenade",
 						hp: 1,
@@ -370,7 +386,7 @@ function unequipSlot(slot) {
 	}
 }
 
-function killEntity(index) { // ONLY used for the "x" button for enemies in the turn order
+function killEntity(index) {
 	if (index >= 0 && index < entities.length && !isPlayerControlled(entities[index])) {
 		entities[index].hp = 0;
 		if (index < currentEntityIndex) currentEntityIndex--;
@@ -525,8 +541,7 @@ function update() {
 		...grenades
 	];
 
-	//if (currentEntityIndex >= entities.length) {
-	if (currentEntityIndex == undefined) { // prevents turn skipping from grenades detonated by enemy attacks?
+	if (currentEntityIndex == undefined) {
 		currentEntityIndex = 0;
 		currentEntityTurnsRemaining = 0;
 	}
@@ -576,15 +591,51 @@ function update() {
 
 	turns.check();
 
-	if (isPlayerControlled(currentEntity) && action.value === "attack" && window.cursorWorldPos && window.throwingGrenadeIndex !== undefined) {
-		const grenadeTargeting = calculateGrenadeTargeting(currentEntity, window.cursorWorldPos.x, window.cursorWorldPos.y);
-		if (grenadeTargeting.length > 0) canvas.los(grenadeTargeting);
+	if (isGrabMode && isPlayerControlled(currentEntity)) {
+		// Erase movement/LOS overlay tiles drawn by turns.check, then draw grab highlights
+		valid.forEach(v => {
+			ctx.clearRect((v.x - camera.x) * tileSize, (v.y - camera.y) * tileSize, tileSize, tileSize);
+		});
+		// Redraw floor, walls, and items on cleared tiles
+		const tilesImg = document.getElementById("tiles");
+		valid.forEach(v => {
+			const sx = (v.x - camera.x) * tileSize;
+			const sy = (v.y - camera.y) * tileSize;
+			if (tilesImg && tilesImg.complete && tilesImg.naturalWidth > 0) {
+				ctx.drawImage(tilesImg, TILE_FLOOR * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
+			}
+			// Redraw wall on this tile if present
+			const wall = walls.find(w => w.x === v.x && w.y === v.y);
+			if (wall && tilesImg && tilesImg.complete) {
+				const tileIndex = { wall: TILE_WALL, glass: TILE_GLASS, water: TILE_WATER, fire: TILE_FIRE }[wall.type];
+				if (tileIndex !== undefined) ctx.drawImage(tilesImg, tileIndex * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
+				if (wall.type === 'glass' && wall.damaged) ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
+			}
+			// Redraw items on this tile
+			mapItems.filter(item => item.x === v.x && item.y === v.y).forEach(item => {
+				const itemDef = itemTypes[item.itemType];
+				const isEquipment = itemDef?.type === "equipment";
+				ctx.fillStyle = isEquipment ? "rgba(255, 165, 0, 0.8)" : "rgba(255, 255, 255, 0.8)";
+				ctx.fillRect(sx, sy, tileSize, tileSize);
+				if (!isZoomedOut && itemLabels[item.itemType]) {
+					ctx.fillStyle = isEquipment ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)";
+					ctx.font = 'bold 12px serif';
+					ctx.textAlign = 'center';
+					ctx.fillText(itemLabels[item.itemType], sx + tileSize / 2, sy + tileSize / 2 + 4);
+					ctx.textAlign = 'left';
+				}
+			});
+		});
+		drawGrabMode();
+	} else {
+		if (isPlayerControlled(currentEntity) && action.value === "attack" && window.cursorWorldPos && window.throwingGrenadeIndex !== undefined) {
+			const grenadeTargeting = calculateGrenadeTargeting(currentEntity, window.cursorWorldPos.x, window.cursorWorldPos.y);
+			if (grenadeTargeting.length > 0) canvas.los(grenadeTargeting);
+		}
 	}
 
 	canvas.cursor();
 	canvas.window();
-	
-	//canvas.grenadeAreas();
 
 	updateTurnOrder();
 	updateInventory();
@@ -685,6 +736,8 @@ function showItemPickupWindow(x, y) {
 			}
 			if (pickedCount > 0) console.log("Picked up " + pickedCount + " " + itemDef.name + (pickedCount > 1 ? "s" : ""));
 		}
+		// Exit grab mode after single-item auto-pickup
+		if (isGrabMode) isGrabMode = false;
 		update();
 		return;
 	}
@@ -737,9 +790,13 @@ function showItemPickupWindow(x, y) {
 					if (pickedCount > 0) console.log("Picked up " + pickedCount + " " + itemDef.name + (pickedCount > 1 ? "s" : ""));
 				}
 			});
+			// Exit grab mode after window confirm
+			if (isGrabMode) isGrabMode = false;
 		},
 		onCancel: function() {
 			console.log("Cancelled item pickup");
+			// Exit grab mode on cancel too
+			if (isGrabMode) isGrabMode = false;
 		}
 	});
 
