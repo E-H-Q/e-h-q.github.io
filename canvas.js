@@ -70,11 +70,6 @@ var canvas = {
 			ctx.moveTo(0, pos);
 			ctx.lineTo(c.width, pos);
 		}
-		if (edit.checked) {
-			ctx.font = 'italic bold 16px sans';
-			ctx.fillStyle = "#FF0000";
-			ctx.fillText("EDIT MODE ON", 5, 16); // RED EDIT MODE TEXT !!!!!!!!!!!!!!
-		}
 		ctx.stroke();
 	},
 
@@ -115,6 +110,11 @@ var canvas = {
 				}
 			}
 		});
+		if (edit.checked) {
+			ctx.font = 'italic bold 16px sans';
+			ctx.fillStyle = "#FF0000";
+			ctx.fillText("EDIT MODE ON", 5, 16); // RED EDIT MODE TEXT !!!!!!!!!!!!!!
+		}
 	},
 
 	items: () => {
