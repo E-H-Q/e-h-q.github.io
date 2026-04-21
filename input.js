@@ -272,6 +272,7 @@ var input = {
         if (event.shiftKey && event.keyCode === 69) {
             edit.checked = !edit.checked;
             document.getElementById('size-input-container').style.display = edit.checked ? 'inline-block' : 'none';
+            update();
             return;
         }
 
