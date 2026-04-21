@@ -27,7 +27,6 @@ function activateGrabMode() {
 	const adjacentWithItems = helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
 		.filter(tile => mapItems.some(item => item.x === tile.x && item.y === tile.y));
 
-	// If standing on items with nothing adjacent, just pick up immediately
 	if (hasItemsOnSelf && adjacentWithItems.length === 0) {
 		grabItemsFromTile(activeEnt.x, activeEnt.y);
 		update();
@@ -44,13 +43,11 @@ function activateGrabMode() {
 	update();
 }
 
-// Grab items from a tile without spending a turn
 function grabItemsFromTile(x, y) {
 	const activeEnt = getActivePlayerEntity();
 	const itemsAtTile = mapItems.filter(item => item.x === x && item.y === y);
 	if (itemsAtTile.length === 0) return false;
 
-	// Temporarily move entity to that tile for pickup, then restore
 	const origX = activeEnt.x;
 	const origY = activeEnt.y;
 	activeEnt.x = x;
@@ -152,7 +149,6 @@ var input = {
             }
         }
 
-        // Allow keyboard control for any player-controlled entity's turn
         if (currentEntityIndex < 0 || !isPlayerControlled(entities[currentEntityIndex])) return;
 
         // SPACE KEY - Toggle aim mode
@@ -203,7 +199,7 @@ var input = {
 
         if (event.type !== 'keydown' && event.keyCode !== 32) return;
 
-        if ([37, 38, 39, 40].includes(event.keyCode)) { // ARROW KEYS
+        if ([37, 38, 39, 40].includes(event.keyCode)) {
             event.preventDefault();
             const activeEnt = getActivePlayerEntity();
             if (!keyboardMode) window.cursorWorldPos = {x: activeEnt.x, y: activeEnt.y};
@@ -225,7 +221,7 @@ var input = {
             return;
         }
 
-        if (event.keyCode === 13) { // ENTER
+        if (event.keyCode === 13) {
             event.preventDefault();
             if (keyboardMode && currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex])) {
                 input.click();
@@ -233,7 +229,7 @@ var input = {
             return;
         }
 
-        if (event.keyCode === 191) { // CTRL - act as right-click
+        if (event.keyCode === 191) {
             event.preventDefault();
             if (window.cursorWorldPos) {
                 const rect = c.getBoundingClientRect();
@@ -247,7 +243,7 @@ var input = {
             return;
         }
 
-        if (event.keyCode === 27) { // ESC
+        if (event.keyCode === 27) {
             if (isAiming) {
                 isAiming = false;
                 updateCamera();
@@ -279,7 +275,7 @@ var input = {
             return;
         }
 
-        if (event.keyCode === 82) { // R - Reload
+        if (event.keyCode === 82) {
             if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex])) {
                 const activeEnt = getActivePlayerEntity();
                 if (reloadWeapon(activeEnt)) {
@@ -296,16 +292,13 @@ var input = {
             return;
         }
 
-        if (event.keyCode === 71) { // G - Grab mode
-            if (!isGrabMode) {
-                activateGrabMode();
-            } else {
-                exitGrabMode();
-            }
+        if (event.keyCode === 71) {
+            if (!isGrabMode) activateGrabMode();
+            else exitGrabMode();
             return;
         }
 
-        if (event.keyCode === 222) { // ' - Cycle targets
+        if (event.keyCode === 222) {
             event.preventDefault();
             if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex])) {
                 keyboardMode = true;
@@ -337,7 +330,7 @@ var input = {
                         item.y >= camera.y && item.y < camera.y + viewportHeight
                         );
                     const visibleFriends = allPlayers.filter(friend =>
-                        friend != activeEnt && 
+                        friend != activeEnt &&
                         hasPermissiveLOS(activeEnt.x, activeEnt.y, friend.x, friend.y) &&
                         friend.x >= camera.x && friend.x < camera.x + viewportWidth &&
                         friend.y >= camera.y && friend.y < camera.y + viewportHeight
@@ -355,7 +348,6 @@ var input = {
             return;
         }
 
-        // COMMA KEY - Pickup item
         if (event.keyCode === 188) {
             if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]) && currentEntityTurnsRemaining > 0) {
                 const activeEnt = getActivePlayerEntity();
@@ -368,7 +360,6 @@ var input = {
             return;
         }
 
-        // PERIOD KEY - Wait/pass turn
         if (event.keyCode === 190) {
             if (isPeekMode) {
                 exitPeekMode();
@@ -383,7 +374,6 @@ var input = {
             return;
         }
 
-        // NUMBER KEYS - Use inventory item
         if (event.keyCode >= 48 && event.keyCode <= 57) {
             if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) return;
             if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex])) {
@@ -397,7 +387,7 @@ var input = {
             return;
         }
 
-        if (event.keyCode === 9) { // TAB
+        if (event.keyCode === 9) {
             event.preventDefault();
             if (isPeekMode && peekStep === 2) return;
             action.value = (action.value === "move") ? "attack" : "move";
@@ -418,7 +408,7 @@ var input = {
             }
         }
 
-        if (event.keyCode === 80) { // P - Peek mode
+        if (event.keyCode === 80) {
             activatePeekMode();
         }
     },
@@ -475,7 +465,7 @@ var input = {
             }
         }
 
-        if (edit.checked && isMouseDown) {
+        if (edit.checked && isMouseDown && !activeContextMenu && !WindowSystem.isOpen()) {
             const click_pos = {
                 x: camera.x + gridX,
                 y: camera.y + gridY
@@ -496,7 +486,6 @@ var input = {
 
     click: function() {
         if (allPlayers.length === 0) return;
-        if (edit.checked) return;
 
         if (typeof WindowSystem !== 'undefined' && activeContextMenu) {
             const canvasX = mouse_pos.canvasX || 0;
@@ -512,6 +501,8 @@ var input = {
             return;
         }
 
+        if (edit.checked) return;
+
         if (!window.cursorWorldPos) return;
 
         const click_pos = {
@@ -519,16 +510,13 @@ var input = {
             y: window.cursorWorldPos.y
         };
 
-        // GRAB MODE - pick up item from adjacent tile or own tile (no turn cost)
         if (isGrabMode) {
             const activeEnt = getActivePlayerEntity();
             const dist = calc.distance(activeEnt.x, click_pos.x, activeEnt.y, click_pos.y);
             const hasItemsHere = mapItems.some(item => item.x === click_pos.x && item.y === click_pos.y);
             if (dist <= 1 && hasItemsHere) {
                 grabItemsFromTile(click_pos.x, click_pos.y);
-                if (!WindowSystem.isOpen()) {
-                    isGrabMode = false;
-                }
+                if (!WindowSystem.isOpen()) isGrabMode = false;
                 update();
             }
             return;
@@ -557,13 +545,12 @@ var input = {
                 break;
 
             case "attack":
-                // Check if throwing grenade
                 if (window.throwingGrenadeIndex !== undefined) {
                     if (throwItem(activeEnt, window.throwingGrenadeIndex, click_pos.x, click_pos.y)) {
                         window.throwingGrenadeIndex = undefined;
 
                         currentEntityTurnsRemaining--;
-                        
+
                         if (isPeekMode) {
                             if (peekStep === 2) {
                                 peekEntity.x = peekStartX;
@@ -655,8 +642,6 @@ var input = {
         document.getElementById('item_x').value = window.cursorWorldPos.x;
         document.getElementById('item_y').value = window.cursorWorldPos.y;
 
-        if (edit.checked) return;
-
         const clickedEntity = entities.find(e =>
             e.x === window.cursorWorldPos.x &&
             e.y === window.cursorWorldPos.y
@@ -669,10 +654,8 @@ var input = {
             e.x === window.cursorWorldPos.x &&
             e.y === window.cursorWorldPos.y
         );
-        
-        if (!clickedEntity && !clickedItem && !clickedWall) {
-            return;
-        }
+
+        if (!clickedEntity && !clickedItem && !clickedWall) return;
 
         const activeEnt = getActivePlayerEntity();
         const options = [];
@@ -680,93 +663,142 @@ var input = {
         const clickedObject = clickedEntity || clickedWall || clickedItem;
         let displayName = "Unknown";
 
-        if (clickedEntity) {
-            displayName = clickedEntity.name || "Entity";
-        } else if (clickedWall) {
-            displayName = clickedWall.type || "Wall";
-        } else if (clickedItem) {
-            displayName = "Items";
-        }
+        if (clickedEntity) displayName = clickedEntity.name || "Entity";
+        else if (clickedWall) displayName = clickedWall.type || "Wall";
+        else if (clickedItem) displayName = "Items";
 
-        options.push({
-            text: displayName.toUpperCase()
-        });
+        options.push({ text: displayName.toUpperCase() });
         if (clickedObject == activeEnt) options[0].text += " (current)";
         
         options.push({
             text: "(e) Examine",
             key: "e",
             action: function() {
-                if (clickedEntity) {
-                    WindowSystem.showExamineWindow(clickedEntity);
-                } else if (clickedItem) {
-                    WindowSystem.showExamineWindow(clickedItem);
-                } else if (clickedWall) {
-                    WindowSystem.showExamineWindow(clickedWall);
-                }
+                if (clickedEntity) WindowSystem.showExamineWindow(clickedEntity);
+                else if (clickedItem) WindowSystem.showExamineWindow(clickedItem)
+                else if (clickedWall) WindowSystem.showExamineWindow(clickedWall);
             }
         });
 
-        // Grab option: show when right-clicking a tile with items that the active player is adjacent to
-        if (clickedItem && !clickedEntity) {
-            const isActiveTurn = currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]);
-            const dist = calc.distance(activeEnt.x, window.cursorWorldPos.x, activeEnt.y, window.cursorWorldPos.y);
-            if (isActiveTurn && dist <= 1 && dist > 0) {
+        if (edit.checked) { // EDIT MODE ONLY OPTIONS
+            
+            if (clickedEntity) { // TRAITS & KILL options (entities only, not items or walls)
                 options.push({
-                    text: "(g) Grab",
-                    key: "g",
+                    text: "(t) Traits",
+                    key: "t",
                     action: function() {
-                        grabItemsFromTile(window.cursorWorldPos.x, window.cursorWorldPos.y);
+                        WindowSystem.openTraitsWindow(clickedEntity);
+                    }
+                });
+                options.push({
+                    text: "(k) Kill",
+                    key: "k",
+                    danger: true,
+                    action: function() {
+                        clickedEntity.hp = 0;
+                        EntitySystem.death(clickedEntity);
                         update();
                     }
                 });
             }
-        }
-
-        // Show Follow/Transfer options when right-clicking a different player-controlled entity
-		if (isPlayerControlled(clickedEntity) && clickedEntity !== activeEnt) {
-			if (clickedEntity.following === activeEnt) {
-				options.push({
-				text: "(f) remove Follower",
-                	key: "f",
-                	action: function() {
-                		    console.log(clickedEntity.name + " stopped following " + activeEnt.name + ".");
-                		    clickedEntity.following = null;
-                		    update();
-                		}
-            		});
-			} else {
-                	options.push({
-                	    text: "(f) Follow",
-                	    key: "f",
-                	    action: function() {
-                	        startFollowing(activeEnt, clickedEntity);
-                	        update();
-                	    }});
-            		}
-
-			// Transfer turn: available when it's the active player's turn and target hasn't gone yet this round
-			const clickedIdx = entities.indexOf(clickedEntity);
-			const isActiveTurn = isPlayerControlled(entities[currentEntityIndex]) && entities[currentEntityIndex] === activeEnt;
-			const turnAvailable = clickedIdx > currentEntityIndex;
             
-			if (isActiveTurn && turnAvailable && currentEntityTurnsRemaining >= activeEnt.turns) {
-				options.push({
-					text: "(t) Transfer Turn",
-					key: "t",
-					action: function() {
-						const giverIdx    = allPlayers.indexOf(activeEnt);
-						const receiverIdx = allPlayers.indexOf(clickedEntity);
-						if (giverIdx >= 0 && receiverIdx >= 0) {
-							allPlayers[giverIdx]    = clickedEntity;
-							allPlayers[receiverIdx] = activeEnt;
-						}
-						console.log(activeEnt.name + " transfers turn to " + clickedEntity.name + ".");
-						update();
-					}
-				});
-			}
-		}
+            if (clickedEntity || clickedItem) { // REMOVE option (entities & items)
+                options.push({
+                    text: "(r) Remove",
+                    key: "r",
+                    danger: true,
+                    action: function() {
+                        if (clickedEntity) {
+                            if (isPlayerControlled(clickedEntity)) {
+                                if (allPlayers.length <= 1) {
+                                    console.log("Cannot remove the only player!");
+                                    return;
+                                }
+                                const idx = allPlayers.indexOf(clickedEntity);
+                                if (idx >= 0) allPlayers.splice(idx, 1);
+                                player = allPlayers[0];
+                                if (typeof updatePlayerSelect === 'function') updatePlayerSelect();
+                            } else {
+                                const idx = allEnemies.indexOf(clickedEntity);
+                                if (idx >= 0) allEnemies.splice(idx, 1);
+                            }
+                            console.log("Removed " + clickedEntity.name + ".");
+                        } else if (clickedItem) {
+                            // Remove all items at this tile
+                            const cx = window.cursorWorldPos.x;
+                            const cy = window.cursorWorldPos.y;
+                            const before = mapItems.length;
+                            for (let i = mapItems.length - 1; i >= 0; i--) {
+                                if (mapItems[i].x === cx && mapItems[i].y === cy) mapItems.splice(i, 1);
+                            }
+                            console.log("Removed " + (before - mapItems.length) + " item(s) from tile.");
+                        }
+                        update();
+                    }
+                });
+            }
+        } else { // REGULAR OPTIONS
+            // Grab option
+            if (clickedItem && !clickedEntity) {
+                const isActiveTurn = currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]);
+                const dist = calc.distance(activeEnt.x, window.cursorWorldPos.x, activeEnt.y, window.cursorWorldPos.y);
+                if (isActiveTurn && dist <= 1 && dist > 0) {
+                    options.push({
+                        text: "(g) Grab",
+                        key: "g",
+                        action: function() {
+                            grabItemsFromTile(window.cursorWorldPos.x, window.cursorWorldPos.y);
+                            update();
+                        }
+                    });
+                }
+            }
+
+            // Follow / Transfer options for player entities
+            if (isPlayerControlled(clickedEntity) && clickedEntity !== activeEnt) {
+                if (clickedEntity.following === activeEnt) {
+                    options.push({
+                        text: "(f) remove Follower",
+                        key: "f",
+                        action: function() {
+                            console.log(clickedEntity.name + " stopped following " + activeEnt.name + ".");
+                            clickedEntity.following = null;
+                            update();
+                        }
+                    });
+                } else {
+                    options.push({
+                        text: "(f) Follow",
+                        key: "f",
+                        action: function() {
+                            startFollowing(activeEnt, clickedEntity);
+                            update();
+                        }
+                    });
+                }
+
+                const clickedIdx = entities.indexOf(clickedEntity);
+                const isActiveTurn = isPlayerControlled(entities[currentEntityIndex]) && entities[currentEntityIndex] === activeEnt;
+                const turnAvailable = clickedIdx > currentEntityIndex;
+
+                if (isActiveTurn && turnAvailable && currentEntityTurnsRemaining >= activeEnt.turns) {
+                    options.push({
+                        text: "(t) Transfer Turn",
+                        key: "t",
+                        action: function() {
+                            const giverIdx    = allPlayers.indexOf(activeEnt);
+                            const receiverIdx = allPlayers.indexOf(clickedEntity);
+                            if (giverIdx >= 0 && receiverIdx >= 0) {
+                                allPlayers[giverIdx]    = clickedEntity;
+                                allPlayers[receiverIdx] = activeEnt;
+                            }
+                            console.log(activeEnt.name + " transfers turn to " + clickedEntity.name + ".");
+                            update();
+                        }
+                    });
+                }
+            }
+        }
 
         if (options.length > 0) {
             const rect = c.getBoundingClientRect();
@@ -789,7 +821,7 @@ var input = {
         if (event.button === 0) {
             isMouseDown = true;
 
-            if (edit.checked && window.cursorWorldPos) {
+            if (edit.checked && window.cursorWorldPos && !activeContextMenu && !WindowSystem.isOpen()) {
                 const click_pos = {
                     x: window.cursorWorldPos.x,
                     y: window.cursorWorldPos.y

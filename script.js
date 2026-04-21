@@ -193,7 +193,6 @@ function exitPeekMode() {
 function drawGrabMode() {
 	if (!isGrabMode) return;
 	const activeEnt = getActivePlayerEntity();
-	// Include player's own tile plus all adjacent tiles
 	const grabTiles = [
 		{x: activeEnt.x, y: activeEnt.y},
 		...helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
@@ -213,7 +212,6 @@ function updateTurnOrder() {
 	for (let i = 0; i < entities.length; i++) {
 		const entity = entities[i];
 
-		// Show grenades always, other enemies only if spotted
 		if (!isPlayerControlled(entity)) {
 			const hasSeenPlayer = (entity.seenX !== 0 || entity.seenY !== 0);
 			if (!hasSeenPlayer) continue;
@@ -528,10 +526,8 @@ function update() {
 		if (e.following && e.following.hp < 1) e.following = null;
 	});
 
-	// player is always allPlayers[0]; keep the alias current
 	if (allPlayers.length > 0) player = allPlayers[0];
 
-	// Build entity list: players first, then enemies, grenades last
 	const nonGrenadeEnemies = allEnemies.filter(e => !helper.hasTrait(e, 'explode') && e.hp >= 1);
 	const grenades = allEnemies.filter(e => helper.hasTrait(e, 'explode') && e.hp >= 1);
 
@@ -592,11 +588,9 @@ function update() {
 	turns.check();
 
 	if (isGrabMode && isPlayerControlled(currentEntity)) {
-		// Erase movement/LOS overlay tiles drawn by turns.check, then draw grab highlights
 		valid.forEach(v => {
 			ctx.clearRect((v.x - camera.x) * tileSize, (v.y - camera.y) * tileSize, tileSize, tileSize);
 		});
-		// Redraw floor, walls, and items on cleared tiles
 		const tilesImg = document.getElementById("tiles");
 		valid.forEach(v => {
 			const sx = (v.x - camera.x) * tileSize;
@@ -604,14 +598,12 @@ function update() {
 			if (tilesImg && tilesImg.complete && tilesImg.naturalWidth > 0) {
 				ctx.drawImage(tilesImg, TILE_FLOOR * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
 			}
-			// Redraw wall on this tile if present
 			const wall = walls.find(w => w.x === v.x && w.y === v.y);
 			if (wall && tilesImg && tilesImg.complete) {
 				const tileIndex = { wall: TILE_WALL, glass: TILE_GLASS, water: TILE_WATER, fire: TILE_FIRE }[wall.type];
 				if (tileIndex !== undefined) ctx.drawImage(tilesImg, tileIndex * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
 				if (wall.type === 'glass' && wall.damaged) ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
 			}
-			// Redraw items on this tile
 			mapItems.filter(item => item.x === v.x && item.y === v.y).forEach(item => {
 				const itemDef = itemTypes[item.itemType];
 				const isEquipment = itemDef?.type === "equipment";
@@ -671,31 +663,9 @@ document.addEventListener("keyup", input.keyboard);
 var div_for_coords = document.createElement("div");
 document.body.appendChild(div_for_coords);
 
-function showItemPickupWindow(x, y) {
-	const activeEnt = getActivePlayerEntity();
-	const itemsAtLocation = mapItems.filter(item => item.x === x && item.y === y);
-	if (itemsAtLocation.length === 0) return;
-
-	const windowItems = [];
-	const processedItems = new Set();
-
-	itemsAtLocation.forEach(item => {
-		if (processedItems.has(item.id)) return;
-		const itemDef = itemTypes[item.itemType];
-		if (itemDef.type === "consumable") {
-			const sameTypeItems = itemsAtLocation.filter(i => i.itemType === item.itemType && !processedItems.has(i.id));
-			sameTypeItems.forEach(i => processedItems.add(i.id));
-			let displayText = itemDef.displayName;
-			if (sameTypeItems.length > 1) displayText = `${displayText} (x${sameTypeItems.length})`;
-			windowItems.push({ text: displayText, itemType: item.itemType, items: sameTypeItems, count: sameTypeItems.length, isStackable: true });
-		} else {
-			processedItems.add(item.id);
-			windowItems.push({ text: itemDef.displayName, itemType: item.itemType, items: [item], count: 1, isStackable: false });
-		}
-	});
-
-	if (windowItems.length === 1) {
-		const selection = windowItems[0];
+// Shared helper: pick up a set of items from a resolved windowItems list into activeEnt's inventory
+function _doPickupItems(activeEnt, selectedWindowItems) {
+	selectedWindowItems.forEach(selection => {
 		const itemDef = itemTypes[selection.itemType];
 		selection.items.forEach(item => {
 			const itemIndex = mapItems.indexOf(item);
@@ -712,7 +682,7 @@ function showItemPickupWindow(x, y) {
 			}
 			if (!added) {
 				if (activeEnt.inventory.length >= maxInventorySlots) {
-					console.log("Inventory full!");
+					console.log("Inventory full! Couldn't pick up " + itemDef.name);
 					selection.items.forEach(item => mapItems.push(item));
 				} else {
 					activeEnt.inventory.push({ itemType: selection.itemType, id: nextItemId++, quantity: selection.count });
@@ -736,71 +706,56 @@ function showItemPickupWindow(x, y) {
 			}
 			if (pickedCount > 0) console.log("Picked up " + pickedCount + " " + itemDef.name + (pickedCount > 1 ? "s" : ""));
 		}
-		// Exit grab mode after single-item auto-pickup
+	});
+}
+
+function showItemPickupWindow(x, y) {
+	const activeEnt = getActivePlayerEntity();
+	const itemsAtLocation = mapItems.filter(item => item.x === x && item.y === y);
+	if (itemsAtLocation.length === 0) return;
+
+	// Build display list, grouping stackable consumables
+	const windowItems = [];
+	const processedItems = new Set();
+
+	itemsAtLocation.forEach(item => {
+		if (processedItems.has(item.id)) return;
+		const itemDef = itemTypes[item.itemType];
+		if (itemDef.type === "consumable") {
+			const sameTypeItems = itemsAtLocation.filter(i => i.itemType === item.itemType && !processedItems.has(i.id));
+			sameTypeItems.forEach(i => processedItems.add(i.id));
+			let displayText = itemDef.displayName;
+			if (sameTypeItems.length > 1) displayText = `${displayText} (x${sameTypeItems.length})`;
+			windowItems.push({ text: displayText, itemType: item.itemType, items: sameTypeItems, count: sameTypeItems.length, isStackable: true });
+		} else {
+			processedItems.add(item.id);
+			windowItems.push({ text: itemDef.displayName, itemType: item.itemType, items: [item], count: 1, isStackable: false });
+		}
+	});
+
+	// Auto-pickup when there's only one distinct item stack/type
+	if (windowItems.length === 1) {
+		_doPickupItems(activeEnt, windowItems);
 		if (isGrabMode) isGrabMode = false;
 		update();
 		return;
 	}
 
-	const win = WindowSystem.create({
+	WindowSystem.openSelectionWindow({
 		title: `Items at (${x}, ${y})`,
 		width: 400,
 		height: Math.min(500, 100 + windowItems.length * 35),
 		items: windowItems,
+		confirmLabel: "Take Items",
 		onConfirm: function(selectedItems) {
-			selectedItems.forEach(selection => {
-				const itemDef = itemTypes[selection.itemType];
-				selection.items.forEach(item => {
-					const itemIndex = mapItems.indexOf(item);
-					if (itemIndex >= 0) mapItems.splice(itemIndex, 1);
-				});
-				if (itemDef.type === "consumable") {
-					let added = false;
-					for (let invItem of activeEnt.inventory) {
-						if (invItem.itemType === selection.itemType) {
-							invItem.quantity = (invItem.quantity || 1) + selection.count;
-							added = true;
-							break;
-						}
-					}
-					if (!added) {
-						if (activeEnt.inventory.length >= maxInventorySlots) {
-							console.log("Inventory full! Couldn't pick up " + itemDef.name);
-							selection.items.forEach(item => mapItems.push(item));
-						} else {
-							activeEnt.inventory.push({ itemType: selection.itemType, id: nextItemId++, quantity: selection.count });
-							console.log("Picked up " + selection.count + " " + itemDef.name + (selection.count > 1 ? "s" : ""));
-						}
-					} else {
-						console.log("Picked up " + selection.count + " " + itemDef.name + (selection.count > 1 ? "s" : ""));
-					}
-				} else {
-					let pickedCount = 0;
-					for (let i = 0; i < selection.items.length; i++) {
-						if (activeEnt.inventory.length >= maxInventorySlots) {
-							console.log("Inventory full! Picked up " + pickedCount + " of " + selection.count);
-							for (let j = i; j < selection.items.length; j++) mapItems.push(selection.items[j]);
-							break;
-						}
-						const newItem = {itemType: selection.itemType, id: selection.items[i].id};
-						if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) newItem.currentAmmo = itemDef.maxAmmo;
-						activeEnt.inventory.push(newItem);
-						pickedCount++;
-					}
-					if (pickedCount > 0) console.log("Picked up " + pickedCount + " " + itemDef.name + (pickedCount > 1 ? "s" : ""));
-				}
-			});
-			// Exit grab mode after window confirm
+			_doPickupItems(activeEnt, selectedItems);
 			if (isGrabMode) isGrabMode = false;
 		},
 		onCancel: function() {
 			console.log("Cancelled item pickup");
-			// Exit grab mode on cancel too
 			if (isGrabMode) isGrabMode = false;
 		}
 	});
-
-	WindowSystem.open(win);
 }
 
 function updateViewportSize() {
