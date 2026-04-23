@@ -167,7 +167,7 @@ function canEntityDestroyWalls(entity) {
 function canEntityImmolate(entity) {
 	const weaponDef   = entity.equipment?.weapon    ? itemTypes[entity.equipment.weapon.itemType]    : null;
 	const accessoryDef = entity.equipment?.accessory ? itemTypes[entity.equipment.accessory.itemType] : null;
-	return weaponDef?.grantsImmolate || accessoryDef?.grantsImmolate || false;
+	return weaponDef?.grantsImmolate || accessoryDef?.grantsImmolate || helper.hasTrait(entity, "immolate") || false;
 }
 
 function getDestroyableWallsInTiles(tiles, originX, originY, canDestroy) {

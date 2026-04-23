@@ -45,7 +45,8 @@ var entityTraits = {
 	player:     { name: "Player",     description: "Player-controlled entity" },
 	explode: 	{ name: "Explode",	  description: "Explodes on death/countdown"},
 	active: 	{ name: "Active", 	  description: "Countdown has been activated"},
-	fire:       { name: "On Fire",    description: "Takes " + fireDamage + " fire damage each turn" }
+	fire:       { name: "On Fire",    description: "Takes " + fireDamage + " fire damage each turn" },
+	immolate:   { name: "Immolate",   description: "Attacks spread fire tiles" }
 };
 
 // Console override for logging
