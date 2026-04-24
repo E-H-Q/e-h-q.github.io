@@ -45,14 +45,25 @@ var turns = {
             if (previousEntity) {
                 helper.applyStatusEffects(previousEntity);
             }
-			
-			// Remove random fire tiles at end of each entity's turn
-			helper.removeRandomFireTiles();
 
 			const playerCamera = {
 				x: player.x - Math.round(viewportWidth / 2) + 1,
 				y: player.y - Math.round(viewportHeight / 2) + 1
 			};
+
+			// Only remove fire tiles if the previous entity was within the active viewport buffer
+			if (previousEntity) {
+				const buffer = 5;
+				const prevInActiveRange = (
+					previousEntity.x >= playerCamera.x - buffer &&
+					previousEntity.x <= playerCamera.x + viewportWidth + buffer &&
+					previousEntity.y >= playerCamera.y - buffer &&
+					previousEntity.y <= playerCamera.y + viewportHeight + buffer
+				);
+				if (prevInActiveRange) {
+					helper.removeRandomFireTiles();
+				}
+			}
 
 			// Skip to next entity
 			do {
@@ -110,7 +121,7 @@ var turns = {
 				}
                 currentEntityTurnsRemaining--;
 				
-				// Remove random fire tiles after grenade turn
+				// Remove random fire tiles after grenade turn (grenade is in viewport by definition)
 				helper.removeRandomFireTiles();
                 update();
 			};
@@ -159,7 +170,7 @@ var turns = {
 				if (previewPath.length > 0) canvas.path(previewPath, currentEntity.x, currentEntity.y, currentEntity);
 			} else if (willAttack && enemyInViewport) {
 				const targetingTiles = calculateEntityTargeting(currentEntity, target.x, target.y);
-				canvas.los(targetingTiles);
+				canvas.los(targetingTiles, getWeaponAimStyle(currentEntity) === 'direct');
 				canvas.crosshair(target.x, target.y);
 			}
 
@@ -201,7 +212,7 @@ var turns = {
 			canvas.attackRangeDim(currentEntity);
             if (window.throwingGrenadeIndex == undefined) {
 			    const targetingTiles = calculateEntityTargeting(currentEntity, window.cursorWorldPos.x, window.cursorWorldPos.y);
-			    if (targetingTiles.length > 0) canvas.los(targetingTiles);
+			    if (targetingTiles.length > 0) canvas.los(targetingTiles, getWeaponAimStyle(currentEntity) === 'direct');
             }
 		}
 

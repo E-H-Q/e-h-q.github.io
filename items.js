@@ -261,6 +261,21 @@ function reloadWeapon(entity) {
 	return true;
 }
 
+// Collect all tiles inside a circle blast area, including walls/water/fire.
+// Uses the raw array buffer before convert() so no tile type is excluded.
+function collectAreaTiles(centerX, centerY, radius) {
+	circle(centerY, centerX, radius);
+	const tiles = [];
+	for (let wx = Math.max(0, centerX - radius - 1); wx <= Math.min(size - 1, centerX + radius + 1); wx++) {
+		for (let wy = Math.max(0, centerY - radius - 1); wy <= Math.min(size - 1, centerY + radius + 1); wy++) {
+			if (array[wx * size + wy] === 1) tiles.push({x: wx, y: wy});
+		}
+	}
+	// convert() still needed downstream for pathfinding/movement — call it so pts stays consistent
+	convert();
+	return tiles;
+}
+
 function calculateGrenadeTargeting(entity, endX, endY) {
 	const itemDef = itemTypes.grenade;
 	const throwRange = entity.attack_range;
@@ -287,21 +302,8 @@ function calculateGrenadeTargeting(entity, endX, endY) {
 	
 	if (path.length === 0) return [];
 	
-	// Calculate explosion area at landing spot
 	const center = path[path.length - 1];
-	const areaRadius = itemDef.damageRadius;
-	
-	circle(center.y, center.x, areaRadius);
-	convert();
-	
-	const areaTiles = [];
-	for (let x = Math.max(0, center.x - areaRadius - 1); x <= Math.min(size - 1, center.x + areaRadius + 1); x++) {
-		for (let y = Math.max(0, center.y - areaRadius - 1); y <= Math.min(size - 1, center.y + areaRadius + 1); y++) {
-			if (pts[x] && pts[x][y] === 1) {
-				areaTiles.push({x, y});
-			}
-		}
-	}
+	const areaTiles = collectAreaTiles(center.x, center.y, itemDef.damageRadius);
 	
 	// Combine path and area, removing duplicates
 	const pathSet = new Set(path.map(p => `${p.x},${p.y}`));
@@ -374,17 +376,7 @@ function calculateEntityTargeting(entity, endX, endY) {
 	} else if (aimStyle === "area") {
 		const areaRadius = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.areaRadius || 2 : 2;
 		const center = path[path.length - 1];
-		circle(center.y, center.x, areaRadius);
-		convert();
-
-		const areaTiles = [];
-		for (let x = Math.max(0, center.x - areaRadius - 1); x <= Math.min(size - 1, center.x + areaRadius + 1); x++) {
-			for (let y = Math.max(0, center.y - areaRadius - 1); y <= Math.min(size - 1, center.y + areaRadius + 1); y++) {
-				if (pts[x] && pts[x][y] === 1) {
-					areaTiles.push({x, y});
-				}
-			}
-		}
+		const areaTiles = collectAreaTiles(center.x, center.y, areaRadius);
 
 		const pathSet = new Set(path.map(p => `${p.x},${p.y}`));
 		const uniqueAreaTiles = areaTiles.filter(tile => !pathSet.has(`${tile.x},${tile.y}`));
@@ -481,15 +473,14 @@ function getTargetedEntities(attacker, endX, endY) {
 
 		const areaRadius = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType]?.areaRadius || 2 : 2;
 		const center = path[path.length - 1];
+
+		// For entity targeting we only need walkable tiles — use pts-based collection
 		circle(center.y, center.x, areaRadius);
 		convert();
-
 		const areaTiles = [];
 		for (let x = Math.max(0, center.x - areaRadius - 1); x <= Math.min(size - 1, center.x + areaRadius + 1); x++) {
 			for (let y = Math.max(0, center.y - areaRadius - 1); y <= Math.min(size - 1, center.y + areaRadius + 1); y++) {
-				if (pts[x] && pts[x][y] === 1) {
-					areaTiles.push({x, y});
-				}
+				if (pts[x] && pts[x][y] === 1) areaTiles.push({x, y});
 			}
 		}
 

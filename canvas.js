@@ -148,19 +148,25 @@ var canvas = {
 		}
 	},
 
-	los: (path) => {
+	los: (path, directOnly = false) => {
 		if (!path || path.length === 0) return;
 		const movesImg = document.getElementById("moves");
 		ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
 		path.forEach(point => {
 			ctx.fillRect((point.x - camera.x) * tileSize, (point.y - camera.y) * tileSize, tileSize, tileSize);
 		});
-		if (movesImg && movesImg.complete && movesImg.naturalWidth > 0 && window.cursorWorldPos) {
-			const cursorInPath = path.some(p => p.x === window.cursorWorldPos.x && p.y === window.cursorWorldPos.y);
-			if (cursorInPath) {
-				ctx.drawImage(movesImg, SPRITE_CROSSHAIR * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-					(window.cursorWorldPos.x - camera.x) * tileSize, (window.cursorWorldPos.y - camera.y) * tileSize, tileSize, tileSize);
-			}
+		if (movesImg && movesImg.complete && movesImg.naturalWidth > 0) {
+			path.forEach(point => {
+				const isCursor = window.cursorWorldPos && point.x === window.cursorWorldPos.x && point.y === window.cursorWorldPos.y;
+				const hasTarget = !directOnly && (
+					entities.some(e => e.hp > 0 && e.x === point.x && e.y === point.y) ||
+					walls.some(w => w.x === point.x && w.y === point.y && w.type !== 'water' && w.type !== 'fire')
+				);
+				if (isCursor || hasTarget) {
+					ctx.drawImage(movesImg, SPRITE_CROSSHAIR * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+						(point.x - camera.x) * tileSize, (point.y - camera.y) * tileSize, tileSize, tileSize);
+				}
+			});
 		}
 	},
 
@@ -288,32 +294,33 @@ var canvas = {
 	grenadeAreas: (grenade) => {
 		const itemDef = itemTypes.grenade;
 		if (!itemDef) return;
-			if (helper.hasTrait(grenade, 'explode')) {
-				const damageRadius = itemDef.damageRadius;
-				
-				// Save current pts state
-				const savedPts = pts.map(row => [...row]);
-				
-				// Calculate explosion area
-				circle(grenade.y, grenade.x, damageRadius);
-				convert();
-				
-				ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
-				for (let x = Math.max(0, grenade.x - damageRadius - 1); x <= Math.min(size - 1, grenade.x + damageRadius + 1); x++) {
-					for (let y = Math.max(0, grenade.y - damageRadius - 1); y <= Math.min(size - 1, grenade.y + damageRadius + 1); y++) {
-						if (pts[x] && pts[x][y] > 0) {
-							const screenX = (x - camera.x) * tileSize;
-							const screenY = (y - camera.y) * tileSize;
-							if (screenX >= -tileSize && screenX < c.width && screenY >= -tileSize && screenY < c.height) {
-								ctx.fillRect(screenX, screenY, tileSize, tileSize);
-							}
+		if (helper.hasTrait(grenade, 'explode')) {
+			const damageRadius = grenade._radius ?? itemDef.damageRadius;
+
+			// Save array state — circle() overwrites the global array
+			const savedArray = array ? new Uint8Array(array) : null;
+
+			circle(grenade.y, grenade.x, damageRadius);
+
+			ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
+			for (let wx = Math.max(0, grenade.x - damageRadius - 1); wx <= Math.min(size - 1, grenade.x + damageRadius + 1); wx++) {
+				for (let wy = Math.max(0, grenade.y - damageRadius - 1); wy <= Math.min(size - 1, grenade.y + damageRadius + 1); wy++) {
+					// Use the raw circle array (=== 1) so only tiles inside the blast radius
+					// are highlighted — avoids water/fire tiles that convert() would set to 2/3
+					if (array[wx * size + wy] === 1) {
+						const screenX = (wx - camera.x) * tileSize;
+						const screenY = (wy - camera.y) * tileSize;
+						if (screenX >= -tileSize && screenX < c.width && screenY >= -tileSize && screenY < c.height) {
+							ctx.fillRect(screenX, screenY, tileSize, tileSize);
 						}
 					}
 				}
-				
-				// Restore pts
-				pts = savedPts;
 			}
+
+			// Restore array so the rest of the frame isn't affected
+			if (savedArray) array = savedArray;
+			else array = new Uint8Array(size * size);
+		}
 	},
 
 	enemy: () => {
@@ -337,11 +344,7 @@ var canvas = {
 						(screenY * tileSize) + (tileSize * 0.65));
 				}
 			} else { // not grenade
-				//const entityIdx = entities.indexOf(entity);
-				//const hasActed = entityIdx >= 0 && entityIdx < currentEntityIndex;
-				//if (hasActed) ctx.filter = 'grayscale(1)';
 				if (entity.hp >= 1) canvas.drawEntity(entity, "rgba(125, 125, 0, 0.5)", "enemy");
-				//ctx.filter = 'none';
 			}
 		});
 	},
