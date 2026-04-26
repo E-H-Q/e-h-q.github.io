@@ -41,6 +41,21 @@ var turns = {
 				processInventoryGrenades(previousEntity);
 			}
             
+			// Apply fire/water effects from the tile the entity is currently standing on
+			if (previousEntity) {
+				const standingOnFire = walls.some(w => w.x === previousEntity.x && w.y === previousEntity.y && w.type === 'fire');
+				const standingOnWater = walls.some(w => w.x === previousEntity.x && w.y === previousEntity.y && w.type === 'water');
+				if (standingOnFire && !helper.hasTrait(previousEntity, 'fire')) {
+					if (!previousEntity.traits) previousEntity.traits = [];
+					previousEntity.traits.push('fire');
+					console.log(previousEntity.name + " caught fire!");
+				}
+				if (standingOnWater && helper.hasTrait(previousEntity, 'fire')) {
+					previousEntity.traits = previousEntity.traits.filter(t => t !== 'fire');
+					console.log(previousEntity.name + " got wet!");
+				}
+			}
+
 			// Apply fire damage at end of turn
             if (previousEntity) {
                 helper.applyStatusEffects(previousEntity);
