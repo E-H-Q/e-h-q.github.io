@@ -28,6 +28,9 @@ var peekStartY = 0;
 var savedPlayerRange = 0;
 var peekEntity = null; // which player-controlled entity is peeking
 
+// Edit mode tile selection
+var selectedEditTiles = []; // array of {x, y} for shift+click selected tiles in edit mode
+
 // Colors for extra player-controlled entities
 const PLAYER_COLORS = [
 	"rgba(0, 180, 100, 0.5)",
@@ -300,7 +303,7 @@ var helper = {
 		if (!entity) return;
 
 		if (helper.hasTrait(entity, "fire")) {
-			// 1 in 3 chance to remove fire tile
+			// 1 in 3 chance to remove fire trait
 			if (calc.roll(3) == 1) {
 				entity.traits = entity.traits.filter(trait => trait != "fire");
 				console.log(entity.name + " stopped burning.");
@@ -317,7 +320,7 @@ var helper = {
 	
 	removeRandomFireTiles: function() {
 		for (let i = walls.length - 1; i >= 0; i--) {
-			if (walls[i].type === 'fire') {
+			if (walls[i].type === 'fire' && !walls[i].permanent) {
 				// 1 in 5 chance to remove fire tile
 				if (calc.roll(5) === 1) {
 					walls.splice(i, 1);

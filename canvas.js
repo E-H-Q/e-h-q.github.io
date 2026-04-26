@@ -274,6 +274,16 @@ var canvas = {
 		}
 	},
 
+	selectedEditTiles: () => {
+		if (!edit.checked || !selectedEditTiles || selectedEditTiles.length === 0) return;
+		ctx.fillStyle = "rgba(0, 220, 255, 0.45)";
+		selectedEditTiles.forEach(t => {
+			const sx = (t.x - camera.x) * tileSize;
+			const sy = (t.y - camera.y) * tileSize;
+			ctx.fillRect(sx, sy, tileSize, tileSize);
+		});
+	},
+
 	cursor: () => {
 		if (!cursorVisible || !window.cursorWorldPos) return;
 		const screenX = (window.cursorWorldPos.x - camera.x) * tileSize;

@@ -133,6 +133,16 @@ function handleZoom(zoomOut) {
     }
 }
 
+// Toggle a tile in/out of the edit selection
+function toggleEditTileSelection(x, y) {
+	const idx = selectedEditTiles.findIndex(t => t.x === x && t.y === y);
+	if (idx >= 0) {
+		selectedEditTiles.splice(idx, 1);
+	} else {
+		selectedEditTiles.push({x, y});
+	}
+}
+
 var input = {
     init: function() {
         window.cursorWorldPos = {x: player.x, y: player.y};
@@ -263,6 +273,7 @@ var input = {
             } else if (isPeekMode) {
                 exitPeekMode();
             } else if (edit.checked) {
+                selectedEditTiles = [];
                 edit.checked = false;
                 document.getElementById('size-input-container').style.display = 'none';
             }
@@ -271,6 +282,7 @@ var input = {
 
         if (event.shiftKey && event.keyCode === 69) {
             edit.checked = !edit.checked;
+            if (!edit.checked) selectedEditTiles = [];
             document.getElementById('size-input-container').style.display = edit.checked ? 'inline-block' : 'none';
             update();
             return;
@@ -472,6 +484,15 @@ var input = {
                 y: camera.y + gridY
             };
             if (click_pos.x < 0 || click_pos.y < 0 || click_pos.x >= size || click_pos.y >= size) return;
+            // Shift held — selection drag, not wall toggle
+            if (event.shiftKey) {
+                const alreadySelected = selectedEditTiles.some(t => t.x === click_pos.x && t.y === click_pos.y);
+                if (!alreadySelected) {
+                    selectedEditTiles.push({x: click_pos.x, y: click_pos.y});
+                    update();
+                }
+                return;
+            }
             if (!lastTile || lastTile.x !== click_pos.x || lastTile.y !== click_pos.y) {
                 lastTile = {x: click_pos.x, y: click_pos.y};
                 const tileType = document.getElementById('tile-type').value;
@@ -642,6 +663,54 @@ var input = {
         document.getElementById('player_y').value = window.cursorWorldPos.y;
         document.getElementById('item_x').value = window.cursorWorldPos.x;
         document.getElementById('item_y').value = window.cursorWorldPos.y;
+
+        // Edit mode: if there are selected tiles, show the selection context menu
+        if (edit.checked && selectedEditTiles.length > 0) {
+            const options = [];
+            const count = selectedEditTiles.length;
+            options.push({ text: count + " TILE" + (count > 1 ? "S" : "") + " SELECTED" });
+
+            options.push({
+                text: "(m) Make Permanent",
+                key: "m",
+                action: function() {
+                    selectedEditTiles.forEach(t => {
+                        const wall = walls.find(w => w.x === t.x && w.y === t.y);
+                        if (wall) wall.permanent = true;
+                    });
+                    console.log("Made " + count + " tile(s) permanent.");
+                    selectedEditTiles = [];
+                    update();
+                }
+            });
+
+            options.push({
+                text: "(r) Remove selected",
+                key: "r",
+                danger: true,
+                action: function() {
+                    selectedEditTiles.forEach(t => {
+                        const idx = walls.findIndex(w => w.x === t.x && w.y === t.y);
+                        if (idx >= 0) walls.splice(idx, 1);
+                    });
+                    console.log("Removed " + count + " tile(s).");
+                    selectedEditTiles = [];
+                    update();
+                }
+            });
+
+            const rect = c.getBoundingClientRect();
+            const menuX = Math.ceil((event.clientX - rect.left) / tileSize) * tileSize - tileSize + 8;
+            const menuY = Math.ceil((event.clientY - rect.top) / tileSize) * tileSize - tileSize / 2;
+            const menu = WindowSystem.createContextMenu({
+                x: menuX, y: menuY,
+                tileX: window.cursorWorldPos.x,
+                tileY: window.cursorWorldPos.y,
+                options
+            });
+            WindowSystem.openContextMenu(menu);
+            return;
+        }
 
         const clickedEntity = entities.find(e =>
             e.x === window.cursorWorldPos.x &&
@@ -827,14 +896,23 @@ var input = {
                     x: window.cursorWorldPos.x,
                     y: window.cursorWorldPos.y
                 };
-                if (click_pos.x >= 0 && click_pos.y >= 0 && click_pos.x < size && click_pos.y < size) {
-                    lastTile = {x: click_pos.x, y: click_pos.y};
-                    const tileType = document.getElementById('tile-type').value;
-                    const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
-                    if (dup < 0) walls.push({x: click_pos.x, y: click_pos.y, type: tileType});
-                    else walls.splice(dup, 1);
+                if (click_pos.x < 0 || click_pos.y < 0 || click_pos.x >= size || click_pos.y >= size) return;
+
+                // Shift held — add to selection, don't toggle walls
+                if (event.shiftKey) {
+                    toggleEditTileSelection(click_pos.x, click_pos.y);
                     update();
+                    return;
                 }
+
+                // Normal click — clear selection and toggle wall
+                selectedEditTiles = [];
+                lastTile = {x: click_pos.x, y: click_pos.y};
+                const tileType = document.getElementById('tile-type').value;
+                const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
+                if (dup < 0) walls.push({x: click_pos.x, y: click_pos.y, type: tileType});
+                else walls.splice(dup, 1);
+                update();
             }
         }
     },

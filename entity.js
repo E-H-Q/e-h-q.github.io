@@ -178,6 +178,7 @@ const EntitySystem = {
 			const idx = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
 			if (idx < 0) continue;
 			const wall = walls[idx];
+			if (wall.permanent) continue; // permanent walls cannot be destroyed
 			if (wall.type === 'glass') {
 				if (canDestroy || wall.damaged) {
 					walls.splice(idx, 1);
@@ -267,10 +268,6 @@ const EntitySystem = {
 
 		console.log(grenade.name + " explodes at " + ex + ", " + ey + "!");
 
-		// circle(xc, yc, r) is always called as circle(ey, ex, r) throughout this codebase.
-		// Inside hl(), array is written as array[y1 * size + xw] where the first param (xc=ey)
-		// drives the scanline x-offset and second param (yc=ex) drives y1/y2.
-		// Reading back: world tile (wx, wy) is stored at array[wx * size + wy].
 		circle(ey, ex, r);
 		const blastTiles = [];
 		for (let wx = Math.max(0, ex - r - 1); wx <= Math.min(size - 1, ex + r + 1); wx++) {
@@ -279,10 +276,10 @@ const EntitySystem = {
 			}
 		}
 
-		// Destroy walls within the circle-shaped blast area
+		// Destroy non-permanent walls within the blast area
 		if (itemDef.canDestroy) {
 			for (const tile of blastTiles) {
-				const wi = walls.findIndex(w => w.x === tile.x && w.y === tile.y && w.type !== 'water' && w.type !== 'fire');
+				const wi = walls.findIndex(w => w.x === tile.x && w.y === tile.y && w.type !== 'water' && w.type !== 'fire' && !w.permanent);
 				if (wi >= 0) walls.splice(wi, 1);
 			}
 		}
@@ -310,7 +307,10 @@ const EntitySystem = {
 		if (helper.hasTrait(grenade, 'immolate')) {
 			for (const tile of tiles) {
 				if (calc.roll(3) !== 1) continue;
-				walls.push({x: tile.x, y: tile.y, type: 'fire'});
+				// Do not overwrite a permanent wall with a fire tile
+				const existing = walls.find(w => w.x === tile.x && w.y === tile.y);
+				if (existing && existing.permanent) continue;
+				if (!existing || existing.type === 'fire') walls.push({x: tile.x, y: tile.y, type: 'fire'});
 			}
 		}
 	},

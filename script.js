@@ -406,6 +406,7 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 	walls = [];
 	mapItems = [];
 	allEnemies = [];
+	selectedEditTiles = [];
 
 	const rooms = [];
 	const maxAttempts = 500;
@@ -571,6 +572,7 @@ function update() {
 	canvas.clear();
 	canvas.grid();
 	canvas.walls();
+	canvas.selectedEditTiles(); // draw cyan selection highlight on top of wall sprites
 	canvas.items();
 	canvas.drawOnionskin();
 	canvas.player();
