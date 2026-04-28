@@ -676,8 +676,10 @@ var input = {
         // Edit mode: if there are selected tiles OR right-clicking a wall, show the selection context menu
         if (edit.checked) {
             const clickedWallForMenu = walls.find(w => w.x === window.cursorWorldPos.x && w.y === window.cursorWorldPos.y);
-            // Build the working tile set: selected tiles if any, otherwise just the clicked wall
-            let menuTiles = selectedEditTiles.length > 0 ? selectedEditTiles : (clickedWallForMenu ? [{x: window.cursorWorldPos.x, y: window.cursorWorldPos.y}] : null);
+            const clickedEntityForMenu = entities.find(e => e.x === window.cursorWorldPos.x && e.y === window.cursorWorldPos.y);
+            // If an entity is clicked and there's no active multi-tile selection, fall through to normal entity options
+            const hasMulitSelection = selectedEditTiles.length > 0;
+            let menuTiles = hasMulitSelection ? selectedEditTiles : (!clickedEntityForMenu && clickedWallForMenu ? [{x: window.cursorWorldPos.x, y: window.cursorWorldPos.y}] : null);
 
             if (menuTiles && menuTiles.length > 0) {
                 // Filter to only tiles that actually have walls (selection may include stale coords)
