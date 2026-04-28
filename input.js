@@ -402,6 +402,12 @@ var input = {
 
         if (event.keyCode === 9) {
             event.preventDefault();
+            if (edit.checked) {
+                const sel = document.getElementById('tile-type');
+                sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
+                update();
+                return;
+            }
             if (isPeekMode && peekStep === 2) return;
             action.value = (action.value === "move") ? "attack" : "move";
             document.activeElement.blur();
@@ -484,13 +490,16 @@ var input = {
                 y: camera.y + gridY
             };
             if (click_pos.x < 0 || click_pos.y < 0 || click_pos.x >= size || click_pos.y >= size) return;
-            // Shift held — selection drag, not wall toggle
+            // Shift held — selection drag, only wall tiles
             if (event.shiftKey) {
-                const alreadySelected = selectedEditTiles.some(t => t.x === click_pos.x && t.y === click_pos.y);
-                if (!alreadySelected) {
-                    selectedEditTiles.push({x: click_pos.x, y: click_pos.y});
-                    update();
+                const hasWall = walls.some(w => w.x === click_pos.x && w.y === click_pos.y);
+                if (hasWall) {
+                    const alreadySelected = selectedEditTiles.some(t => t.x === click_pos.x && t.y === click_pos.y);
+                    if (!alreadySelected) {
+                        selectedEditTiles.push({x: click_pos.x, y: click_pos.y});
+                    }
                 }
+                update(); // always update so cursor follows mouse
                 return;
             }
             if (!lastTile || lastTile.x !== click_pos.x || lastTile.y !== click_pos.y) {
@@ -664,52 +673,83 @@ var input = {
         document.getElementById('item_x').value = window.cursorWorldPos.x;
         document.getElementById('item_y').value = window.cursorWorldPos.y;
 
-        // Edit mode: if there are selected tiles, show the selection context menu
-        if (edit.checked && selectedEditTiles.length > 0) {
-            const options = [];
-            const count = selectedEditTiles.length;
-            options.push({ text: count + " TILE" + (count > 1 ? "S" : "") + " SELECTED" });
+        // Edit mode: if there are selected tiles OR right-clicking a wall, show the selection context menu
+        if (edit.checked) {
+            const clickedWallForMenu = walls.find(w => w.x === window.cursorWorldPos.x && w.y === window.cursorWorldPos.y);
+            // Build the working tile set: selected tiles if any, otherwise just the clicked wall
+            let menuTiles = selectedEditTiles.length > 0 ? selectedEditTiles : (clickedWallForMenu ? [{x: window.cursorWorldPos.x, y: window.cursorWorldPos.y}] : null);
 
-            options.push({
-                text: "(m) Make Permanent",
-                key: "m",
-                action: function() {
-                    selectedEditTiles.forEach(t => {
-                        const wall = walls.find(w => w.x === t.x && w.y === t.y);
-                        if (wall) wall.permanent = true;
-                    });
-                    console.log("Made " + count + " tile(s) permanent.");
+            if (menuTiles && menuTiles.length > 0) {
+                // Filter to only tiles that actually have walls (selection may include stale coords)
+                menuTiles = menuTiles.filter(t => walls.some(w => w.x === t.x && w.y === t.y));
+                if (menuTiles.length === 0) {
                     selectedEditTiles = [];
                     update();
+                    return;
                 }
-            });
 
-            options.push({
-                text: "(r) Remove selected",
-                key: "r",
-                danger: true,
-                action: function() {
-                    selectedEditTiles.forEach(t => {
-                        const idx = walls.findIndex(w => w.x === t.x && w.y === t.y);
-                        if (idx >= 0) walls.splice(idx, 1);
+                const options = [];
+                const count = menuTiles.length;
+                options.push({ text: count + " TILE" + (count > 1 ? "S" : "") + " SELECTED" });
+
+                // Examine: only show if all tiles share the same wall type
+                const firstType = walls.find(w => w.x === menuTiles[0].x && w.y === menuTiles[0].y)?.type;
+                const allSameType = menuTiles.every(t => {
+                    const w = walls.find(w => w.x === t.x && w.y === t.y);
+                    return w && w.type === firstType;
+                });
+                if (allSameType && firstType) {
+                    const representativeWall = walls.find(w => w.x === menuTiles[0].x && w.y === menuTiles[0].y);
+                    options.push({
+                        text: "(e) Examine",
+                        key: "e",
+                        action: function() {
+                            WindowSystem.showExamineWindow(representativeWall);
+                        }
                     });
-                    console.log("Removed " + count + " tile(s).");
-                    selectedEditTiles = [];
-                    update();
                 }
-            });
 
-            const rect = c.getBoundingClientRect();
-            const menuX = Math.ceil((event.clientX - rect.left) / tileSize) * tileSize - tileSize + 8;
-            const menuY = Math.ceil((event.clientY - rect.top) / tileSize) * tileSize - tileSize / 2;
-            const menu = WindowSystem.createContextMenu({
-                x: menuX, y: menuY,
-                tileX: window.cursorWorldPos.x,
-                tileY: window.cursorWorldPos.y,
-                options
-            });
-            WindowSystem.openContextMenu(menu);
-            return;
+                options.push({
+                    text: "(m) Make Permanent",
+                    key: "m",
+                    action: function() {
+                        menuTiles.forEach(t => {
+                            const wall = walls.find(w => w.x === t.x && w.y === t.y);
+                            if (wall) wall.permanent = true;
+                        });
+                        console.log("Made " + menuTiles.length + " tile(s) permanent.");
+                        selectedEditTiles = [];
+                        update();
+                    }
+                });
+
+                options.push({
+                    text: "(r) Remove",
+                    key: "r",
+                    danger: true,
+                    action: function() {
+                        menuTiles.forEach(t => {
+                            const idx = walls.findIndex(w => w.x === t.x && w.y === t.y);
+                            if (idx >= 0) walls.splice(idx, 1);
+                        });
+                        console.log("Removed " + menuTiles.length + " tile(s).");
+                        selectedEditTiles = [];
+                        update();
+                    }
+                });
+
+                const rect = c.getBoundingClientRect();
+                const menuX = Math.ceil((event.clientX - rect.left) / tileSize) * tileSize - tileSize + 8;
+                const menuY = Math.ceil((event.clientY - rect.top) / tileSize) * tileSize - tileSize / 2;
+                const menu = WindowSystem.createContextMenu({
+                    x: menuX, y: menuY,
+                    tileX: window.cursorWorldPos.x,
+                    tileY: window.cursorWorldPos.y,
+                    options
+                });
+                WindowSystem.openContextMenu(menu);
+                return;
+            }
         }
 
         const clickedEntity = entities.find(e =>
@@ -898,15 +938,22 @@ var input = {
                 };
                 if (click_pos.x < 0 || click_pos.y < 0 || click_pos.x >= size || click_pos.y >= size) return;
 
-                // Shift held — add to selection, don't toggle walls
+                // Shift held — add wall tiles to selection only
                 if (event.shiftKey) {
-                    toggleEditTileSelection(click_pos.x, click_pos.y);
+                    const hasWall = walls.some(w => w.x === click_pos.x && w.y === click_pos.y);
+                    if (hasWall) toggleEditTileSelection(click_pos.x, click_pos.y);
                     update();
                     return;
                 }
 
-                // Normal click — clear selection and toggle wall
-                selectedEditTiles = [];
+                // Normal click while selection exists — clear selection, don't toggle wall
+                if (selectedEditTiles.length > 0) {
+                    selectedEditTiles = [];
+                    update();
+                    return;
+                }
+
+                // Normal click — toggle wall
                 lastTile = {x: click_pos.x, y: click_pos.y};
                 const tileType = document.getElementById('tile-type').value;
                 const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);

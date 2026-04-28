@@ -277,10 +277,13 @@ var canvas = {
 	selectedEditTiles: () => {
 		if (!edit.checked || !selectedEditTiles || selectedEditTiles.length === 0) return;
 		ctx.fillStyle = "rgba(0, 220, 255, 0.45)";
+		//ctx.strokeStyle = "rgba(0, 220, 255, 1)";
+		//ctx.lineWidth = 2;
 		selectedEditTiles.forEach(t => {
 			const sx = (t.x - camera.x) * tileSize;
 			const sy = (t.y - camera.y) * tileSize;
 			ctx.fillRect(sx, sy, tileSize, tileSize);
+			//ctx.strokeRect(sx, sy, tileSize, tileSize);
 		});
 	},
 
