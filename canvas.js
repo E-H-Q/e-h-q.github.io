@@ -23,6 +23,8 @@ const TILE_GLASS       = 2;
 const TILE_BROKEN      = 3;
 const TILE_WATER       = 4;
 const TILE_FIRE        = 5;
+const TILE_DOOR_CLOSED = 6;
+const TILE_DOOR_OPEN   = 7;
 
 var canvas = {
 	init: () => {
@@ -101,6 +103,19 @@ var canvas = {
 					ctx.fillStyle = "rgba(255, 100, 0, 0.6)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
+			} else if (wall.type === 'door') {
+				if (hasSprites) {
+					const doorTile = wall.open ? TILE_DOOR_OPEN : TILE_DOOR_CLOSED;
+					ctx.drawImage(tilesImg, doorTile * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+					if (wall.damaged) {
+						ctx.filter = "invert(1)";
+						ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+						ctx.filter = "none";
+					}
+				} else {
+					ctx.fillStyle = wall.open ? "rgba(139, 90, 43, 0.3)" : "rgba(139, 90, 43, 0.8)";
+					ctx.fillRect(screenX, screenY, tileSize, tileSize);
+				}
 			} else {
 				if (hasSprites) {
 					ctx.drawImage(tilesImg, TILE_WALL * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
@@ -160,7 +175,7 @@ var canvas = {
 				const isCursor = window.cursorWorldPos && point.x === window.cursorWorldPos.x && point.y === window.cursorWorldPos.y;
 				const hasTarget = !directOnly && (
 					entities.some(e => e.hp > 0 && e.x === point.x && e.y === point.y) ||
-					walls.some(w => w.x === point.x && w.y === point.y && w.type !== 'water' && w.type !== 'fire')
+					walls.some(w => w.x === point.x && w.y === point.y && w.type !== 'water' && w.type !== 'fire' && !w.open)
 				);
 				if (isCursor || hasTarget) {
 					ctx.drawImage(movesImg, SPRITE_CROSSHAIR * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,

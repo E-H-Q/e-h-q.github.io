@@ -20,11 +20,6 @@ var WindowSystem = {
         return -1;
     },
 
-    // Generic selection window. config:
-    //   title, width, height, items (array of {text}),
-    //   confirmLabel (default "OK"), multiSelect (default true),
-    //   preSelectedIndices (Set or array of indices),
-    //   onConfirm(selectedItems), onCancel()
     openSelectionWindow: function(config) {
         const win = {
             title: config.title || "Select",
@@ -390,7 +385,6 @@ var WindowSystem = {
         return activeWindow !== null;
     },
 
-    // Open the traits editing window for a given entity
     openTraitsWindow: function(entity) {
         const traitKeys = Object.keys(entityTraits);
         const items = traitKeys.map(key => ({ text: entityTraits[key].name + ": " + entityTraits[key].description, key }));
@@ -578,25 +572,38 @@ var WindowSystem = {
             switch (entity.type) {
                 case "wall":
                     win.items.push({ text: "A solid wall, blocks sight & attacks." });
-                    win.items.push({ text: "It can be destroyed by explosions." });
+                    win.items.push({ text: ""});
+                    if (!entity.permanent) win.items.push({ text: "It can be destroyed by explosions." });
                     break;
                 case "glass":
                     win.items.push({ text: "Clear glass, can be seen & attacked through." });
-                    win.items.push({ text: "Becomes damaged, then breaks." });
+                    win.items.push({ text: ""});
+                    if (!entity.permanent) win.items.push({ text: "Becomes damaged, then breaks." });
                     break;
                 case "water":
                     win.items.push({ text: "Waist high water, difficult to move through." });
-                    win.items.push({ text: "Movement range -50%" });
+                    win.items.push({ text: ""});
+                    win.items.push({ danger: true, text: "Movement range -50%" });
                     break;
                 case "fire":
                     win.items.push({ text: "Blazing flames, walk carefully!" });
-                    win.items.push({ text: 'Moving through fire inflicts "Fire" status effect.' });
+                     win.items.push({ text: ""});
+                    win.items.push({ danger: true, text: 'Moving through fire inflicts "Fire" status effect.' });
+                    win.items.push({ danger: true, text: "Entities on fire take " + fireDamage + "DMG at end of turn."});
+                    if (!entity.permanent) {
+                        win.items.push({ text: ""});
+                        win.items.push({ text: "1 in 15 chance tile despawns at end of turn." });
+                        win.items.push({ text: '1 in 3 chance to remove "Fire" status effect.' });
+                    }
+                    break;
+                case "door":
+                    win.items.push({ text: "A wooden door. It is " + (entity.open ? "open." : "closed.") });
                     win.items.push({ text: ""});
-                    win.items.push({ text: "Entities on fire take " + fireDamage + "DMG at end of turn."});
-                    win.items.push({ text: "1 in 15 chance tile despawns at end of turn." });
-                    win.items.push({ text: '1 in 3 chance to remove "Fire" status effect.' });
+                    win.items.push({ text: "Right Click to open. Blocks sight when closed." });
+                    if (!entity.permanent) win.items.push({ text: "Becomes damaged, then breaks."});
                     break;
             }
+            if (entity.permanent) win.items.push({ danger: true, text: "It is permanent and cannot be destroyed." });
         } else if (entity.itemType) {
             win.items = [];
             const itemsAtLocation = mapItems.filter(item => item.x === entity.x && item.y === entity.y);
@@ -646,8 +653,8 @@ var WindowSystem = {
         } else if (entity.type) {
             const tilesImg = document.getElementById("tiles");
             if (tilesImg && tilesImg.complete) {
-                const tileIndex = { wall: TILE_WALL, glass: TILE_GLASS, water: TILE_WATER, fire: TILE_FIRE }[entity.type];
-                ctx.drawImage(tilesImg, tileIndex * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, spriteX, spriteY, spriteSize, spriteSize);
+                const tileIndex = { wall: TILE_WALL, glass: TILE_GLASS, water: TILE_WATER, fire: TILE_FIRE, door: TILE_DOOR_CLOSED }[entity.type];
+                if (tileIndex !== undefined) ctx.drawImage(tilesImg, tileIndex * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, spriteX, spriteY, spriteSize, spriteSize);
             }
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 16px monospace";
@@ -670,7 +677,11 @@ var WindowSystem = {
         ctx.font = "14px monospace";
         ctx.textAlign = "left";
         for (let i = 0; i < win.items.length; i++) {
+            if (win.items[i].danger) {
+                ctx.fillStyle = "#ff4444";
+            }
             ctx.fillText(win.items[i].text, win.x + win.padding + 10, contentY + (i * LINE_HEIGHT));
+            ctx.fillStyle = "#ffffff";
         }
 
         ctx.fillStyle = "#888888";

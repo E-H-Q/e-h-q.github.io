@@ -622,8 +622,8 @@ var input = {
                     const w = walls.find(w => w.x === t.x && w.y === t.y);
                     return w && w.type !== 'glass';
                 });
-                const hasGlass = targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'glass'));
-                const hasTargets = targetingTiles.length > 0 && (enemies.length > 0 || hasWalls || hasGlass);
+                const hasBreakable = targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'glass' || w.type === 'door'));
+                const hasTargets = targetingTiles.length > 0 && (enemies.length > 0 || hasWalls || hasBreakable);
 
                 if (!hasTargets) return;
 
@@ -791,6 +791,19 @@ var input = {
                 else if (clickedWall) WindowSystem.showExamineWindow(clickedWall);
             }
         });
+
+        if (!clickedEntity && clickedWall && clickedWall.type == "door") { // DOORS !!!!!!
+            if (calc.distance(clickedWall.x, activeEnt.x, clickedWall.y, activeEnt.y) <= 1 || edit.checked) {
+                options.push({
+                    text: "(d) Open/Close: " + clickedWall.type,
+                    key: "d",
+                    action: function() {
+                        clickedWall.open = !clickedWall.open;
+                        update();
+                    }
+                });
+            }
+        }
 
         if (edit.checked) { // EDIT MODE ONLY OPTIONS
             

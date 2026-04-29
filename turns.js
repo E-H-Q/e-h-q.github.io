@@ -416,6 +416,16 @@ var turns = {
 
 			if (entity.seenX !== 0 || entity.seenY !== 0) {
 				if (entity.x === entity.seenX && entity.y === entity.seenY) {
+					// Check for an adjacent closed door — player may have ducked behind it
+					const adjacentDoor = helper.getAdjacentTiles(entity.x, entity.y, false)
+						.map(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'door' && !w.open))
+						.find(Boolean);
+					if (adjacentDoor) {
+						adjacentDoor.open = true;
+						console.log(entity.name + " forced open a door!");
+						currentEntityTurnsRemaining--;
+						return;
+					}
 					if (helper.hasTrait(entity, 'aggressive')) {
 						if (entity.huntingTurns === undefined) entity.huntingTurns = 0;
 						if (entity.huntingTurns < entity.turns) {
@@ -462,7 +472,7 @@ var turns = {
 			const newX = entity.x + dx;
 			const newY = entity.y + dy;
 			if (newX < 0 || newY < 0 || newX >= size || newY >= size) continue;
-			const isWall = walls.some(w => w.x === newX && w.y === newY && w.type !== 'water');
+			const isWall = walls.some(w => w.x === newX && w.y === newY && w.type !== 'water' && !(w.type === 'door' && w.open));
 			const isOccupied = entities.some(e => e !== entity && e.hp > 0 && e.x === newX && e.y === newY);
 			if (!isWall && !isOccupied && entity.range > 0) {
 				entity.x = newX;
@@ -512,7 +522,7 @@ var turns = {
 			const stepCost = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water') ? 2 : 1;
 			if (distanceMoved + stepCost <= entity.range) {
 				const occupied = entities.some(e => e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y);
-				const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water' && w.type !== 'fire');
+				const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open));
 				if (!occupied && !isWall) { trimmed.push(step); distanceMoved += stepCost; }
 				else break;
 			} else break;
@@ -565,7 +575,7 @@ var turns = {
             if (distanceMoved + stepCost > entity.range) break;
 
             const occupied = entities.some(e => e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y);
-            const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water' && w.type !== 'fire');
+            const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open));
 
             if (occupied || isWall) break;
 
@@ -645,7 +655,7 @@ var turns = {
 		const path = line({x: x1, y: y1}, {x: x2, y: y2});
 		for (let i = 1; i < path.length - 1; i++) {
 			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire') return false;
+			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && !(wall.type === 'door' && wall.open)) return false;
 		}
 		return true;
 	}

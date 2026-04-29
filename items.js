@@ -322,8 +322,11 @@ function calculateEntityTargeting(entity, endX, endY) {
 	if (!canDestroy) {
 		for (let i = 1; i < path.length; i++) {
 			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-			if (wall && wall.type == 'wall') {
+			if (wall && wall.type == "wall") {
 				path = path.slice(0, i);
+				break;
+			} else if (wall && wall.type == "door" && !wall.open) { // Stop at doors but allow doors to be attacked
+				path = path.slice(0, i+1);
 				break;
 			}
 		}

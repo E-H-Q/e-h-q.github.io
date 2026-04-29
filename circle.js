@@ -49,6 +49,8 @@ function convert() {
 				pts[wall.x][wall.y] = 2;
 			} else if (wall.type === 'fire') {
 				pts[wall.x][wall.y] = 3;
+			} else if (wall.type === 'door' && wall.open == true) {
+				pts[wall.x][wall.y] = 1;
 			} else {
 				pts[wall.x][wall.y] = 0;
 			}

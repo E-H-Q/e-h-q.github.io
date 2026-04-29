@@ -10,7 +10,7 @@ const EntitySystem = {
 		if (path.length < calc.distance(entity.x, targetX, entity.y, targetY) + 1) return false;
 		for (let i = 1; i < path.length - 1; i++) {
 			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire') return false;
+			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && !(wall.type === 'door' && wall.open)) return false;
 		}
 		return true;
 	},
@@ -178,16 +178,18 @@ const EntitySystem = {
 			const idx = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
 			if (idx < 0) continue;
 			const wall = walls[idx];
-			if (wall.permanent) continue; // permanent walls cannot be destroyed
-			if (wall.type === 'glass') {
+			if (wall.permanent) continue;
+			if (wall.type === 'water' || wall.type === 'fire') continue; // never destroyable
+			if (wall.type === 'glass' || wall.type === 'door' && !wall.open) {
 				if (canDestroy || wall.damaged) {
 					walls.splice(idx, 1);
-					console.log(attacker.name + " destroyed glass!");
+					console.log(attacker.name + " destroyed " + (wall.type === 'door' ? "a door!" : "glass!"));
 				} else {
 					wall.damaged = true;
 				}
 				destroyedAny = true;
 			} else if (canDestroy) {
+				if (wall.open == true) return; // Open doors cannot get destroyed from being in path
 				walls.splice(idx, 1);
 				console.log(attacker.name + " destroyed a wall!");
 				destroyedAny = true;
