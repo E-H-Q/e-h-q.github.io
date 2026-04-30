@@ -53,7 +53,7 @@ const EntitySystem = {
 					} else {
 						pathCost++;
 					}
-					if (pts[curr.x]?.[curr.y] === 2) pathCost++; // Water
+					if (pts[curr.x]?.[curr.y] === 2) pathCost++; // Water tile costs extra
 				}
 				if (pathCost <= entity.range) validMoves.push({x: i, y: j, path: res});
 			}
@@ -73,23 +73,7 @@ const EntitySystem = {
 	moveEntity: function(entity, x, y) {
 		if (isAiming) { isAiming = false; update(); }
 		if (pts[x]?.[y] === 0) return false;
-
-		for (const step of line({x: entity.x, y: entity.y}, {x, y})) {
-			const onFire  = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'fire');
-			const onWater = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water');
-			if (onFire && !helper.hasTrait(entity, 'fire')) {
-				if (!entity.traits) entity.traits = [];
-				entity.traits.push('fire');
-				console.log(entity.name + " caught fire!");
-				break;
-			}
-			if (onWater && helper.hasTrait(entity, 'fire')) {
-				entity.traits = entity.traits.filter(t => t !== "fire");
-				console.log(entity.name + " got wet!");
-				break;
-			}
-		}
-
+		//helper.applyMovementTileEffects(entity, x, y);
 		entity.x = x;
 		entity.y = y;
 		return true;
@@ -110,23 +94,22 @@ const EntitySystem = {
 
 		const weaponDef = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType] : null;
 
-		// Area weapons (rocket launcher) use explosion logic directly
+		// Area weapons use explosion logic directly
 		if (weaponDef?.aimStyle === 'area') {
 			consumeAmmo(attacker);
-			const rocket = {
+			this._explosionQueue.push({
 				name: attacker.name,
 				x: targetX, y: targetY,
 				traits: canEntityImmolate(attacker) ? ['explode', 'immolate'] : ['explode'],
 				_damage: attacker.damage || 0,
 				_radius: weaponDef.areaRadius
-			};
-			this._explosionQueue.push(rocket);
+			});
 			if (!this._explosionPending) this._processBatchExplosions();
 			return true;
 		}
 
-		const targets = getTargetedEntities(attacker, targetX, targetY);
-		const enemies = targets.filter(e => e !== attacker && e.hp > 0);
+		const targets      = getTargetedEntities(attacker, targetX, targetY);
+		const enemies      = targets.filter(e => e !== attacker && e.hp > 0);
 		let attackedAnyone = false;
 
 		for (let burst = 0; burst < (weaponDef?.burst || 1); burst++) {
@@ -156,7 +139,7 @@ const EntitySystem = {
 			for (const tile of calculateEntityTargeting(attacker, targetX, targetY)) {
 				if (calc.roll(2) !== 1) continue;
 				const existing = walls.find(w => w.x === tile.x && w.y === tile.y);
-				if (!existing || existing.type === 'fire') walls.push({x: tile.x, y: tile.y, type: 'fire'});
+				if (!existing) walls.push({x: tile.x, y: tile.y, type: 'fire'});
 				const ent = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
 				if (ent && !helper.hasTrait(ent, 'fire')) {
 					if (!ent.traits) ent.traits = [];
@@ -179,8 +162,8 @@ const EntitySystem = {
 			if (idx < 0) continue;
 			const wall = walls[idx];
 			if (wall.permanent) continue;
-			if (wall.type === 'water' || wall.type === 'fire') continue; // never destroyable
-			if (wall.type === 'glass' || wall.type === 'door' && !wall.open) {
+			if (wall.type === 'water' || wall.type === 'fire') continue;
+			if (wall.type === 'glass' || (wall.type === 'door' && !wall.open)) {
 				if (canDestroy || wall.damaged) {
 					walls.splice(idx, 1);
 					console.log(attacker.name + " destroyed " + (wall.type === 'door' ? "a door!" : "glass!"));
@@ -189,7 +172,7 @@ const EntitySystem = {
 				}
 				destroyedAny = true;
 			} else if (canDestroy) {
-				if (wall.open == true) return; // Open doors cannot get destroyed from being in path
+				if (wall.open) return destroyedAny; // open doors can't be destroyed via targeting
 				walls.splice(idx, 1);
 				console.log(attacker.name + " destroyed a wall!");
 				destroyedAny = true;
@@ -200,7 +183,6 @@ const EntitySystem = {
 
 	dropAllItems: function(entity) {
 		if (typeof mapItems === 'undefined' || typeof nextItemId === 'undefined') return;
-
 		entity.inventory?.forEach(item => {
 			const itemDef = itemTypes[item.itemType];
 			const qty = (itemDef.type === "consumable" && item.quantity > 1) ? item.quantity : 1;
@@ -208,7 +190,6 @@ const EntitySystem = {
 			console.log(entity.name + " dropped " + (qty > 1 ? qty + " " : "") + itemDef.name + (qty > 1 ? "s" : ""));
 		});
 		entity.inventory = [];
-
 		for (const slot in entity.equipment ?? {}) {
 			if (!entity.equipment[slot]) continue;
 			mapItems.push({x: entity.x, y: entity.y, itemType: entity.equipment[slot].itemType, id: nextItemId++});
@@ -227,13 +208,11 @@ const EntitySystem = {
 		this.dropAllItems(entity);
 	},
 
-	// Drains the entire queue synchronously (chains included), then one setTimeout for the flash
 	_processBatchExplosions: function() {
 		if (this._explosionPending || !this._explosionQueue.length) return;
 		this._explosionPending = true;
 
 		const delay = parseInt(document.getElementById("turn-delay").value) || 0;
-
 		const firstGrenade = this._explosionQueue[0];
 		camera = {
 			x: firstGrenade.x - Math.round(viewportWidth / 2) + 1,
@@ -249,36 +228,24 @@ const EntitySystem = {
 				exploded.push(grenade);
 				this._resolveExplosion(grenade);
 			}
-
 			exploded.forEach(g => canvas.grenadeAreas(g));
-
-			setTimeout(() => {
-				this._explosionPending = false;
-				update();
-			}, delay);
+			setTimeout(() => { this._explosionPending = false; update(); }, delay);
 		}, delay);
 	},
 
-	// Pure sync: damage + walls
 	_resolveExplosion: function(grenade) {
-		grenade.traits.push("immolate"); // ADDS IMMOLATE TRAIT, (might be too overpowered?)
-		
-		const itemDef  = itemTypes.grenade;
+		grenade.traits.push("immolate");
+
+		const itemDef = itemTypes.grenade;
 		const { x: ex, y: ey } = grenade;
-		const r      = grenade._radius  ?? itemDef.damageRadius;
-		const damage = grenade._damage  ?? itemDef.damage;
+		const r      = grenade._radius ?? itemDef.damageRadius;
+		const damage = grenade._damage ?? itemDef.damage;
 
 		console.log(grenade.name + " explodes at " + ex + ", " + ey + "!");
 
-		circle(ey, ex, r);
-		const blastTiles = [];
-		for (let wx = Math.max(0, ex - r - 1); wx <= Math.min(size - 1, ex + r + 1); wx++) {
-			for (let wy = Math.max(0, ey - r - 1); wy <= Math.min(size - 1, ey + r + 1); wy++) {
-				if (array[wx * size + wy] === 1) blastTiles.push({x: wx, y: wy});
-			}
-		}
+		// collectAreaTiles handles circle() + convert() and reads from the raw buffer
+		const blastTiles = collectAreaTiles(ex, ey, r);
 
-		// Destroy non-permanent walls within the blast area
 		if (itemDef.canDestroy) {
 			for (const tile of blastTiles) {
 				const wi = walls.findIndex(w => w.x === tile.x && w.y === tile.y && w.type !== 'water' && w.type !== 'fire' && !w.permanent);
@@ -286,20 +253,8 @@ const EntitySystem = {
 			}
 		}
 
-		// Now convert() for entity damage (walls already removed above won't affect entity hits)
-		convert();
-
-		const tiles = blastTiles;
-
-		// Collect unique entities in blast, then damage — avoids hitting the same entity twice
-		const hit = [];
-		for (const tile of tiles) {
-			for (const entity of entities) {
-				if (entity !== grenade && entity.hp > 0 && entity.x === tile.x && entity.y === tile.y && !hit.includes(entity))
-					hit.push(entity);
-			}
-		}
-		for (const entity of hit) {
+		for (const entity of getEntitiesInTiles(blastTiles)) {
+			if (entity === grenade) continue;
 			const dmg = Math.max(1, damage - (entity.armor || 0));
 			console.log(entity.name + " takes " + dmg + " explosion damage!");
 			entity.hp -= dmg;
@@ -307,28 +262,18 @@ const EntitySystem = {
 		}
 
 		if (helper.hasTrait(grenade, 'immolate')) {
-			for (const tile of tiles) {
+			for (const tile of blastTiles) {
 				if (calc.roll(3) !== 1) continue;
-				// Do not overwrite a permanent wall with a fire tile
 				const existing = walls.find(w => w.x === tile.x && w.y === tile.y);
-				if (existing && existing.permanent) continue;
-				if (!existing || existing.type === 'fire') walls.push({x: tile.x, y: tile.y, type: 'fire'});
+				if (existing?.permanent) continue;
+				if (!existing) walls.push({x: tile.x, y: tile.y, type: 'fire'});
 			}
 		}
 	},
 
-	// Public entry point for turns.js grenade countdown
 	triggerExplosion: function(grenade) {
 		this._explosionQueue.push(grenade);
 		this._processBatchExplosions();
-	},
-
-	isAI: function(entity) {
-		return !isPlayerControlled(entity) && entity.seenX !== undefined;
-	},
-
-	getValidTargets: function(entity) {
-		return entities.filter(e => e !== entity && e.hp > 0 && this.canAttack(entity, e));
 	}
 };
 

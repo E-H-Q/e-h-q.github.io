@@ -239,6 +239,8 @@ var populate = {
 					pts[w.x][w.y] = 2;
 				} else if (w.type === 'fire') {
 					pts[w.x][w.y] = 3;
+				} else if (w.type === 'door' && w.open) {
+					pts[w.x][w.y] = 1;
 				} else {
 					pts[w.x][w.y] = 0;
 				}

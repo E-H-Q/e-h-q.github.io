@@ -100,7 +100,7 @@ function load_map() {
                 allPlayers = JSON.parse(loaded_players);
                 allPlayers.forEach(p => {
                     if (p.equipment) {
-                        p.attack_range = p.attack_range || 4;
+                        p.attack_range = player.attack_range; // Uses DEFAULT PLAYER from main.js (Stops bug of map loading increasing attack_ranges)
                         p.damage = 0;
                         p.armor = 0;
                         for (let slot in p.equipment) {
