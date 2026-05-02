@@ -117,7 +117,7 @@ const EntitySystem = {
 			for (const enemy of enemies) {
 				if (enemy.hp <= 0) continue;
 				if (calc.roll(6) >= 4) {
-					const dmg = Math.max(1, calc.roll(6) + (attacker.damage || 0) - (enemy.armor || 0));
+					let dmg = Math.max(1, calc.roll(6) + (attacker.damage || 0) - (enemy.armor || 0));
 					enemy.hp -= dmg;
 					if (enemy.lastAttacker !== undefined) enemy.lastAttacker = attacker;
 					if (enemy.seenX !== undefined) { enemy.seenX = attacker.x; enemy.seenY = attacker.y; }
