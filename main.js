@@ -49,7 +49,8 @@ var entityTraits = {
 	explode: 	{ name: "Explode",	  description: "Explodes on death/countdown"},
 	active: 	{ name: "Active", 	  description: "Countdown has been activated"},
 	fire:       { name: "On Fire",    description: "Takes " + fireDamage + " fire damage each turn" },
-	immolate:   { name: "Immolate",   description: "Attacks spread fire tiles" }
+	immolate:   { name: "Immolate",   description: "Attacks spread fire tiles" },
+	lifesteal:  { name: "Life Steal", description: "Heals for damage dealt by attacks" }
 };
 
 // Console override for logging
@@ -290,8 +291,11 @@ var helper = {
 			for (let y = Math.max(0, entity.y - searchRadius); y <= Math.min(size - 1, entity.y + searchRadius); y++) {
 				if (helper.tileBlocked(x, y)) continue;
 				if (x === entity.x && y === entity.y) continue;
-				const blocksLOS = !EntitySystem.hasLOS({x, y}, fromX, fromY, false);
-				if (blocksLOS) {
+				const blocksLOS = !EntitySystem.hasLOS({x, y}, fromX, fromY, true); // USES PERMISSIVE LOS!!!!!!!!!!!
+				// Tiles adjacent to an open door count as cover — entity can close it to block LOS
+				const nearOpenDoor = helper.getAdjacentTiles(x, y, false)
+					.some(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'door' && w.open));
+				if (blocksLOS || nearOpenDoor) {
 					coverTiles.push({ x, y, distance: calc.distance(entity.x, x, entity.y, y) });
 				}
 			}
@@ -300,7 +304,7 @@ var helper = {
 		coverTiles.sort((a, b) => a.distance - b.distance);
 		return coverTiles[0];
 	},
-	
+
 	applyStatusEffects: function(entity) {
 		if (!entity) return;
 
@@ -319,7 +323,7 @@ var helper = {
 			EntitySystem.death(entity);
 		}
 	},
-	
+
 	removeRandomFireTiles: function() {
 		for (let i = walls.length - 1; i >= 0; i--) {
 			if (walls[i].type === 'fire' && !walls[i].permanent) {

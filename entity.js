@@ -73,7 +73,6 @@ const EntitySystem = {
 	moveEntity: function(entity, x, y) {
 		if (isAiming) { isAiming = false; update(); }
 		if (pts[x]?.[y] === 0) return false;
-		//helper.applyMovementTileEffects(entity, x, y);
 		entity.x = x;
 		entity.y = y;
 		return true;
@@ -123,6 +122,10 @@ const EntitySystem = {
 					if (enemy.lastAttacker !== undefined) enemy.lastAttacker = attacker;
 					if (enemy.seenX !== undefined) { enemy.seenX = attacker.x; enemy.seenY = attacker.y; }
 					console.log(attacker.name + " hits " + enemy.name + " for " + dmg + " DMG!");
+					if (helper.hasTrait(attacker, 'lifesteal')) {
+						attacker.hp += dmg;
+						console.log(attacker.name + " gained " + dmg + " HP from " + enemy.name);
+					}
 					if (enemy.hp <= 0) this.death(enemy);
 				} else {
 					console.log(attacker.name + " attacks and misses " + enemy.name + "...");
@@ -243,7 +246,6 @@ const EntitySystem = {
 
 		console.log(grenade.name + " explodes at " + ex + ", " + ey + "!");
 
-		// collectAreaTiles handles circle() + convert() and reads from the raw buffer
 		const blastTiles = collectAreaTiles(ex, ey, r);
 
 		if (itemDef.canDestroy) {

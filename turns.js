@@ -368,6 +368,14 @@ var turns = {
 			const cover = helper.findNearestCover(entity, attackerPos.x, attackerPos.y);
 			if (cover) {
 				this.enemyMoveToward(entity, cover.x, cover.y);
+				// After moving, close any adjacent open door that now blocks LOS to the attacker
+				const doorToClose = helper.getAdjacentTiles(entity.x, entity.y, false)
+					.map(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'door' && w.open))
+					.find(Boolean);
+				if (doorToClose) {
+					doorToClose.open = false;
+					console.log(entity.name + " closed a door");
+				}
 				if (entity.x === cover.x && entity.y === cover.y) {
 					entity.lastAttacker = null;
 					currentEntityTurnsRemaining--;
@@ -417,13 +425,11 @@ var turns = {
 			if (entity.seenX !== 0 || entity.seenY !== 0) {
 				if (entity.x === entity.seenX && entity.y === entity.seenY) {
 					// Check for an adjacent closed door — player may have ducked behind it
-					const adjacentDoor = helper.getAdjacentTiles(entity.x, entity.y, false)
+					const adjacentDoor = helper.getAdjacentTiles(entity.seenX, entity.seenY, false) // uses seenX/Y? seems to work though...
 						.map(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'door' && !w.open))
 						.find(Boolean);
 					if (adjacentDoor) {
 						adjacentDoor.open = true;
-						console.log(entity.name + " forced open a door!");
-						currentEntityTurnsRemaining--;
 						return;
 					}
 					if (helper.hasTrait(entity, 'aggressive')) {
@@ -454,6 +460,22 @@ var turns = {
 					entity.huntingTurns = 0;
 					this.enemyRandomMove(entity);
 				} else {
+					// Aggressive: check if a closed door is blocking the path to seenX/seenY
+					if (helper.hasTrait(entity, 'aggressive')) {
+						const pathToTarget = line({x: entity.x, y: entity.y}, {x: entity.seenX, y: entity.seenY});
+						const blockingDoor = pathToTarget.slice(1).map(t =>
+							walls.find(w => w.x === t.x && w.y === t.y && w.type === 'door' && !w.open)
+						).find(Boolean);
+						if (blockingDoor) {
+							this.enemyMoveToward(entity, blockingDoor.x, blockingDoor.y);
+							if (entity.x === blockingDoor.x && entity.y === blockingDoor.y ||
+								calc.distance(entity.x, blockingDoor.x, entity.y, blockingDoor.y) <= 1) {
+								blockingDoor.open = true;
+								return;
+							}
+							return;
+						}
+					}
 					this.enemyMoveToward(entity, entity.seenX, entity.seenY);
 				}
 			} else {
