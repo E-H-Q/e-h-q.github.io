@@ -217,11 +217,12 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 	let path = line({x: entity.x, y: entity.y}, {x: targetX, y: targetY});
 	path = clipPathAtWall(path);
 
-	// Break damaged glass in path
+	// Damage or destroy glass in path
 	for (let i = 1; i < path.length; i++) {
 		const wallIndex = walls.findIndex(w => w.x === path[i].x && w.y === path[i].y);
-		if (wallIndex >= 0 && walls[wallIndex].type === 'glass' && walls[wallIndex].damaged) {
-			walls.splice(wallIndex, 1);
+		if (wallIndex >= 0 && walls[wallIndex].type === 'glass') {
+			if (walls[wallIndex].damaged) walls.splice(wallIndex, 1);
+			else walls[wallIndex].damaged = true;
 		}
 	}
 
