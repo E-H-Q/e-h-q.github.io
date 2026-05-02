@@ -123,6 +123,8 @@ const EntitySystem = {
 					if (enemy.seenX !== undefined) { enemy.seenX = attacker.x; enemy.seenY = attacker.y; }
 					console.log(attacker.name + " hits " + enemy.name + " for " + dmg + " DMG!");
 					if (helper.hasTrait(attacker, 'lifesteal')) {
+						if (enemy.name == "Grenade" && enemy.active) return; // No lifesteal when shooting grenades
+						dmg = Math.min(dmg, enemy.hp);
 						attacker.hp += dmg;
 						console.log(attacker.name + " gained " + dmg + " HP from " + enemy.name);
 					}
