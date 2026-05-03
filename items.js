@@ -163,8 +163,16 @@ function calculateEntityTargeting(entity, endX, endY) {
 		const pathSet    = new Set(path.map(p => `${p.x},${p.y}`));
 		return [...path, ...areaTiles.filter(t => !pathSet.has(`${t.x},${t.y}`))];
 	}
+	if (aimStyle === "direct") {
+		// Direct fire hits only the first entity in the path
+		for (const tile of tiles) {
+			const targetted = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
+			if (targetted) return [targetted];
+		}
+		return [];
+	}
 
-	// direct / pierce / melee / standard all just use the clipped path
+	// pierce / melee / standard all just use the clipped path
 	return path;
 }
 
