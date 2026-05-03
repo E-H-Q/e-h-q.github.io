@@ -190,6 +190,8 @@ function exitPeekMode() {
 	update();
 }
 
+// drawAdjacentSelect is defined in input.js
+
 function updateTurnOrder() {
 	var turnOrder = document.getElementById("turn-order");
 	var html = '';
@@ -661,7 +663,7 @@ function _doPickupItems(activeEnt, selectedWindowItems) {
 		if (itemDef.type === "consumable") {
 			let added = false;
 			for (let invItem of activeEnt.inventory) {
-				if (invItem.itemType === selection.itemType) {
+				if (invItem.itemType === selection.itemType && !invItem.isLive) {
 					invItem.quantity = (invItem.quantity || 1) + selection.count;
 					added = true;
 					break;
