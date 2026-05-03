@@ -10,13 +10,13 @@ var isZoomedOut = false;
 var lastCameraUpdateCursorX = null;
 var lastCameraUpdateCursorY = null;
 
-// Grab mode variables
-var isGrabMode = false;
+// Adjacent select mode: { mode: 'grab' | 'door' }
+var adjacentSelect = null;
 
-function exitGrabMode() {
-	if (!isGrabMode) return;
-	isGrabMode = false;
-	console.log("Exited grab mode.");
+function exitAdjacentSelect() {
+	if (!adjacentSelect) return;
+	adjacentSelect = null;
+	console.log("Exited adjacent select.");
 	update();
 }
 
@@ -38,8 +38,33 @@ function activateGrabMode() {
 		return;
 	}
 
-	isGrabMode = true;
+	adjacentSelect = { mode: 'grab' };
 	console.log("Grab mode: select an adjacent tile to grab items from.");
+	update();
+}
+
+function activateDoorMode() {
+	if (currentEntityIndex < 0 || !isPlayerControlled(entities[currentEntityIndex])) return;
+	const activeEnt = getActivePlayerEntity();
+	const adjacentDoors = helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
+		.filter(tile => walls.some(w => w.x === tile.x && w.y === tile.y && w.type === 'door'));
+
+    /*
+	if (adjacentDoors.length === 0) {
+		console.log("No adjacent doors.");
+		return;
+	}
+    */
+
+	if (adjacentDoors.length === 1) {
+		const door = walls.find(w => w.x === adjacentDoors[0].x && w.y === adjacentDoors[0].y && w.type === 'door');
+		door.open = !door.open;
+		console.log(activeEnt.name + (door.open ? " opened" : " closed") + " a door.");
+		update();
+		return;
+	}
+
+	adjacentSelect = { mode: 'door' };
 	update();
 }
 
@@ -56,6 +81,31 @@ function grabItemsFromTile(x, y) {
 	activeEnt.x = origX;
 	activeEnt.y = origY;
 	return true;
+}
+
+function drawAdjacentSelect() {
+	if (!adjacentSelect) return;
+	const activeEnt = getActivePlayerEntity();
+	ctx.fillStyle = "rgba(0, 220, 255, 0.45)";
+
+	if (adjacentSelect.mode === 'grab') {
+		const grabTiles = [
+			{x: activeEnt.x, y: activeEnt.y},
+			...helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
+		];
+		for (const tile of grabTiles) {
+			if (mapItems.some(item => item.x === tile.x && item.y === tile.y)) {
+				ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
+			}
+		}
+	} else if (adjacentSelect.mode === 'door') {
+		const doorTiles = helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
+			.filter(tile => walls.some(w => w.x === tile.x && w.y === tile.y && w.type === 'door'));
+        canvas.walls(); // without this open doors do not get rendered?
+		for (const tile of doorTiles) {
+			ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
+		}
+	}
 }
 
 function updateCamera() {
@@ -268,8 +318,8 @@ var input = {
                 window.throwingGrenadeIndex = undefined;
                 console.log("Grenade throw cancelled");
                 update();
-            } else if (isGrabMode) {
-                exitGrabMode();
+            } else if (adjacentSelect) {
+                exitAdjacentSelect();
             } else if (isPeekMode) {
                 exitPeekMode();
             } else if (edit.checked) {
@@ -305,9 +355,15 @@ var input = {
             return;
         }
 
-        if (event.keyCode === 71) {
-            if (!isGrabMode) activateGrabMode();
-            else exitGrabMode();
+        if (event.keyCode === 71) { // G - grab
+            if (!adjacentSelect) activateGrabMode();
+            else exitAdjacentSelect();
+            return;
+        }
+
+        if (event.keyCode === 68) { // D - door
+            if (!adjacentSelect) activateDoorMode();
+            else exitAdjacentSelect();
             return;
         }
 
@@ -541,14 +597,25 @@ var input = {
             y: window.cursorWorldPos.y
         };
 
-        if (isGrabMode) {
+        if (adjacentSelect) {
             const activeEnt = getActivePlayerEntity();
             const dist = calc.distance(activeEnt.x, click_pos.x, activeEnt.y, click_pos.y);
-            const hasItemsHere = mapItems.some(item => item.x === click_pos.x && item.y === click_pos.y);
-            if (dist <= 1 && hasItemsHere) {
-                grabItemsFromTile(click_pos.x, click_pos.y);
-                if (!WindowSystem.isOpen()) isGrabMode = false;
-                update();
+
+            if (adjacentSelect.mode === 'grab') {
+                const hasItemsHere = mapItems.some(item => item.x === click_pos.x && item.y === click_pos.y);
+                if (dist <= 1 && hasItemsHere) {
+                    grabItemsFromTile(click_pos.x, click_pos.y);
+                    if (!WindowSystem.isOpen()) adjacentSelect = null;
+                    update();
+                }
+            } else if (adjacentSelect.mode === 'door') {
+                const door = walls.find(w => w.x === click_pos.x && w.y === click_pos.y && w.type === 'door');
+                if (dist <= 1 && door) {
+                    door.open = !door.open;
+                    console.log(activeEnt.name + (door.open ? " opened" : " closed") + " a door.");
+                    adjacentSelect = null;
+                    update();
+                }
             }
             return;
         }

@@ -190,21 +190,6 @@ function exitPeekMode() {
 	update();
 }
 
-function drawGrabMode() {
-	if (!isGrabMode) return;
-	const activeEnt = getActivePlayerEntity();
-	const grabTiles = [
-		{x: activeEnt.x, y: activeEnt.y},
-		...helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
-	];
-	ctx.fillStyle = "rgba(0, 220, 255, 0.45)";
-	for (const tile of grabTiles) {
-		if (mapItems.some(item => item.x === tile.x && item.y === tile.y)) {
-			ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
-		}
-	}
-}
-
 function updateTurnOrder() {
 	var turnOrder = document.getElementById("turn-order");
 	var html = '';
@@ -589,7 +574,7 @@ function update() {
 
 	turns.check();
 
-	if (isGrabMode && isPlayerControlled(currentEntity)) {
+	if (adjacentSelect && isPlayerControlled(currentEntity)) {
 		valid.forEach(v => {
 			ctx.clearRect((v.x - camera.x) * tileSize, (v.y - camera.y) * tileSize, tileSize, tileSize);
 		});
@@ -620,7 +605,7 @@ function update() {
 				}
 			});
 		});
-		drawGrabMode();
+		drawAdjacentSelect();
 	} else {
 		if (isPlayerControlled(currentEntity) && action.value === "attack" && window.cursorWorldPos && window.throwingGrenadeIndex !== undefined) {
 			const grenadeTargeting = calculateGrenadeTargeting(currentEntity, window.cursorWorldPos.x, window.cursorWorldPos.y);
@@ -738,7 +723,7 @@ function showItemPickupWindow(x, y) {
 	// Auto-pickup when there's only one distinct item stack/type
 	if (windowItems.length === 1) {
 		_doPickupItems(activeEnt, windowItems);
-		if (isGrabMode) isGrabMode = false;
+		if (adjacentSelect) adjacentSelect = null;
 		update();
 		return;
 	}
@@ -751,11 +736,11 @@ function showItemPickupWindow(x, y) {
 		confirmLabel: "Take Items",
 		onConfirm: function(selectedItems) {
 			_doPickupItems(activeEnt, selectedItems);
-			if (isGrabMode) isGrabMode = false;
+			if (adjacentSelect) adjacentSelect = null;
 		},
 		onCancel: function() {
 			console.log("Cancelled item pickup");
-			if (isGrabMode) isGrabMode = false;
+			if (adjacentSelect) adjacentSelect = null;
 		}
 	});
 }
