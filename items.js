@@ -163,16 +163,7 @@ function calculateEntityTargeting(entity, endX, endY) {
 		const pathSet    = new Set(path.map(p => `${p.x},${p.y}`));
 		return [...path, ...areaTiles.filter(t => !pathSet.has(`${t.x},${t.y}`))];
 	}
-	if (aimStyle === "direct") {
-		// Direct fire hits only the first entity in the path
-		for (const tile of tiles) {
-			const targetted = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
-			if (targetted) return [targetted];
-		}
-		return [];
-	}
-
-	// pierce / melee / standard all just use the clipped path
+	// direct / pierce / melee / standard all just use the clipped path
 	return path;
 }
 
@@ -182,10 +173,14 @@ function getTargetedEntities(attacker, endX, endY) {
 	const aimStyle = getWeaponAimStyle(attacker);
 	const tiles    = calculateEntityTargeting(attacker, endX, endY);
 
-	if (tiles.length === 0) return [];
+	if (!tiles || tiles.length === 0) return [];
 
 	if (aimStyle === "direct") {
-		// Direct fire hits only the first entity in the path
+		// If there's an entity at the cursor and the cursor is in the path, hit it directly.
+		const cursorInPath = tiles.some(t => t.x === endX && t.y === endY);
+		const atCursor = cursorInPath ? entities.find(e => e.hp > 0 && e.x === endX && e.y === endY) : null;
+		if (atCursor) return [atCursor];
+		// Otherwise hit the first entity in the path.
 		for (const tile of tiles) {
 			const found = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
 			if (found) return [found];
@@ -193,7 +188,6 @@ function getTargetedEntities(attacker, endX, endY) {
 		return [];
 	}
 
-	// All other styles (area, cone, pierce, melee, standard) hit every entity in the tile set
 	return getEntitiesInTiles(tiles);
 }
 

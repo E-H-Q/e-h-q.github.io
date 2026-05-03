@@ -225,10 +225,28 @@ var turns = {
 
 		if (isPlayerControlled(currentEntity) && action.value === "attack") {
 			canvas.attackRangeDim(currentEntity);
-            if (window.throwingGrenadeIndex == undefined) {
-			    const targetingTiles = calculateEntityTargeting(currentEntity, window.cursorWorldPos.x, window.cursorWorldPos.y);
-			    if (targetingTiles.length > 0) canvas.los(targetingTiles, getWeaponAimStyle(currentEntity) === 'direct');
-            }
+			if (window.throwingGrenadeIndex == undefined) {
+				const cursorX = window.cursorWorldPos.x;
+				const cursorY = window.cursorWorldPos.y;
+				const targetingTiles = calculateEntityTargeting(currentEntity, cursorX, cursorY);
+				if (targetingTiles.length > 0) {
+					if (getWeaponAimStyle(currentEntity) === 'direct') {
+						canvas.los(targetingTiles, true);
+						const cursorInPath = targetingTiles.some(t => t.x === cursorX && t.y === cursorY);
+						const atCursor = cursorInPath ? entities.find(e => e.hp > 0 && e.x === cursorX && e.y === cursorY) : null;
+						if (atCursor) {
+							canvas.crosshair(atCursor.x, atCursor.y);
+						} else {
+							for (const tile of targetingTiles) {
+								const found = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
+								if (found) { canvas.crosshair(found.x, found.y); break; }
+							}
+						}
+					} else {
+						canvas.los(targetingTiles, false);
+					}
+				}
+			}
 		}
 
 		if (isPlayerControlled(currentEntity)) this.checkEnemyLOS();
