@@ -550,6 +550,27 @@ var WindowSystem = {
         return true;
     },
 
+    // Draws an item sprite from items.png into the examine window header area.
+    // Falls back to a coloured box if the spritesheet isn't loaded yet.
+    _drawItemSprite: function(itemType, destX, destY, destSize) {
+        const itemsImg = document.getElementById("items");
+        const spriteInfo = typeof ITEM_SPRITE_MAP !== 'undefined' ? ITEM_SPRITE_MAP[itemType] : null;
+        if (itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0 && spriteInfo) {
+            ctx.drawImage(
+                itemsImg,
+                spriteInfo.col * 32,
+                spriteInfo.row * 32,
+                32, 32,
+                destX, destY, destSize, destSize
+            );
+        } else {
+            // Fallback coloured box
+            const itemDef = itemTypes[itemType];
+            ctx.fillStyle = itemDef?.type === "equipment" ? "rgba(255,165,0,0.8)" : "rgba(255,255,255,0.8)";
+            ctx.fillRect(destX, destY, destSize, destSize);
+        }
+    },
+
     drawExamineWindow: function(win) {
         if (!win.entity) return;
 
@@ -664,10 +685,26 @@ var WindowSystem = {
             ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
 
         } else if (entity.itemType) {
+            // Draw the item sprite from items.png
+            this._drawItemSprite(entity.itemType, spriteX, spriteY, spriteSize);
+
+            // If multiple distinct item types are on this tile, draw smaller sprites for the rest
+            const itemsAtLocation = mapItems.filter(item => item.x === entity.x && item.y === entity.y);
+            const distinctTypes = [...new Set(itemsAtLocation.map(i => i.itemType))];
+            if (distinctTypes.length > 1) {
+                const smallSize = Math.round(spriteSize * 0.45);
+                const startX = spriteX + spriteSize - smallSize * (distinctTypes.length - 1);
+                for (let i = 1; i < distinctTypes.length; i++) {
+                    this._drawItemSprite(distinctTypes[i], startX + (i - 1) * smallSize, spriteY + spriteSize - smallSize, smallSize);
+                }
+            }
+
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 16px monospace";
             ctx.textAlign = "center";
-            ctx.fillText("Item(s)", spriteX + spriteSize / 2, spriteY + spriteSize + 20);
+            // Show the display name of the top item type
+            const topItemDef = itemTypes[entity.itemType];
+            ctx.fillText(topItemDef ? topItemDef.displayName : "Item(s)", spriteX + spriteSize / 2, spriteY + spriteSize + 20);
             ctx.font = "14px monospace";
             ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
         }

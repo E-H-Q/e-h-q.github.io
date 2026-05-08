@@ -581,6 +581,7 @@ function update() {
 			ctx.clearRect((v.x - camera.x) * tileSize, (v.y - camera.y) * tileSize, tileSize, tileSize);
 		});
 		const tilesImg = document.getElementById("tiles");
+		const itemsImg = document.getElementById("items");
 		valid.forEach(v => {
 			const sx = (v.x - camera.x) * tileSize;
 			const sy = (v.y - camera.y) * tileSize;
@@ -593,19 +594,29 @@ function update() {
 				if (tileIndex !== undefined) ctx.drawImage(tilesImg, tileIndex * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
 				if (wall.type === 'glass' && wall.damaged) ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
 			}
-			mapItems.filter(item => item.x === v.x && item.y === v.y).forEach(item => {
-				const itemDef = itemTypes[item.itemType];
-				const isEquipment = itemDef?.type === "equipment";
-				ctx.fillStyle = isEquipment ? "rgba(255, 165, 0, 0.8)" : "rgba(255, 255, 255, 0.8)";
-				ctx.fillRect(sx, sy, tileSize, tileSize);
-				if (!isZoomedOut && itemLabels[item.itemType]) {
-					ctx.fillStyle = isEquipment ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)";
-					ctx.font = 'bold 12px serif';
-					ctx.textAlign = 'center';
-					ctx.fillText(itemLabels[item.itemType], sx + tileSize / 2, sy + tileSize / 2 + 4);
+			const tileItems = mapItems.filter(item => item.x === v.x && item.y === v.y);
+			if (tileItems.length > 0) {
+				const topItem = tileItems[tileItems.length - 1];
+				const spriteInfo = typeof ITEM_SPRITE_MAP !== 'undefined' ? ITEM_SPRITE_MAP[topItem.itemType] : null;
+				if (itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0 && spriteInfo) {
+					ctx.drawImage(itemsImg, spriteInfo.col * 32, spriteInfo.row * 32, 32, 32, sx, sy, tileSize, tileSize);
+				} else {
+					const itemDef = itemTypes[topItem.itemType];
+					const isEquipment = itemDef?.type === "equipment";
+					ctx.fillStyle = isEquipment ? "rgba(255, 165, 0, 0.8)" : "rgba(255, 255, 255, 0.8)";
+					ctx.fillRect(sx, sy, tileSize, tileSize);
+				}
+				if (tileItems.length > 1) {
+					const fontSize = Math.max(8, Math.round(tileSize * 0.35));
+					ctx.font = `bold ${fontSize}px sans-serif`;
+					ctx.textAlign = 'right';
+					ctx.fillStyle = '#000000';
+					ctx.fillText('+', sx + tileSize - 1, sy + tileSize - 1);
+					ctx.fillStyle = '#FFFFFF';
+					ctx.fillText('+', sx + tileSize - 2, sy + tileSize - 2);
 					ctx.textAlign = 'left';
 				}
-			});
+			}
 		});
 		drawAdjacentSelect();
 	} else {

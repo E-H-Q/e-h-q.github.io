@@ -26,6 +26,27 @@ const TILE_FIRE        = 5;
 const TILE_DOOR_CLOSED = 6;
 const TILE_DOOR_OPEN   = 7;
 
+const ITEM_SPRITE_SIZE = 32;
+// Row 0 = weapons, Row 1 = consumables, Row 2 = equipment
+// Order matches the dropdown menus in the UI (same order as itemTypes defined in items.js)
+const ITEM_SPRITE_MAP = {
+	// Weapons row (top, row 0): knife, rifle, shotgun, rocketLauncher, machinegun
+	knife:          { row: 0, col: 0 },
+	rifle:          { row: 0, col: 1 },
+	shotgun:        { row: 0, col: 2 },
+	rocketLauncher: { row: 0, col: 3 },
+	machinegun:     { row: 0, col: 4 },
+	// Consumables row (middle, row 1): healthPotion, speedPotion, grenade
+	healthPotion:   { row: 1, col: 0 },
+	speedPotion:    { row: 1, col: 1 },
+	grenade:        { row: 1, col: 2 },
+	// Equipment row (bottom, row 2): kevlarVest, scope, breachingKit, flameBadge
+	kevlarVest:     { row: 2, col: 0 },
+	scope:          { row: 2, col: 1 },
+	breachingKit:   { row: 2, col: 2 },
+	flameBadge:     { row: 2, col: 3 },
+};
+
 var canvas = {
 	init: () => {
 		c.width = tileSize * viewportWidth;
@@ -135,18 +156,61 @@ var canvas = {
 	items: () => {
 		if (!mapItems) return;
 
+		const itemsImg = document.getElementById("items");
+		const hasItemSprites = itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0;
+
+		// Group items by tile position
+		const tileMap = new Map();
 		mapItems.forEach(item => {
-			const itemDef = itemTypes[item.itemType];
-			const isEquipment = itemDef?.type === "equipment";
-			ctx.fillStyle = isEquipment ? "rgba(255, 165, 0, 0.8)" : "rgba(255, 255, 255, 0.8)";
-			const screenX = (item.x - camera.x) * tileSize;
-			const screenY = (item.y - camera.y) * tileSize;
-			ctx.fillRect(screenX, screenY, tileSize, tileSize);
-			if (!isZoomedOut && itemLabels[item.itemType]) {
-				ctx.fillStyle = isEquipment ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)";
-				ctx.font = 'bold 12px serif';
-				ctx.textAlign = 'center';
-				ctx.fillText(itemLabels[item.itemType], screenX + tileSize / 2, screenY + tileSize / 2 + 4);
+			const key = `${item.x},${item.y}`;
+			if (!tileMap.has(key)) tileMap.set(key, []);
+			tileMap.get(key).push(item);
+		});
+
+		tileMap.forEach((tileItems, key) => {
+			const topItem = tileItems[tileItems.length - 1];
+			const screenX = (topItem.x - camera.x) * tileSize;
+			const screenY = (topItem.y - camera.y) * tileSize;
+			const hasStack = tileItems.length > 1;
+
+			const spriteInfo = ITEM_SPRITE_MAP[topItem.itemType];
+
+			if (hasItemSprites && spriteInfo) {
+				ctx.drawImage(
+					itemsImg,
+					spriteInfo.col * ITEM_SPRITE_SIZE,
+					spriteInfo.row * ITEM_SPRITE_SIZE,
+					ITEM_SPRITE_SIZE,
+					ITEM_SPRITE_SIZE,
+					screenX,
+					screenY,
+					tileSize,
+					tileSize
+				);
+			} else {
+				// Fallback: colored box
+				const itemDef = itemTypes[topItem.itemType];
+				const isEquipment = itemDef?.type === "equipment";
+				ctx.fillStyle = isEquipment ? "rgba(255, 165, 0, 0.8)" : "rgba(255, 255, 255, 0.8)";
+				ctx.fillRect(screenX, screenY, tileSize, tileSize);
+				if (!isZoomedOut && itemLabels[topItem.itemType]) {
+					ctx.fillStyle = isEquipment ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)";
+					ctx.font = 'bold 12px serif';
+					ctx.textAlign = 'center';
+					ctx.fillText(itemLabels[topItem.itemType], screenX + tileSize / 2, screenY + tileSize / 2 + 4);
+					ctx.textAlign = 'left';
+				}
+			}
+
+			// Draw "+" indicator for stacks
+			if (hasStack) {
+				const fontSize = Math.max(8, Math.round(tileSize * 0.35));
+				ctx.font = `bold ${fontSize}px sans-serif`;
+				ctx.textAlign = 'right';
+				ctx.fillStyle = '#000000';
+				ctx.fillText('+', screenX + tileSize - 1, screenY + tileSize - 1);
+				ctx.fillStyle = '#FFFFFF';
+				ctx.fillText('+', screenX + tileSize - 2, screenY + tileSize - 2);
 				ctx.textAlign = 'left';
 			}
 		});
