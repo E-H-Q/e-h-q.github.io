@@ -39,17 +39,33 @@ function wallBlocksLOS(wall) {
 // Clips a path array at the first blocking wall. Pass canDestroy=true to ignore walls.
 // Optional stopAtDoor=true includes the door tile in the path so it can be targeted.
 function clipPathAtWall(path, canDestroy = false, stopAtDoor = false) {
-	if (canDestroy) return path;
-	for (let i = 1; i < path.length; i++) {
-		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-		if (!wall) continue;
-		if (wall.type === 'water' || wall.type === 'fire') continue;
-		if (wall.type === 'glass' && !wall.damaged) continue;
-		if (wall.type === 'door' && wall.open) continue;
-		if (wall.type === 'door' && !wall.open && stopAtDoor) return path.slice(0, i + 1);
-		return path.slice(0, i);
-	}
-	return path;
+    if (canDestroy) return path;
+    if (!path || path.length === 0) return [];
+
+    for (let i = 1; i < path.length; i++) {
+        const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+        if (!wall) continue;
+
+        if (wall.type === 'water' || wall.type === 'fire') continue;
+
+        // Glass handling
+        if (wall.type === 'glass') {
+            if (wall.damaged) {
+                continue;
+            }
+            if (i === path.length - 1) return path; // targeting the glass itself
+            continue;
+        }
+
+        if (wall.type === 'door' && wall.open) continue;
+
+        // Blocking wall or closed door
+        if (wall.type === 'door' && !wall.open && stopAtDoor) {
+            return path.slice(0, i + 1);
+        }
+        return path.slice(0, i);
+    }
+    return path;
 }
 
 function hasPermissiveLOS(startX, startY, endX, endY) {
