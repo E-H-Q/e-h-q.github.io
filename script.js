@@ -27,11 +27,29 @@ function getSelectedPlayer() {
 }
 
 function populatePlayerFields(target) {
-	document.getElementById('player_name').value = target.name;
-	document.getElementById('player_hp').value = target.hp;
-	document.getElementById('player_range').value = target.range;
-	document.getElementById('player_attack_range').value = target.attack_range;
-	document.getElementById('player_turns').value = target.turns;
+    // Strip equipment to get base stats for display
+    if (target.equipment) {
+        for (let slot in target.equipment) {
+            if (target.equipment[slot]) {
+                const itemDef = itemTypes[target.equipment[slot].itemType];
+                if (itemDef) applyEquipmentEffects(target, itemDef, false);
+            }
+        }
+    }
+    document.getElementById('player_name').value = target.name;
+    document.getElementById('player_hp').value = target.hp;
+    document.getElementById('player_range').value = target.range;
+    document.getElementById('player_attack_range').value = target.attack_range;
+    document.getElementById('player_turns').value = target.turns;
+    // Re-apply equipment
+    if (target.equipment) {
+        for (let slot in target.equipment) {
+            if (target.equipment[slot]) {
+                const itemDef = itemTypes[target.equipment[slot].itemType];
+                if (itemDef) applyEquipmentEffects(target, itemDef, true);
+            }
+        }
+    }
 }
 
 function updatePlayerSelect() {
