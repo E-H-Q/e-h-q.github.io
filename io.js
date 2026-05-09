@@ -59,6 +59,7 @@ function load_map() {
         walls = walls.map(wall => wall.type ? wall : {x: wall.x, y: wall.y, type: 'wall'});
 
         allEnemies = loaded_enemies ? JSON.parse(loaded_enemies) : [];
+		allEnemies.forEach(e => { e.seenX = 0; e.seenY = 0; });
 
         if (legacy_player) {
             try {
@@ -176,7 +177,7 @@ function load_map() {
 		});
 
 		if (typeof updatePlayerSelect === 'function') updatePlayerSelect();
-		turns.checkEnemyLOS();
+		//turns.checkEnemyLOS();
 		update();
 	};
 	reader.readAsText(load);
