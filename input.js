@@ -193,6 +193,29 @@ function toggleEditTileSelection(x, y) {
 	}
 }
 
+// Walk the astar path from entity's current pos to (destX, destY) through validGrid,
+// applying fire/water trait changes for every tile stepped on.
+function applyPathTileEffects(entity, destX, destY) {
+	const validGrid = createAndFillTwoDArray({rows: size, columns: size, defaultValue: 0});
+	valid.forEach(v => { if (validGrid[v.x]?.[v.y] !== undefined) validGrid[v.x][v.y] = 1; });
+	validGrid[entity.x][entity.y] = 1;
+	const moveGraph = new Graph(validGrid, {diagonal: true});
+	const movePath = astar.search(moveGraph, moveGraph.grid[entity.x][entity.y], moveGraph.grid[destX][destY]);
+	for (const step of movePath) {
+		const onFire  = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'fire');
+		const onWater = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water');
+		if (onFire && !helper.hasTrait(entity, 'fire')) {
+			if (!entity.traits) entity.traits = [];
+			entity.traits.push('fire');
+			console.log(entity.name + " caught fire!");
+		}
+		if (onWater && helper.hasTrait(entity, 'fire')) {
+			entity.traits = entity.traits.filter(t => t !== 'fire');
+			console.log(entity.name + " got wet!");
+		}
+	}
+}
+
 var input = {
     init: function() {
         window.cursorWorldPos = {x: player.x, y: player.y};
@@ -637,6 +660,7 @@ var input = {
                         currentEntityTurnsRemaining--;
                         update();
                     } else {
+                        applyPathTileEffects(activeEnt, click_pos.x, click_pos.y);
                         turns.move(activeEnt, click_pos.x, click_pos.y);
                     }
                 }
