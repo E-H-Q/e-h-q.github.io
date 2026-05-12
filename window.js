@@ -755,7 +755,15 @@ var WindowSystem = {
                         }
                     }
                     win.items.push({ text: `${effectsStr}`});
-                    if (itemDef.maxAmmo !== Infinity && itemDef.maxAmmo !== undefined) win.items.push({ text: `Max Ammo: ${itemDef.maxAmmo}`});
+                
+                    const current = weaponItem.currentAmmo;
+                    const max = weaponItem.maxAmmo ?? itemDef.maxAmmo;
+                    if (current !== undefined) {
+                        win.items.push({ text: `Ammo: ${current}/${max}` });
+                    } else if (max !== undefined && max !== Infinity) {
+                        win.items.push({ text: `Max Ammo: ${max}` });
+                    }
+                    //if (itemDef.maxAmmo !== Infinity && itemDef.maxAmmo !== undefined) win.items.push({ text: `Ammo: ${weaponItem.currentAmmo}/${itemDef.maxAmmo}`});
                     if (itemDef.maxAmmo == Infinity) win.items.push({ text: "Infinite ammo, does not reload."});
                     if (itemDef.areaRadius) win.items.push({ text: `Radius: ${itemDef.areaRadius}`});
                     if (itemDef.burst) win.items.push({ text: `Burst Fire: ${itemDef.burst}`});
