@@ -30,12 +30,13 @@ const ITEM_SPRITE_SIZE = 32;
 // Row 0 = weapons, Row 1 = consumables, Row 2 = equipment
 // Order matches the dropdown menus in the UI (same order as itemTypes defined in items.js)
 const ITEM_SPRITE_MAP = {
-	// Weapons row (top, row 0): knife, rifle, shotgun, rocketLauncher, machinegun
+	// Weapons row (top, row 0): knife, rifle, shotgun, rocketLauncher, machinegun, pistol
 	knife:          { row: 0, col: 0 },
 	rifle:          { row: 0, col: 1 },
 	shotgun:        { row: 0, col: 2 },
 	rocketLauncher: { row: 0, col: 3 },
 	machinegun:     { row: 0, col: 4 },
+	pistol:	        { row: 0, col: 5 },
 	// Consumables row (middle, row 1): healthPotion, speedPotion, grenade
 	healthPotion:   { row: 1, col: 0 },
 	speedPotion:    { row: 1, col: 1 },
@@ -187,7 +188,7 @@ var canvas = {
 					tileSize,
 					tileSize
 				);
-			} else {
+			} /*else {
 				// Fallback: colored box
 				const itemDef = itemTypes[topItem.itemType];
 				const isEquipment = itemDef?.type === "equipment";
@@ -200,7 +201,7 @@ var canvas = {
 					ctx.fillText(itemLabels[topItem.itemType], screenX + tileSize / 2, screenY + tileSize / 2 + 4);
 					ctx.textAlign = 'left';
 				}
-			}
+			}*/
 
 			// Draw "+" indicator for stacks
 			if (hasStack) {

@@ -249,7 +249,7 @@ function updateInventory() {
 			const itemDef = itemTypes[item.itemType];
 
 			let itemTypeLabel = "";
-			if (itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
+			if (itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined && itemDef.maxAmmo !== Infinity) {
 				const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
 				if (currentAmmo > 0) itemTypeLabel = " [" + currentAmmo + "/" + itemDef.maxAmmo + "]";
 				else itemTypeLabel = " [E]";
@@ -354,9 +354,17 @@ function updateEquipment() {
 				if (effectsStr) effectsStr += ', ';
 				effectsStr += 'Attacks destroy terrain';
 			}
+			if (itemDef.grantsImmolate) {
+				if (effectsStr) effectsStr += ', ';
+				effectsStr += "Attacks spread fire";
+			}
+			if (itemDef.maxAmmo == Infinity) {
+				if (effectsStr) effectsStr += ', ';
+				effectsStr += "Infinite Ammo";
+			}
 
 			let ammoStr = '';
-			if (slot === "weapon" && itemDef.maxAmmo !== undefined) {
+			if (slot === "weapon" && itemDef.maxAmmo !== undefined && itemDef.maxAmmo !== Infinity) {
 				const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
 				ammoStr = '<br><span style="color: ' + (currentAmmo === 0 ? '#ff0000' : '#ffff00') + ';">Ammo: ' + currentAmmo + '/' + itemDef.maxAmmo + '</span>';
 			}

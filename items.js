@@ -38,6 +38,10 @@ const weaponsData = {
 	machinegun: {
 		name: "Machine Gun", type: "equipment", slot: "weapon", aimStyle: "pierce", burst: 3, maxAmmo: 3,
 		effects: [{stat: "damage", value: 3}, {stat: "attack_range", value: 1}], displayName: "Machine Gun"
+	},
+	pistol: {
+		name: "Pistol", type: "equipment", slot: "weapon", aimStyle: "default", maxAmmo: Infinity,
+		effects: [{stat: "damage", value: 3}, {stat: "attack_range", value: 1}], displayName: "Pistol"
 	}
 };
 
@@ -62,11 +66,13 @@ const equipmentData = {
 
 var itemTypes = {...consumablesData, ...weaponsData, ...equipmentData};
 
+/*
 const itemLabels = {
 	healthPotion: "HP+", speedPotion: "SP+", grenade: "Gnade", scope: "Scope",
 	rifle: "Rifle", kevlarVest: "Vest", shotgun: "Shotgun", rocketLauncher: "RPG",
 	machinegun: "SMG", breachingKit: "Breach", knife: "Knife", flameBadge: "Flame"
 };
+*/
 
 function getWeaponAimStyle(entity) {
 	return entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.aimStyle || "standard" : "standard";

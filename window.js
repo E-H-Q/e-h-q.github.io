@@ -685,28 +685,84 @@ var WindowSystem = {
             ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
 
         } else if (entity.itemType) {
-            // Draw the item sprite from items.png
-            this._drawItemSprite(entity.itemType, spriteX, spriteY, spriteSize);
-
             // If multiple distinct item types are on this tile, draw smaller sprites for the rest
             const itemsAtLocation = mapItems.filter(item => item.x === entity.x && item.y === entity.y);
             const distinctTypes = [...new Set(itemsAtLocation.map(i => i.itemType))];
             if (distinctTypes.length > 1) {
-                const smallSize = Math.round(spriteSize * 0.45);
-                const startX = spriteX + spriteSize - smallSize * (distinctTypes.length - 1);
-                for (let i = 1; i < distinctTypes.length; i++) {
-                    this._drawItemSprite(distinctTypes[i], startX + (i - 1) * smallSize, spriteY + spriteSize - smallSize, smallSize);
+                const smallSize = Math.ceil(spriteSize * 0.75);
+
+                const totalWidth = distinctTypes.length * smallSize + (distinctTypes.length - 1);
+                const startX = spriteX + (spriteSize - totalWidth) / 2;   // item list is centered
+                // NEEDS CHECK TO SEE IF totalWidth IS WIDER THAN EXAMINE WINDOW!!! IT CAN OVERFLOW!!!
+
+                for (let i = 0; i < distinctTypes.length; i++) {
+                    const x = startX + i * (smallSize);
+                    // Draw at the bottom of the sprite area
+                    const y = spriteY + spriteSize - smallSize;
+
+                    this._drawItemSprite(distinctTypes[i], x, y, smallSize);
                 }
+            } else {
+                // Draw the single item
+                this._drawItemSprite(entity.itemType, spriteX, spriteY, spriteSize);
             }
 
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 16px monospace";
             ctx.textAlign = "center";
-            // Show the display name of the top item type
+            // Show the display name of the top item type / show general items label for multiple item types
             const topItemDef = itemTypes[entity.itemType];
-            ctx.fillText(topItemDef ? topItemDef.displayName : "Item(s)", spriteX + spriteSize / 2, spriteY + spriteSize + 20);
+            if (distinctTypes.length <= 1) {
+                ctx.fillText(topItemDef.displayName, spriteX + spriteSize / 2, spriteY + spriteSize + 20); // single item type
+            } else {
+                ctx.fillText("Multiple Items", spriteX + spriteSize / 2, spriteY + spriteSize + 20); // multiple item types
+            }
             ctx.font = "14px monospace";
             ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
+            
+            const weaponItem = itemsAtLocation.find(item => item.itemType && weaponsData[item.itemType]);
+            const equipmentItem = itemsAtLocation.find(item => item.itemType && equipmentData[item.itemType]);
+            const consumableItem = itemsAtLocation.find(item => item.itemType && consumablesData[item.itemType]);
+            
+            let effectsStr = '';
+            let itemDef;
+            if (distinctTypes.length <= 1) {
+                if (weaponItem) {
+                        itemType = weaponItem.itemType;
+                        itemDef = weaponsData[itemType];
+                        for (let i = 0; i < itemDef.effects.length; i++) {
+                            if (i > 0) effectsStr += ', ';
+                            effectsStr += `+${itemDef.effects[i].value} ${itemDef.effects[i].stat.replace('_', ' ')}`;
+                        }
+                    } else if (consumableItem) {
+                        itemType = consumableItem.itemType;
+                        itemDef = consumablesData[itemType];
+                        if (itemDef.effect !== "grenade") {
+                            effectsStr += `${itemDef.effect}: ${itemDef.value}`;
+                        } else { // IS grenade
+                            effectsStr += `Damage: ${itemDef.damage}`; effectsStr += ', ';
+                            effectsStr += `Radius: ${itemDef.damageRadius}`; effectsStr += ', ';
+                            effectsStr += `Fuse: ${itemDef.fuse} turns`; 
+                        }
+                    } else if (equipmentItem) {
+                        itemType = equipmentItem.itemType;
+                        itemDef = equipmentData[itemType];
+                        if (itemDef.effects) {
+                            for (let i = 0; i < itemDef.effects.length; i++) {
+                                if (i > 0) effectsStr += ', ';
+                                effectsStr += `+${itemDef.effects[i].value} ${itemDef.effects[i].stat.replace('_', ' ')}`;
+                            }
+                        }
+                    }
+                    win.items.push({ text: `${effectsStr}`});
+                    if (itemDef.maxAmmo !== Infinity && itemDef.maxAmmo !== undefined) win.items.push({ text: `Max Ammo: ${itemDef.maxAmmo}`});
+                    if (itemDef.maxAmmo == Infinity) win.items.push({ text: "Infinite ammo, does not reload."});
+                    if (itemDef.areaRadius) win.items.push({ text: `Radius: ${itemDef.areaRadius}`});
+                    if (itemDef.burst) win.items.push({ text: `Burst Fire: ${itemDef.burst}`});
+                    if (weaponItem) win.items.push({ text: `Attack type: ${itemDef.aimStyle}`});
+                    if (itemDef.canDestroy) win.items.push({ text: "Attacks destroy terrain"});
+                    if (itemDef.grantsImmolate) win.items.push({ text: "Attacks spread fire"});
+                }
         }
 
         const contentY = win.y + HEADER_HEIGHT;
@@ -787,7 +843,7 @@ var WindowSystem = {
         const window = this.create({
             title: "examine",
             width: 450,
-            height: Math.min(600, 200 + stats.length * 22),
+            height: Math.min(600, 200 + stats.length * 32),
             items: stats,
             selectedIndices: new Set(),
             isExamineWindow: true,
