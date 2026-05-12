@@ -66,8 +66,8 @@ var turns = {
 				y: player.y - Math.round(viewportHeight / 2) + 1
 			};
 
-			// Only remove fire tiles if the previous entity was within the active viewport buffer
-			if (previousEntity) {
+			// Only remove fire tiles after player-controlled entity turns
+			if (previousEntity && isPlayerControlled(previousEntity)) {
 				const buffer = 5;
 				const prevInActiveRange = (
 					previousEntity.x >= playerCamera.x - buffer &&
@@ -136,8 +136,6 @@ var turns = {
 				}
                 currentEntityTurnsRemaining--;
 				
-				// Remove random fire tiles after grenade turn (grenade is in viewport by definition)
-				helper.removeRandomFireTiles();
                 update();
 			};
 			processGrenadeTurn();
