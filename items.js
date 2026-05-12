@@ -369,7 +369,9 @@ function pickupItem(entity, x, y) {
 		if (!entity.equipment) entity.equipment = {};
 		if (entity.equipment[itemDef.slot]) unequipItem(entity, itemDef.slot);
 		const pickedItem = {itemType: mostRecent.itemType, id: mostRecent.itemType};
-		if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) pickedItem.currentAmmo = itemDef.maxAmmo;
+		if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
+			pickedItem.currentAmmo = mostRecent.currentAmmo !== undefined ? mostRecent.currentAmmo : itemDef.maxAmmo;
+		}
 		entity.equipment[itemDef.slot] = pickedItem;
 		applyEquipmentEffects(entity, itemDef, true);
 		console.log(entity.name + " equipped " + itemDef.name);
@@ -389,7 +391,9 @@ function pickupItem(entity, x, y) {
 	}
 
 	const newItem = {itemType: mostRecent.itemType, id: mostRecent.id};
-	if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) newItem.currentAmmo = itemDef.maxAmmo;
+	if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
+		newItem.currentAmmo = mostRecent.currentAmmo !== undefined ? mostRecent.currentAmmo : itemDef.maxAmmo;
+	}
 	entity.inventory.push(newItem);
 	console.log(entity.name + " picked up " + itemDef.name);
 	mapItems.splice(mapItems.indexOf(mostRecent), 1);

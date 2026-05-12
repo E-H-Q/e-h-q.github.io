@@ -191,13 +191,19 @@ const EntitySystem = {
 		entity.inventory?.forEach(item => {
 			const itemDef = itemTypes[item.itemType];
 			const qty = (itemDef.type === "consumable" && item.quantity > 1) ? item.quantity : 1;
-			for (let i = 0; i < qty; i++) mapItems.push({x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++});
+			for (let i = 0; i < qty; i++) {
+				const dropped = {x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++};
+				if (item.currentAmmo !== undefined) dropped.currentAmmo = item.currentAmmo;
+				mapItems.push(dropped);
+			}
 			console.log(entity.name + " dropped " + (qty > 1 ? qty + " " : "") + itemDef.name + (qty > 1 ? "s" : ""));
 		});
 		entity.inventory = [];
 		for (const slot in entity.equipment ?? {}) {
 			if (!entity.equipment[slot]) continue;
-			mapItems.push({x: entity.x, y: entity.y, itemType: entity.equipment[slot].itemType, id: nextItemId++});
+			const dropped = {x: entity.x, y: entity.y, itemType: entity.equipment[slot].itemType, id: nextItemId++};
+			if (entity.equipment[slot].currentAmmo !== undefined) dropped.currentAmmo = entity.equipment[slot].currentAmmo;
+			mapItems.push(dropped);
 			console.log(entity.name + " dropped " + itemTypes[entity.equipment[slot].itemType].name);
 		}
 		entity.equipment = {};
@@ -205,12 +211,11 @@ const EntitySystem = {
 
 	death: function(entity) {
 		if (entity.hp > 0) return;
+		this.dropAllItems(entity);
 		if (helper.hasTrait(entity, 'explode')) {
 			this._explosionQueue.push(entity);
 			if (!this._explosionPending) this._processBatchExplosions();
-			if (entity.name !== "Grenade") return;
 		}
-		this.dropAllItems(entity);
 	},
 
 	_processBatchExplosions: function() {

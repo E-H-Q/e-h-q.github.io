@@ -315,7 +315,9 @@ function dropInventoryItem(event, inventoryIndex) {
 					activeEnt.inventory.splice(inventoryIndex, 1);
 				} else {
 					for (var i = 0; i < quantity; i++) {
-						mapItems.push({ x: activeEnt.x, y: activeEnt.y, itemType: item.itemType, id: nextItemId++ });
+						const dropped = {x: activeEnt.x, y: activeEnt.y, itemType: item.itemType, id: nextItemId++};
+						if (item.currentAmmo !== undefined) dropped.currentAmmo = item.currentAmmo;
+						mapItems.push(dropped);
 					}
 					console.log(activeEnt.name + " dropped " + quantity + " " + itemDef.name);
 					activeEnt.inventory.splice(inventoryIndex, 1);
@@ -725,8 +727,11 @@ function _doPickupItems(activeEnt, selectedWindowItems) {
 					for (let j = i; j < selection.items.length; j++) mapItems.push(selection.items[j]);
 					break;
 				}
-				const newItem = {itemType: selection.itemType, id: selection.items[i].id};
-				if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) newItem.currentAmmo = itemDef.maxAmmo;
+				const mapItem = selection.items[i];
+				const newItem = {itemType: selection.itemType, id: mapItem.id};
+				if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
+					newItem.currentAmmo = mapItem.currentAmmo !== undefined ? mapItem.currentAmmo : itemDef.maxAmmo;
+				}
 				activeEnt.inventory.push(newItem);
 				pickedCount++;
 			}
@@ -755,7 +760,10 @@ function showItemPickupWindow(x, y) {
 			windowItems.push({ text: displayText, itemType: item.itemType, items: sameTypeItems, count: sameTypeItems.length, isStackable: true });
 		} else {
 			processedItems.add(item.id);
-			windowItems.push({ text: itemDef.displayName, itemType: item.itemType, items: [item], count: 1, isStackable: false });
+			const ammoText = (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined && itemDef.maxAmmo !== Infinity)
+				? ` [${item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo}/${itemDef.maxAmmo}]`
+				: '';
+			windowItems.push({ text: itemDef.displayName + ammoText, itemType: item.itemType, items: [item], count: 1, isStackable: false });
 		}
 	});
 
