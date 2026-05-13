@@ -650,9 +650,13 @@ var WindowSystem = {
         const spriteX = win.x + (win.width / 2) - (spriteSize / 2);
 
         if (entity.name) {
-            const imgId = isPlayerControlled(entity) ? "pep" : "enemy";
-            const img = document.getElementById(imgId);
-            if (img && img.complete) ctx.drawImage(img, spriteX, spriteY, spriteSize, spriteSize);
+            if (helper.hasTrait(entity, 'explode') && entity.turnsRemaining) {
+                this._drawItemSprite('grenadeLive', spriteX, spriteY, spriteSize);
+            } else {
+                const imgId = isPlayerControlled(entity) ? "pep" : "enemy";
+                const img = document.getElementById(imgId);
+                if (img && img.complete) ctx.drawImage(img, spriteX, spriteY, spriteSize, spriteSize);
+            }
 
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 16px monospace";

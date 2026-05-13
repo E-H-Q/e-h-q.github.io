@@ -37,16 +37,24 @@ const ITEM_SPRITE_MAP = {
 	rocketLauncher: { row: 0, col: 3 },
 	machinegun:     { row: 0, col: 4 },
 	pistol:	        { row: 0, col: 5 },
-	// Consumables row (middle, row 1): healthPotion, speedPotion, grenade
+	// Consumables row (middle, row 1): healthPotion, speedPotion, grenade, grenadeLive
 	healthPotion:   { row: 1, col: 0 },
 	speedPotion:    { row: 1, col: 1 },
 	grenade:        { row: 1, col: 2 },
+	grenadeLive:    { row: 1, col: 3 },
 	// Equipment row (bottom, row 2): kevlarVest, scope, breachingKit, flameBadge
 	kevlarVest:     { row: 2, col: 0 },
 	scope:          { row: 2, col: 1 },
 	breachingKit:   { row: 2, col: 2 },
 	flameBadge:     { row: 2, col: 3 },
 };
+
+// Returns a Set of "x,y" strings for every tile occupied by a living entity.
+function getOccupiedTiles() {
+	const occupied = new Set();
+	entities.forEach(e => { if (e.hp > 0) occupied.add(`${e.x},${e.y}`); });
+	return occupied;
+}
 
 var canvas = {
 	init: () => {
@@ -60,6 +68,7 @@ var canvas = {
 
 	grid: () => {
 		const tilesImg = document.getElementById("tiles");
+		const occupied = getOccupiedTiles();
 		for (let i = 0; i < viewportWidth; i++) {
 			for (let j = 0; j < viewportHeight; j++) {
 				const worldX = camera.x + i;
@@ -76,7 +85,9 @@ var canvas = {
 					ctx.lineTo(screenX, screenY + tileSize);
 					ctx.stroke();
 				} else if (tilesImg && tilesImg.complete && tilesImg.naturalWidth > 0) {
+					if (occupied.has(`${worldX},${worldY}`)) ctx.globalAlpha = 0.5;
 					ctx.drawImage(tilesImg, TILE_FLOOR * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+					ctx.globalAlpha = 1.0;
 				}
 			}
 		}
@@ -159,6 +170,7 @@ var canvas = {
 
 		const itemsImg = document.getElementById("items");
 		const hasItemSprites = itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0;
+		const occupied = getOccupiedTiles();
 
 		// Group items by tile position
 		const tileMap = new Map();
@@ -174,8 +186,9 @@ var canvas = {
 			const screenY = (topItem.y - camera.y) * tileSize;
 			const hasStack = tileItems.length > 1;
 
-			const spriteInfo = ITEM_SPRITE_MAP[topItem.itemType];
+			if (occupied.has(key)) ctx.globalAlpha = 0.5;
 
+			const spriteInfo = ITEM_SPRITE_MAP[topItem.itemType];
 			if (hasItemSprites && spriteInfo) {
 				ctx.drawImage(
 					itemsImg,
@@ -188,20 +201,7 @@ var canvas = {
 					tileSize,
 					tileSize
 				);
-			} /*else {
-				// Fallback: colored box
-				const itemDef = itemTypes[topItem.itemType];
-				const isEquipment = itemDef?.type === "equipment";
-				ctx.fillStyle = isEquipment ? "rgba(255, 165, 0, 0.8)" : "rgba(255, 255, 255, 0.8)";
-				ctx.fillRect(screenX, screenY, tileSize, tileSize);
-				if (!isZoomedOut && itemLabels[topItem.itemType]) {
-					ctx.fillStyle = isEquipment ? "rgb(255, 255, 255)" : "rgb(0, 0, 0)";
-					ctx.font = 'bold 12px serif';
-					ctx.textAlign = 'center';
-					ctx.fillText(itemLabels[topItem.itemType], screenX + tileSize / 2, screenY + tileSize / 2 + 4);
-					ctx.textAlign = 'left';
-				}
-			}*/
+			}
 
 			// Draw "+" indicator for stacks
 			if (hasStack) {
@@ -214,6 +214,8 @@ var canvas = {
 				ctx.fillText('+', screenX + tileSize - 2, screenY + tileSize - 2);
 				ctx.textAlign = 'left';
 			}
+
+			ctx.globalAlpha = 1.0;
 		});
 	},
 
@@ -357,13 +359,10 @@ var canvas = {
 	selectedEditTiles: () => {
 		if (!edit.checked || !selectedEditTiles || selectedEditTiles.length === 0) return;
 		ctx.fillStyle = "rgba(0, 220, 255, 0.45)";
-		//ctx.strokeStyle = "rgba(0, 220, 255, 1)";
-		//ctx.lineWidth = 2;
 		selectedEditTiles.forEach(t => {
 			const sx = (t.x - camera.x) * tileSize;
 			const sy = (t.y - camera.y) * tileSize;
 			ctx.fillRect(sx, sy, tileSize, tileSize);
-			//ctx.strokeRect(sx, sy, tileSize, tileSize);
 		});
 	},
 
@@ -417,24 +416,30 @@ var canvas = {
 	},
 
 	enemy: () => {
+		const itemsImg = document.getElementById("items");
+		const hasItemSprites = itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0;
+		const liveGrenadeSprite = ITEM_SPRITE_MAP.grenadeLive;
+
 		allEnemies.forEach(entity => {
 			// Draw grenades (entities with explode trait)
 			if (helper.hasTrait(entity, 'explode') && entity.hp > 0 && entity.turnsRemaining) {
-				const screenX = entity.x - camera.x;
-				const screenY = entity.y - camera.y;
-				if (screenX >= 0 && screenX < viewportWidth && screenY >= 0 && screenY < viewportHeight) {
-					ctx.fillStyle = "#FFFFFF";
-					ctx.font = (tileSize / 3) + "px monospace";
-					ctx.textAlign = "center";
-					ctx.fillText("Gnade",
-						(screenX * tileSize) + (tileSize / 2),
-						(screenY * tileSize) + 2);
+				const screenX = (entity.x - camera.x) * tileSize;
+				const screenY = (entity.y - camera.y) * tileSize;
+				if (screenX >= -tileSize && screenX < c.width && screenY >= -tileSize && screenY < c.height) {
+					// Draw live grenade sprite
+					if (hasItemSprites && liveGrenadeSprite) {
+						ctx.drawImage(itemsImg,
+							liveGrenadeSprite.col * ITEM_SPRITE_SIZE, liveGrenadeSprite.row * ITEM_SPRITE_SIZE,
+							ITEM_SPRITE_SIZE, ITEM_SPRITE_SIZE,
+							screenX, screenY, tileSize, tileSize);
+					}
+					// Draw red countdown number
 					ctx.fillStyle = "#FF0000";
 					ctx.font = "bold " + (tileSize / 2) + "px monospace";
 					ctx.textAlign = "center";
 					ctx.fillText(entity.turnsRemaining.toString(),
-						(screenX * tileSize) + (tileSize / 2),
-						(screenY * tileSize) + (tileSize * 0.65));
+						screenX + tileSize / 2,
+						screenY + tileSize * 0.65);
 				}
 			} else { // not grenade
 				if (entity.hp >= 1) canvas.drawEntity(entity, "rgba(125, 125, 0, 0.5)", "enemy");

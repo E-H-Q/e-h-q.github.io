@@ -586,11 +586,10 @@ function update() {
 	valid = [];
 	canvas.clear();
 	canvas.grid();
-	canvas.walls();
-	canvas.selectedEditTiles(); // draw cyan selection highlight on top of wall sprites
-	canvas.items();
 	canvas.drawOnionskin();
+	canvas.walls();
 	canvas.player();
+	canvas.items();
 
 	if (isPlayerControlled(currentEntity) && typeof turns !== 'undefined' && turns.checkEnemyLOS) {
 		turns.checkEnemyLOS();
@@ -603,6 +602,8 @@ function update() {
 	populate.player();
 
 	turns.check();
+
+	canvas.selectedEditTiles();
 
 	if (adjacentSelect && isPlayerControlled(currentEntity)) {
 		valid.forEach(v => {
