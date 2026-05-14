@@ -366,6 +366,7 @@ var input = {
                 const activeEnt = getActivePlayerEntity();
                 if (reloadWeapon(activeEnt)) {
                     exitPeekMode();
+                    turns.checkStandingTileEffects(activeEnt);
                     currentEntityTurnsRemaining--;
                     if (currentEntityTurnsRemaining <= 0) {
                         currentEntityIndex++;
@@ -459,6 +460,7 @@ var input = {
             } else if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]) && currentEntityTurnsRemaining > 0) {
                 if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) return;
                 const activeEnt = getActivePlayerEntity();
+                turns.checkStandingTileEffects(activeEnt);
                 currentEntityTurnsRemaining--;
                 console.log(activeEnt.name + " waits...");
                 update();
@@ -671,6 +673,7 @@ var input = {
                     if (throwItem(activeEnt, window.throwingGrenadeIndex, click_pos.x, click_pos.y)) {
                         window.throwingGrenadeIndex = undefined;
 
+                        turns.checkStandingTileEffects(activeEnt);
                         currentEntityTurnsRemaining--;
 
                         if (isPeekMode) {
@@ -720,6 +723,7 @@ var input = {
 
                 if (isPeekMode && peekStep === 2) {
                     if (EntitySystem.attack(peekEntity, click_pos.x, click_pos.y)) {
+                        turns.checkStandingTileEffects(peekEntity);
                         currentEntityTurnsRemaining--;
                     }
                     peekEntity.x = peekStartX;
@@ -734,6 +738,7 @@ var input = {
                     update();
                 } else {
                     if (EntitySystem.attack(activeEnt, click_pos.x, click_pos.y)) {
+                        turns.checkStandingTileEffects(activeEnt);
                         currentEntityTurnsRemaining--;
                         const newExplosion = EntitySystem._explosionPending || EntitySystem._explosionQueue.length > 0;
                         if (newExplosion) return;
