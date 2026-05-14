@@ -509,6 +509,8 @@ var input = {
         }
 
         if (event.keyCode === 80) {
+            const activeEnt = getActivePlayerEntity();
+            turns.checkStandingTileEffects(activeEnt);
             activatePeekMode();
         }
     },
@@ -660,6 +662,7 @@ var input = {
                         action.value = "attack";
                         action.disabled = true;
                         currentEntityTurnsRemaining--;
+                        turns.checkStandingTileEffects(activeEnt);
                         update();
                     } else {
                         applyPathTileEffects(activeEnt, click_pos.x, click_pos.y);
