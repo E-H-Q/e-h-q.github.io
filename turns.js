@@ -231,12 +231,21 @@ var turns = {
 							}
 						}
 					} else if (getWeaponAimStyle(currentEntity) === 'area') {
-						// Only draw crosshairs on blast-area tiles, not on the travel path to the center.
-						const travelPathSet = new Set(
-							line({x: currentEntity.x, y: currentEntity.y}, {x: cursorX, y: cursorY})
-								.slice(1).map(t => `${t.x},${t.y}`)
-						);
-						const blastTiles = targetingTiles.filter(t => !travelPathSet.has(`${t.x},${t.y}`));
+						// Draw crosshairs only on blast-area tiles (not pure travel-path tiles).
+						// Path tiles that happen to fall inside the blast circle also qualify.
+						const areaRadius = currentEntity.equipment?.weapon
+							? itemTypes[currentEntity.equipment.weapon.itemType]?.areaRadius || 2 : 2;
+						const center = (() => {
+							let p = line({x: currentEntity.x, y: currentEntity.y}, {x: cursorX, y: cursorY});
+							p = clipPathAtWall(p, canEntityDestroyWalls(currentEntity), true);
+							const range = getEntityAttackRange(currentEntity);
+							p = p.length > range + 1 ? p.slice(1, range + 1) : p.slice(1);
+							return p.length > 0 ? p[p.length - 1] : {x: cursorX, y: cursorY};
+						})();
+						const blastAreaTiles = collectAreaTiles(center.x, center.y, areaRadius);
+						const blastSet = new Set(blastAreaTiles.map(t => `${t.x},${t.y}`));
+						blastSet.add(`${center.x},${center.y}`);
+						const blastTiles = targetingTiles.filter(t => blastSet.has(`${t.x},${t.y}`));
 						canvas.los(targetingTiles, false, blastTiles);
 					} else {
 						canvas.los(targetingTiles, false);

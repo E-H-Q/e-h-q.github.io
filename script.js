@@ -650,8 +650,24 @@ function update() {
 		drawAdjacentSelect();
 	} else {
 		if (isPlayerControlled(currentEntity) && action.value === "attack" && window.cursorWorldPos && window.throwingGrenadeIndex !== undefined) {
-			const grenadeTargeting = calculateGrenadeTargeting(currentEntity, window.cursorWorldPos.x, window.cursorWorldPos.y);
-			if (grenadeTargeting.length > 0) canvas.los(grenadeTargeting);
+			const cursorX = window.cursorWorldPos.x;
+			const cursorY = window.cursorWorldPos.y;
+			const grenadeTargeting = calculateGrenadeTargeting(currentEntity, cursorX, cursorY);
+			if (grenadeTargeting.length > 0) {
+				// Draw crosshairs only on blast-area tiles. Path tiles that happen to
+				// fall inside the blast circle also qualify.
+				// Re-derive the landing center the same way calculateGrenadeTargeting does.
+				const grenadeDef = itemTypes.grenade;
+				let gPath = line({x: currentEntity.x, y: currentEntity.y}, {x: cursorX, y: cursorY});
+				gPath = clipPathAtWall(gPath);
+				gPath = gPath.length > currentEntity.attack_range + 1 ? gPath.slice(1, currentEntity.attack_range + 1) : gPath.slice(1);
+				const blastCenter = gPath.length > 0 ? gPath[gPath.length - 1] : {x: cursorX, y: cursorY};
+				const blastAreaTiles = collectAreaTiles(blastCenter.x, blastCenter.y, grenadeDef.damageRadius);
+				const blastSet = new Set(blastAreaTiles.map(t => `${t.x},${t.y}`));
+				blastSet.add(`${blastCenter.x},${blastCenter.y}`);
+				const blastTiles = grenadeTargeting.filter(t => blastSet.has(`${t.x},${t.y}`));
+				canvas.los(grenadeTargeting, false, blastTiles);
+			}
 		}
 	}
 
@@ -676,6 +692,7 @@ function update() {
 action.selectedIndex = 0;
 
 function handleMouseMove(event) {
+	if (EntitySystem._explosionPending) return;
 	if (allPlayers.length === 0) return;
 	if (currentEntityIndex >= 0 && !isPlayerControlled(entities[currentEntityIndex])) return;
 	input.mouse(event);

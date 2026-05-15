@@ -230,7 +230,11 @@ var canvas = {
 		}
 	},
 
-	los: (path, directOnly = false) => {
+	// Highlights all tiles in `path` yellow and draws crosshairs on entities/walls within them.
+	// `directOnly`: if true, only draws crosshairs on the first entity hit, not walls.
+	// `hitTiles`: optional subset of tiles where crosshairs are allowed (e.g. blast area only,
+	//             excluding the travel path). When null, all tiles in `path` are eligible.
+	los: (path, directOnly = false, hitTiles = null) => {
 		if (!path || path.length === 0) return;
 		const movesImg = document.getElementById("moves");
 		ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
@@ -238,7 +242,15 @@ var canvas = {
 			ctx.fillRect((point.x - camera.x) * tileSize, (point.y - camera.y) * tileSize, tileSize, tileSize);
 		});
 		if (movesImg && movesImg.complete && movesImg.naturalWidth > 0) {
+			// Build a fast lookup for the crosshair-eligible tiles.
+			const crosshairSet = hitTiles
+				? new Set(hitTiles.map(t => `${t.x},${t.y}`))
+				: null;
+
 			path.forEach(point => {
+				// Skip this tile for crosshair purposes if it's outside the hit area.
+				if (crosshairSet && !crosshairSet.has(`${point.x},${point.y}`)) return;
+
 				const isCursor = window.cursorWorldPos && point.x === window.cursorWorldPos.x && point.y === window.cursorWorldPos.y;
 				const hasTarget = !directOnly && (
 					entities.some(e => e.hp > 0 && e.x === point.x && e.y === point.y) ||

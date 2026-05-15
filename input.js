@@ -223,6 +223,7 @@ var input = {
     },
 
     keyboard: function(event) {
+        if (EntitySystem._explosionPending) return;
         if (allPlayers.length === 0) return;
 
         if (typeof WindowSystem !== 'undefined') {
@@ -509,8 +510,6 @@ var input = {
         }
 
         if (event.keyCode === 80) {
-            const activeEnt = getActivePlayerEntity();
-            turns.checkStandingTileEffects(activeEnt);
             activatePeekMode();
         }
     },
@@ -599,6 +598,7 @@ var input = {
     },
 
     click: function() {
+        if (EntitySystem._explosionPending) return;
         if (allPlayers.length === 0) return;
 
         if (typeof WindowSystem !== 'undefined' && activeContextMenu) {
@@ -662,7 +662,6 @@ var input = {
                         action.value = "attack";
                         action.disabled = true;
                         currentEntityTurnsRemaining--;
-                        turns.checkStandingTileEffects(activeEnt);
                         update();
                     } else {
                         applyPathTileEffects(activeEnt, click_pos.x, click_pos.y);
@@ -1042,6 +1041,7 @@ var input = {
     },
 
     mousedown: function(event) {
+        if (EntitySystem._explosionPending) return;
         if (event.button === 0) {
             isMouseDown = true;
 
