@@ -775,10 +775,14 @@ var WindowSystem = {
 
             if (entity.equipment.weapon) {
                 const weaponDef = itemTypes[entity.equipment.weapon.itemType];
-                const ammo = entity.equipment.weapon.currentAmmo;
-                const maxAmmo = weaponDef.maxAmmo;
+                const currentAmmo = entity.equipment.weapon.currentAmmo !== undefined 
+                    ? entity.equipment.weapon.currentAmmo 
+                    : (weaponDef.maxAmmo !== undefined ? weaponDef.maxAmmo : "—");
+
                 let weaponText = `  Weapon: ${weaponDef.displayName}`;
-                if (maxAmmo !== undefined) weaponText += ` [${ammo}/${maxAmmo}]`;
+                if (weaponDef.maxAmmo !== undefined) {
+                    weaponText += ` [${currentAmmo}/${weaponDef.maxAmmo}]`;
+                }
                 stats.push({ text: weaponText });
             }
 
@@ -800,7 +804,11 @@ var WindowSystem = {
                 const itemDef = itemTypes[item.itemType];
                 let itemText = `  - ${itemDef.displayName}`;
                 if (item.quantity > 1) itemText += ` (x${item.quantity})`;
-                if (item.currentAmmo !== undefined) itemText += ` [${item.currentAmmo}/${itemDef.maxAmmo}]`;
+                if (item.currentAmmo !== undefined) {
+                    itemText += ` [${item.currentAmmo}/${itemDef.maxAmmo}]`;
+                } else if (itemDef.maxAmmo !== undefined && itemDef.maxAmmo !== Infinity) {
+                    itemText += ` [${itemDef.maxAmmo}/${itemDef.maxAmmo}]`;   // show ammo
+                }
                 stats.push({ text: itemText });
             });
         }
