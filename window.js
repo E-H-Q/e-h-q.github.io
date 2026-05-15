@@ -769,7 +769,7 @@ var WindowSystem = {
         if (entity.damage) stats.push({ text: `Damage: +${entity.damage}` });
         if (entity.armor) stats.push({ text: `Armor: ${entity.armor}` });
 
-        if (entity.equipment) {
+        if (entity.equipment && entity.equipment.weapon || entity.equipment.armor || entity.equipment.accessory) {
             stats.push({ text: "" });
             stats.push({ text: "EQUIPMENT:" });
 
@@ -780,7 +780,7 @@ var WindowSystem = {
                     : (weaponDef.maxAmmo !== undefined ? weaponDef.maxAmmo : "—");
 
                 let weaponText = `  Weapon: ${weaponDef.displayName}`;
-                if (weaponDef.maxAmmo !== undefined) {
+                if (weaponDef.maxAmmo !== undefined && weaponDef.maxAmmo !== Infinity) {
                     weaponText += ` [${currentAmmo}/${weaponDef.maxAmmo}]`;
                 }
                 stats.push({ text: weaponText });
@@ -804,7 +804,7 @@ var WindowSystem = {
                 const itemDef = itemTypes[item.itemType];
                 let itemText = `  - ${itemDef.displayName}`;
                 if (item.quantity > 1) itemText += ` (x${item.quantity})`;
-                if (item.currentAmmo !== undefined) {
+                if (item.currentAmmo !== undefined && itemDef.maxAmmo !== Infinity) {
                     itemText += ` [${item.currentAmmo}/${itemDef.maxAmmo}]`;
                 } else if (itemDef.maxAmmo !== undefined && itemDef.maxAmmo !== Infinity) {
                     itemText += ` [${itemDef.maxAmmo}/${itemDef.maxAmmo}]`;   // show ammo
@@ -814,12 +814,16 @@ var WindowSystem = {
         }
 
         if (entity.traits) {
-            for (var i = 0; i < entity.traits.length; i++) {
-                const traitDef = entityTraits[entity.traits[i]];
-                if (traitDef) {
-                    stats.push({ text: "(" + traitDef.name + "): " + traitDef.description });
-                } else {
-                    stats.push({ text: `Trait: ${entity.traits[i]}` });
+            if (entity.traits.length > 0) {
+                stats.push({ text: "" });
+                stats.push({ text: "TRAITS: "});
+                for (var i = 0; i < entity.traits.length; i++) {
+                    const traitDef = entityTraits[entity.traits[i]];
+                    if (traitDef) {
+                        stats.push({ text: "(" + traitDef.name + "): " + traitDef.description });
+                    } else {
+                        stats.push({ text: `Trait: ${entity.traits[i]}` });
+                    }
                 }
             }
         }
