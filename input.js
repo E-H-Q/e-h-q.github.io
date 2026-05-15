@@ -49,12 +49,9 @@ function activateDoorMode() {
 	const adjacentDoors = helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
 		.filter(tile => walls.some(w => w.x === tile.x && w.y === tile.y && w.type === 'door'));
 
-    /*
 	if (adjacentDoors.length === 0) {
-		console.log("No adjacent doors.");
 		return;
-	}
-    */
+    }
 
 	if (adjacentDoors.length === 1) {
 		const door = walls.find(w => w.x === adjacentDoors[0].x && w.y === adjacentDoors[0].y && w.type === 'door');
@@ -81,31 +78,6 @@ function grabItemsFromTile(x, y) {
 	activeEnt.x = origX;
 	activeEnt.y = origY;
 	return true;
-}
-
-function drawAdjacentSelect() {
-	if (!adjacentSelect) return;
-	const activeEnt = getActivePlayerEntity();
-	ctx.fillStyle = "rgba(0, 220, 255, 0.45)";
-
-	if (adjacentSelect.mode === 'grab') {
-		const grabTiles = [
-			{x: activeEnt.x, y: activeEnt.y},
-			...helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
-		];
-		for (const tile of grabTiles) {
-			if (mapItems.some(item => item.x === tile.x && item.y === tile.y)) {
-				ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
-			}
-		}
-	} else if (adjacentSelect.mode === 'door') {
-		const doorTiles = helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
-			.filter(tile => walls.some(w => w.x === tile.x && w.y === tile.y && w.type === 'door'));
-        canvas.walls(); // without this open doors do not get rendered?
-		for (const tile of doorTiles) {
-			ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
-		}
-	}
 }
 
 function updateCamera() {

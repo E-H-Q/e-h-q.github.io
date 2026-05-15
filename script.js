@@ -647,7 +647,7 @@ function update() {
 				}
 			}
 		});
-		drawAdjacentSelect();
+		canvas.drawAdjacentSelect();
 	} else {
 		if (isPlayerControlled(currentEntity) && action.value === "attack" && window.cursorWorldPos && window.throwingGrenadeIndex !== undefined) {
 			const cursorX = window.cursorWorldPos.x;

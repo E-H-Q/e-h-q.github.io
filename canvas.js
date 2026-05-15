@@ -159,9 +159,11 @@ var canvas = {
 			}
 		});
 		if (edit.checked) {
+			ctx.save();
 			ctx.font = 'italic bold 16px sans';
 			ctx.fillStyle = "#FF0000";
 			ctx.fillText("EDIT MODE ON", 5, 16); // RED EDIT MODE TEXT !!!!!!!!!!!!!!
+			ctx.restore();
 		}
 	},
 
@@ -376,6 +378,31 @@ var canvas = {
 			const sy = (t.y - camera.y) * tileSize;
 			ctx.fillRect(sx, sy, tileSize, tileSize);
 		});
+	},
+	
+	drawAdjacentSelect: () => {
+		if (!adjacentSelect) return;
+		const activeEnt = getActivePlayerEntity();
+		ctx.fillStyle = "rgba(0, 220, 255, 0.45)";
+
+		if (adjacentSelect.mode === 'grab') {
+			const grabTiles = [
+				{x: activeEnt.x, y: activeEnt.y},
+				...helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
+			];
+			for (const tile of grabTiles) {
+				if (mapItems.some(item => item.x === tile.x && item.y === tile.y)) {
+					ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
+				}
+			}
+		} else if (adjacentSelect.mode === 'door') {
+			const doorTiles = helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
+				.filter(tile => walls.some(w => w.x === tile.x && w.y === tile.y && w.type === 'door'));
+			canvas.walls(); // without this open doors do not get rendered?
+			for (const tile of doorTiles) {
+				ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
+			}
+		}
 	},
 
 	cursor: () => {
