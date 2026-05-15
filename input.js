@@ -364,52 +364,62 @@ var input = {
             return;
         }
 
-        if (event.keyCode === 222) {
+        if (event.keyCode === 222) { // Apostrophe - autotargetting
             event.preventDefault();
-            if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex])) {
-                keyboardMode = true;
-                cursorVisible = true;
-                const activeEnt = getActivePlayerEntity();
 
-                if (action.value === "attack") {
-                    const range = getEntityAttackRange(activeEnt);
-                    const visibleEnemies = entities.filter(e =>
-                        !isPlayerControlled(e) &&
-                        e.hp > 0 &&
-                        (e.seenX !== 0 || e.seenY !== 0) &&
-                        EntitySystem.hasLOS(activeEnt, e.x, e.y, true) &&
-                        e.x >= camera.x && e.x < camera.x + viewportWidth &&
-                        e.y >= camera.y && e.y < camera.y + viewportHeight &&
-                        calc.distance(activeEnt.x, e.x, activeEnt.y, e.y) <= range
-                    );
-                    if (visibleEnemies.length > 0) {
-                        if (window.targetIndex === undefined) window.targetIndex = 0;
-                        else window.targetIndex = (window.targetIndex + 1) % visibleEnemies.length;
-                        const target = visibleEnemies[window.targetIndex];
-                        window.cursorWorldPos = {x: target.x, y: target.y};
-                        update();
-                    }
-                } else if (action.value === "move") {
-                    const visibleItems = mapItems.filter(item =>
-                        hasPermissiveLOS(activeEnt.x, activeEnt.y, item.x, item.y) &&
-                        item.x >= camera.x && item.x < camera.x + viewportWidth &&
-                        item.y >= camera.y && item.y < camera.y + viewportHeight
-                        );
-                    const visibleFriends = allPlayers.filter(friend =>
-                        friend != activeEnt &&
-                        hasPermissiveLOS(activeEnt.x, activeEnt.y, friend.x, friend.y) &&
-                        friend.x >= camera.x && friend.x < camera.x + viewportWidth &&
-                        friend.y >= camera.y && friend.y < camera.y + viewportHeight
-                    );
-                    const visibleTargets = [...new Set([...visibleItems, ...visibleFriends])];
-                    if (visibleTargets.length > 0) {
-                        if (window.itemTargetIndex === undefined) window.itemTargetIndex = 0;
-                        else window.itemTargetIndex = (window.itemTargetIndex + 1) % visibleTargets.length;
-                        const target = visibleTargets[window.itemTargetIndex];
-                        window.cursorWorldPos = {x: target.x, y: target.y};
-                        update();
-                    }
+            if (currentEntityIndex < 0 || !isPlayerControlled(entities[currentEntityIndex])) return;
+
+            const activeEnt = getActivePlayerEntity();
+            let targetX = null;
+            let targetY = null;
+
+            if (action.value === "attack") {
+                const range = getEntityAttackRange(activeEnt);
+                const visibleEnemies = entities.filter(e =>
+                    !isPlayerControlled(e) &&
+                    e.hp > 0 &&
+                    (e.seenX !== 0 || e.seenY !== 0) &&
+                    EntitySystem.hasLOS(activeEnt, e.x, e.y, true) &&
+                    e.x >= camera.x && e.x < camera.x + viewportWidth &&
+                    e.y >= camera.y && e.y < camera.y + viewportHeight &&
+                    calc.distance(activeEnt.x, e.x, activeEnt.y, e.y) <= range
+                );
+
+                if (visibleEnemies.length > 0) {
+                    if (window.targetIndex === undefined) window.targetIndex = 0;
+                    else window.targetIndex = (window.targetIndex + 1) % visibleEnemies.length;
+
+                    const target = visibleEnemies[window.targetIndex];
+                    targetX = target.x;
+                    targetY = target.y;
                 }
+            } 
+            else if (action.value === "move") {
+                const visibleItems = mapItems.filter(item =>
+                    hasPermissiveLOS(activeEnt.x, activeEnt.y, item.x, item.y) &&
+                    item.x >= camera.x && item.x < camera.x + viewportWidth &&
+                    item.y >= camera.y && item.y < camera.y + viewportHeight
+                );
+                const visibleFriends = allPlayers.filter(friend =>
+                    friend !== activeEnt &&
+                    hasPermissiveLOS(activeEnt.x, activeEnt.y, friend.x, friend.y) &&
+                    friend.x >= camera.x && friend.x < camera.x + viewportWidth &&
+                    friend.y >= camera.y && friend.y < camera.y + viewportHeight
+                );
+                const visibleTargets = [...new Set([...visibleItems, ...visibleFriends])];
+
+                if (visibleTargets.length > 0) {
+                    if (window.itemTargetIndex === undefined) window.itemTargetIndex = 0;
+                    else window.itemTargetIndex = (window.itemTargetIndex + 1) % visibleTargets.length;
+
+                    const target = visibleTargets[window.itemTargetIndex];
+                    targetX = target.x;
+                    targetY = target.y;
+                }
+            }
+
+            if (targetX !== null && targetY !== null) {
+                helper.moveCursorTo(targetX, targetY, false);
             }
             return;
         }

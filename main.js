@@ -263,6 +263,31 @@ var populate = {
 };
 
 var helper = {
+	moveCursorTo: (wx, wy, center = false) => { // moves cursor to x/y, can center camera on cursor!
+		window.cursorWorldPos = {
+			x: Math.max(0, Math.min(size - 1, wx)),
+			y: Math.max(0, Math.min(size - 1, wy))
+		};
+		cursorVisible = true;
+		keyboardMode = true;
+
+		if (isAiming) {
+			if (center) {
+				const halfW = Math.round(viewportWidth / 2);
+				const halfH = Math.round(viewportHeight / 2);
+
+				camera = aimCamera = {
+					x: Math.round(wx - halfW + 1),
+					y: Math.round(wy - halfH + 1)
+				};
+			} else {
+				updateCamera();
+			}
+			canvas.init();
+		}
+		update();
+	},
+
 	tileBlocked: (x, y) => {
 		return walls.some(w => w.x === x && w.y === y && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open)) ||
 		       allEnemies.some(e => e.hp > 0 && e.x === x && e.y === y) ||
