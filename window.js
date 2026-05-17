@@ -638,10 +638,18 @@ var WindowSystem = {
             }
         } else if (helper.hasTrait(entity, "explode") && entity.turnsRemaining) {
             win.items = [];
-            win.items.push({ text: "Detonation Countdown: " + entity.turnsRemaining});
-            win.items.push({ text: " "});
-            win.items.push({ text: "(" + entityTraits.explode.name + "): " + entityTraits.explode.description });
-            win.items.push({ text: "(" + entityTraits.active.name + "): " + entityTraits.active.description });
+            if (helper.hasTrait(entity, 'active')) {
+                win.items.push({ text: "Detonation Countdown: " + entity.turnsRemaining });
+            } else {
+                win.items.push({ text: "Countdown inactive." });
+            }
+            win.items.push({ text: " " });
+            if (entity.traits) {
+                for (const t of entity.traits) {
+                    const def = entityTraits[t];
+                    if (def) win.items.push({ text: "(" + def.name + "): " + def.description });
+                }
+            }
         }
 
         win.height = Math.max(win.height, HEADER_HEIGHT + win.items.length * LINE_HEIGHT + FOOTER_HEIGHT);
@@ -657,6 +665,8 @@ var WindowSystem = {
         const spriteX = win.x + (win.width / 2) - (spriteSize / 2);
 
         if (entity.name) {
+            // Show the live grenade sprite for any grenade entity (active or not);
+            // the countdown UI is gated separately on the 'active' trait.
             if (helper.hasTrait(entity, 'explode') && entity.turnsRemaining) {
                 this._drawItemSprite('grenadeLive', spriteX, spriteY, spriteSize);
             } else {
@@ -786,8 +796,8 @@ var WindowSystem = {
 
             if (entity.equipment.weapon) {
                 const weaponDef = itemTypes[entity.equipment.weapon.itemType];
-                const currentAmmo = entity.equipment.weapon.currentAmmo !== undefined 
-                    ? entity.equipment.weapon.currentAmmo 
+                const currentAmmo = entity.equipment.weapon.currentAmmo !== undefined
+                    ? entity.equipment.weapon.currentAmmo
                     : (weaponDef.maxAmmo !== undefined ? weaponDef.maxAmmo : "—");
 
                 let weaponText = `  Weapon: ${weaponDef.displayName}`;

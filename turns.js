@@ -69,7 +69,7 @@ var turns = {
             console.log("YOU DIED\n");
             return;
         }
-        
+
         if (currentEntityTurnsRemaining <= 0) { // ONLY RUNS WHEN NON-PLAYER ENTITIES ARE ALSO PRESENT!? NEEDS TO TRIGGER AFTER *ALL* ENTITY TURNS!!!
             const previousEntity = entities[currentEntityIndex];
 
@@ -77,7 +77,7 @@ var turns = {
             if (previousEntity && typeof processInventoryGrenades !== 'undefined') {
                 processInventoryGrenades(previousEntity);
             }
-            
+
             // Apply fire/water effects from the tile the entity is currently standing on
             if (previousEntity) {
                 this.checkStandingTileEffects(previousEntity);
@@ -136,27 +136,34 @@ var turns = {
             canvas.items();
             canvas.player();
             canvas.enemy();
-			canvas.inventory();
+            canvas.inventory();
         }
 
         let currentEntity = entities[currentEntityIndex];
         if (currentEntity == undefined) currentEntity = player; // failsafe defaults to player1
 
-        // Handle grenade turns - countdown with delay if in viewport
-        if (helper.hasTrait(currentEntity, 'explode') && currentEntity.turnsRemaining) {			
-            const processGrenadeTurn = () => {
-                currentEntity.turnsRemaining--;
-                
-                if (currentEntity.turnsRemaining <= 0) {
-                    currentEntity.hp = 0;
-                    EntitySystem.death(currentEntity);
-                    if (currentEntityIndex != entities.length) currentEntityIndex--;
-                }
+        // Handle grenade turns - countdown only while 'active' trait is present.
+        // Removing 'active' freezes the countdown but keeps the grenade on the map.
+        if (helper.hasTrait(currentEntity, 'explode') && currentEntity.turnsRemaining) {
+            if (helper.hasTrait(currentEntity, 'active')) {
+                const processGrenadeTurn = () => {
+                    currentEntity.turnsRemaining--;
+
+                    if (currentEntity.turnsRemaining <= 0) {
+                        currentEntity.hp = 0;
+                        EntitySystem.death(currentEntity);
+                        if (currentEntityIndex != entities.length) currentEntityIndex--;
+                    }
+                    currentEntityTurnsRemaining--;
+
+                    update();
+                };
+                processGrenadeTurn();
+            } else {
+                // Inactive grenade — consume its turn slot without ticking the fuse
                 currentEntityTurnsRemaining--;
-                
                 update();
-            };
-            processGrenadeTurn();
+            }
             return;
         }
 
@@ -251,7 +258,8 @@ var turns = {
                     if (getWeaponAimStyle(currentEntity) === 'direct') {
                         canvas.los(targetingTiles, true);
                         const cursorInPath = targetingTiles.some(t => t.x === cursorX && t.y === cursorY);
-                        const atCursor = cursorInPath ? entities.find(e => e.hp > 0 && e.x === cursorX && e.y === cursorY) : null;
+                        const atCursor = cursorInPath ?
+                            entities.find(e => e.hp > 0 && e.x === cursorX && e.y === cursorY) : null;
                         if (atCursor) {
                             canvas.crosshair(atCursor.x, atCursor.y);
                         } else {
@@ -366,7 +374,7 @@ var turns = {
         if (!entity.inventory) return -1;
         for (let i = 0; i < entity.inventory.length; i++) {
             const item = entity.inventory[i];
-			if (!item) continue;
+            if (!item) continue;
             const itemDef = itemTypes[item.itemType];
             if (itemDef && itemDef.type === "equipment" && itemDef.slot === "weapon") {
                 if (itemDef.maxAmmo === undefined) return i;
@@ -389,7 +397,7 @@ var turns = {
         }
         for (let i = 0; i < entity.inventory.length; i++) {
             const item = entity.inventory[i];
-			if (!item) continue;
+            if (!item) continue;
             const itemDef = itemTypes[item.itemType];
             if (itemDef && itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
                 const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
@@ -561,7 +569,7 @@ var turns = {
             if (!isWall && !isOccupied && entity.range > 0) {
                 entity.x = newX;
                 entity.y = newY;
-                
+
                 // Check if entity moved onto a fire tile
                 const fireTile = walls.find(w => w.x === newX && w.y === newY && w.type === 'fire');
                 if (fireTile && !helper.hasTrait(entity, 'fire')) {

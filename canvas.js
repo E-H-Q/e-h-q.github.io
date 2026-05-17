@@ -366,12 +366,12 @@ var canvas = {
 		const screenX = (entity.x - camera.x) * tileSize;
 		const screenY = (entity.y - camera.y) * tileSize;
 		const img = document.getElementById(imgId);
-		
+
 		if (hasActed) ctx.filter = "grayscale(75%)";
 		ctx.fillRect(screenX, screenY, tileSize, tileSize);
 		if (hasActed) ctx.filter = "brightness(75%)";
 		ctx.drawImage(img, screenX, screenY, tileSize, tileSize);
-		
+
 		if (!isZoomedOut) {
 			ctx.fillStyle = "rgba(255, 255, 255, 1)";
 			ctx.font = '16px serif';
@@ -379,7 +379,7 @@ var canvas = {
 			ctx.fillText(entity.hp, screenX, screenY + tileSize);
 		}
 		ctx.filter = 'none';
-		
+
 		// Draw status sprites
 		canvas.drawEntityStatusSprites(entity, screenX, screenY);
 	},
@@ -406,7 +406,7 @@ var canvas = {
 			ctx.fillRect(sx, sy, tileSize, tileSize);
 		});
 	},
-	
+
 	drawAdjacentSelect: () => {
 		if (!adjacentSelect) return;
 		const activeEnt = getActivePlayerEntity();
@@ -484,7 +484,9 @@ var canvas = {
 	},
 
 	enemy: () => {
+		const tilesImg = document.getElementById("tiles");
 		const itemsImg = document.getElementById("items");
+		const hasTileSprites = tilesImg && tilesImg.complete && tilesImg.naturalWidth > 0;
 		const hasItemSprites = itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0;
 		const liveGrenadeSprite = ITEM_SPRITE_MAP.grenadeLive;
 
@@ -494,6 +496,12 @@ var canvas = {
 				const screenX = (entity.x - camera.x) * tileSize;
 				const screenY = (entity.y - camera.y) * tileSize;
 				if (screenX >= -tileSize && screenX < c.width && screenY >= -tileSize && screenY < c.height) {
+					// Floor tile underneath so the grenade sprite's transparent pixels
+					// don't show the layers below (player tint, prior frame, etc).
+					if (hasTileSprites) {
+						ctx.drawImage(tilesImg, TILE_FLOOR * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE,
+							screenX, screenY, tileSize, tileSize);
+					}
 					// Draw live grenade sprite
 					if (hasItemSprites && liveGrenadeSprite) {
 						ctx.drawImage(itemsImg,
@@ -501,13 +509,15 @@ var canvas = {
 							ITEM_SPRITE_SIZE, ITEM_SPRITE_SIZE,
 							screenX, screenY, tileSize, tileSize);
 					}
-					// Draw red countdown number
-					ctx.fillStyle = "#FF0000";
-					ctx.font = "bold " + (tileSize / 2) + "px monospace";
-					ctx.textAlign = "center";
-					ctx.fillText(entity.turnsRemaining.toString(),
-						screenX + tileSize / 2,
-						screenY + tileSize * 0.65);
+					// Red countdown number — only while active
+					if (helper.hasTrait(entity, 'active')) {
+						ctx.fillStyle = "#FF0000";
+						ctx.font = "bold " + (tileSize / 2) + "px monospace";
+						ctx.textAlign = "center";
+						ctx.fillText(entity.turnsRemaining.toString(),
+							screenX + tileSize / 2,
+							screenY + tileSize * 0.65);
+					}
 				}
 			} else { // not grenade
 				if (entity.hp >= 1) canvas.drawEntity(entity, "rgba(125, 125, 0, 0.5)", "enemy");
