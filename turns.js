@@ -5,6 +5,8 @@ var currentEntityTurnsRemaining = 0;
 var hasDied = false;
 
 function groupLeadsWithFollowers() {
+    // Remember the currently-active entity so we can keep currentEntityIndex pointing at them after the reorder
+    const activeEntity = (typeof entities !== 'undefined' && currentEntityIndex >= 0) ? entities[currentEntityIndex] : null;
     // Collapse any follow chains first so each follower points at their actual root
     allPlayers.forEach(e => {
         while (e.following && e.following.following) e.following = e.following.following;
@@ -20,6 +22,11 @@ function groupLeadsWithFollowers() {
     const remaining = allPlayers.filter(p => !leadsWithFollowers.includes(p));
     allPlayers.length = 0;
     allPlayers.push(...leadsWithFollowers, ...remaining);
+    // Re-anchor currentEntityIndex on the active entity if it's a player (they live at the start of entities)
+    if (activeEntity && isPlayerControlled(activeEntity)) {
+        const newIdx = allPlayers.indexOf(activeEntity);
+        if (newIdx >= 0) currentEntityIndex = newIdx;
+    }
 }
 
 function startFollowing(follower, followed) {
@@ -344,15 +351,19 @@ var turns = {
 
         const buffer = 5;
         const playerEntities = entities.filter(e => isPlayerControlled(e) && e.hp > 0);
+        const spottedSquadMembers = new Set(); // players whose squad was just dissolved this call
 
         allEnemies.forEach(enemy => {
             if (enemy.hp < 1) return;
+            if (isPlayerControlled(enemy)) return; // player-trait entities can live in allEnemies; don't treat them as observers
             if (!this.shouldProcessEntity(enemy)) return;
 
             let closestVisible = null;
             let closestDist = Infinity;
+            const visiblePlayers = [];
             for (let pe of playerEntities) {
                 if (EntitySystem.hasLOS(enemy, pe.x, pe.y, false)) {
+                    visiblePlayers.push(pe);
                     const d = calc.distance(enemy.x, pe.x, enemy.y, pe.y);
                     if (d < closestDist) { closestDist = d; closestVisible = pe; }
                 }
@@ -363,16 +374,26 @@ var turns = {
                 enemy.seenX = closestVisible.x;
                 enemy.seenY = closestVisible.y;
 
-                if (wasUnaware) {
-                    // On combat start, group each lead with their followers at the top of allPlayers (stable),
-                    // then dissolve player follow-chains so each player acts independently in combat.
-                    groupLeadsWithFollowers();
-                    allPlayers.forEach(p => {
-                        if (p.following) {
+                // Dissolve every visible squad whose chain is still intact.
+                visiblePlayers.forEach(seen => {
+                    const allPlayerTrait = [...allPlayers, ...allEnemies].filter(isPlayerControlled);
+                    const squadIntact = !!seen.following || allPlayerTrait.some(p => p.following === seen);
+                    if (!squadIntact) return;
+                    const spottedRoot = seen.following || seen;
+                    // Record the spotted squad's members (root first) before clearing follows
+                    spottedSquadMembers.add(spottedRoot);
+                    allPlayerTrait.forEach(p => {
+                        if (p.following === spottedRoot) spottedSquadMembers.add(p);
+                    });
+                    allPlayerTrait.forEach(p => {
+                        if (p.following && (p === spottedRoot || p.following === spottedRoot || p === seen)) {
                             console.log(p.name + " stopped following " + p.following.name + ".");
                             p.following = null;
                         }
                     });
+                });
+
+                if (wasUnaware) {
                     if (enemy.following) {
                         console.log(enemy.name + " stopped following " + enemy.following.name + ".");
                         enemy.following = null;
@@ -395,6 +416,43 @@ var turns = {
                 }
             }
         });
+
+        if (spottedSquadMembers.size > 0) {
+            const activeEntity = (currentEntityIndex >= 0) ? entities[currentEntityIndex] : null;
+            const allPlayerTrait = [...allPlayers, ...allEnemies].filter(isPlayerControlled);
+            // Still-in-cover players: those whose chain is still intact AND not in the newly-spotted set
+            const inCover = allPlayerTrait.filter(p =>
+                !spottedSquadMembers.has(p) &&
+                (p.following || allPlayerTrait.some(o => o.following === p))
+            );
+            // Already-engaged players: trait-players not in cover and not in newly-spotted set
+            const previouslyEngaged = allPlayerTrait.filter(p =>
+                !spottedSquadMembers.has(p) && !inCover.includes(p)
+            );
+            const newlySpotted = [...spottedSquadMembers]; // Set preserves insertion order (root first)
+            // Visible-to-newly-spotted enemies
+            const visibleEnemies = allEnemies.filter(e =>
+                !isPlayerControlled(e) && e.hp > 0 &&
+                newlySpotted.some(sp => EntitySystem.hasLOS(e, sp.x, sp.y, false))
+            );
+            const remainingEnemies = allEnemies.filter(e =>
+                !isPlayerControlled(e) && !visibleEnemies.includes(e)
+            );
+            allPlayers.length = 0;
+            allPlayers.push(...previouslyEngaged, ...newlySpotted);
+            allEnemies.length = 0;
+            allEnemies.push(...visibleEnemies, ...inCover, ...remainingEnemies);
+            // Re-anchor currentEntityIndex on the active entity in the rebuilt entities order
+            if (activeEntity) {
+                const newPlayersIdx = allPlayers.indexOf(activeEntity);
+                if (newPlayersIdx >= 0) {
+                    currentEntityIndex = newPlayersIdx;
+                } else {
+                    const newEnemiesIdx = allEnemies.indexOf(activeEntity);
+                    if (newEnemiesIdx >= 0) currentEntityIndex = allPlayers.length + newEnemiesIdx;
+                }
+            }
+        }
     },
 
     findWeaponWithAmmo: function(entity) {
