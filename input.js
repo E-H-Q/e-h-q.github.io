@@ -1056,9 +1056,13 @@ var input = {
                         action: function() {
                             const giverIdx    = allPlayers.indexOf(activeEnt);
                             const receiverIdx = allPlayers.indexOf(clickedEntity);
+                            const receiverEnemyIdx = allEnemies.indexOf(clickedEntity);
                             if (giverIdx >= 0 && receiverIdx >= 0) {
                                 allPlayers[giverIdx]    = clickedEntity;
                                 allPlayers[receiverIdx] = activeEnt;
+                            } else if (giverIdx >= 0 && receiverEnemyIdx >= 0) {
+                                allPlayers[giverIdx]      = clickedEntity;
+                                allEnemies[receiverEnemyIdx] = activeEnt;
                             }
                             console.log(activeEnt.name + " transfers turn to " + clickedEntity.name + ".");
                             update();

@@ -447,7 +447,11 @@ var canvas = {
 
 	player: () => {
 		allPlayers.forEach(e => {
-			if (e.hp >= 1) canvas.drawEntity(e, e.playerColor || "rgba(0, 0, 255, 0.5)", "pep");
+			if (e.hp >= 1) {
+				const color = isPlayerControlled(e) ? (e.playerColor || "rgba(0, 0, 255, 0.5)") : "rgba(125, 125, 0, 0.5)";
+				const sprite = isPlayerControlled(e) ? "pep" : "enemy";
+				canvas.drawEntity(e, color, sprite);
+			}
 		});
 	},
 
@@ -517,7 +521,11 @@ var canvas = {
 					ctx.globalAlpha = 1.0;
 				}
 			} else { // not grenade
-				if (entity.hp >= 1) canvas.drawEntity(entity, "rgba(125, 125, 0, 0.5)", "enemy");
+				if (entity.hp >= 1) { // player controlled entities always get "pep" player sprite, this will need to change down the line.
+					const color = isPlayerControlled(entity) ? (entity.playerColor || "rgba(0, 0, 255, 0.5)") : "rgba(125, 125, 0, 0.5)";
+					const sprite = isPlayerControlled(entity) ? "pep" : "enemy";
+					canvas.drawEntity(entity, color, sprite);
+				}
 			}
 		});
 	},
