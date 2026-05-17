@@ -1169,7 +1169,7 @@ var input = {
                 useItem(activeEnt, drag.startSlot);
             }
             resetInventoryDrag();
-            update();
+            //update();
         }
     }
 };
