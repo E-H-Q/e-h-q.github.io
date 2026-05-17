@@ -99,6 +99,13 @@ function findFirstEmptySlot(entity) {
 	return -1;
 }
 
+// Returns the first empty hotbar slot (top row, 0..INVENTORY_COLS-1) or -1 if full.
+function findFirstEmptyHotbarSlot(entity) {
+	const inv = getInventory(entity);
+	for (let i = 0; i < INVENTORY_COLS; i++) if (!inv[i]) return i;
+	return -1;
+}
+
 // True if `item` is currently in one of entity.equipment's slots (by identity).
 function isItemEquipped(entity, item) {
 	if (!item || !entity.equipment) return false;
@@ -561,17 +568,29 @@ function useItem(entity, inventoryIndex) {
 				update();
 				return true;
 			} else {
-				// Pull the pin: replace this slot with a live grenade (or add live grenade to first empty slot if stack > 1)
+				// Pull the pin: place the live grenade in the hotbar if there's room,
+				// otherwise fall back to (multi-stack) any empty slot or (single) in-place.
+				const liveGrenade = {itemType: 'grenade', id: nextItemId++, isLive: true, turnsRemaining: itemDef.fuse, quantity: 1};
 				if (item.quantity > 1) {
-					const emptyIdx = findFirstEmptySlot(entity);
-					if (emptyIdx < 0) {
+					let destIdx = findFirstEmptyHotbarSlot(entity);
+					if (destIdx < 0) destIdx = findFirstEmptySlot(entity);
+					if (destIdx < 0) {
 						console.log("No inventory space for live grenade!");
 						return false;
 					}
 					item.quantity--;
-					inv[emptyIdx] = {itemType: 'grenade', id: nextItemId++, isLive: true, turnsRemaining: itemDef.fuse, quantity: 1};
+					inv[destIdx] = liveGrenade;
 				} else {
-					inv[inventoryIndex] = {itemType: 'grenade', id: nextItemId++, isLive: true, turnsRemaining: itemDef.fuse, quantity: 1};
+					// Source slot already in the hotbar: keep it there.
+					// Otherwise move to an open hotbar slot if one exists.
+					const sourceInHotbar = inventoryIndex < INVENTORY_COLS;
+					const hotbarIdx = sourceInHotbar ? -1 : findFirstEmptyHotbarSlot(entity);
+					if (hotbarIdx >= 0) {
+						inv[inventoryIndex] = null;
+						inv[hotbarIdx] = liveGrenade;
+					} else {
+						inv[inventoryIndex] = liveGrenade;
+					}
 				}
 				console.log(entity.name + " pulled the pin! Use/click to throw!");
 				update();
