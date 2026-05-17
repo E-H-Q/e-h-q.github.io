@@ -375,6 +375,7 @@ function update() {
 
 	entities.forEach(e => {
 		if (e.following && e.following.hp < 1) e.following = null;
+		while (e.following && e.following.following) e.following = e.following.following;
 	});
 
 	if (allPlayers.length > 0) player = allPlayers[0];

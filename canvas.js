@@ -361,7 +361,7 @@ var canvas = {
 
 	drawEntity: (entity, color, imgId) => {
 		const entityIdx = entities.indexOf(entity);
-		const hasActed = isPlayerControlled(entity) && entityIdx >= 0 && entityIdx < currentEntityIndex;
+		const hasActed = isPlayerControlled(entity) && !entity.following && entityIdx >= 0 && entityIdx < currentEntityIndex;
 		ctx.fillStyle = color;
 		const screenX = (entity.x - camera.x) * tileSize;
 		const screenY = (entity.y - camera.y) * tileSize;

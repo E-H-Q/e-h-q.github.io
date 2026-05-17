@@ -4,6 +4,24 @@ var currentEntityIndex = -1;
 var currentEntityTurnsRemaining = 0;
 var hasDied = false;
 
+function groupLeadsWithFollowers() {
+    // Collapse any follow chains first so each follower points at their actual root
+    allPlayers.forEach(e => {
+        while (e.following && e.following.following) e.following = e.following.following;
+    });
+    const isLead = p => isPlayerControlled(p) && allPlayers.some(o => o.following === p);
+    const leadsWithFollowers = [];
+    allPlayers.forEach(p => {
+        if (isLead(p)) {
+            leadsWithFollowers.push(p);
+            allPlayers.forEach(f => { if (f.following === p) leadsWithFollowers.push(f); });
+        }
+    });
+    const remaining = allPlayers.filter(p => !leadsWithFollowers.includes(p));
+    allPlayers.length = 0;
+    allPlayers.push(...leadsWithFollowers, ...remaining);
+}
+
 function startFollowing(follower, followed) {
     const inCombat = allEnemies.some(e => e.hp > 0 && !helper.hasTrait(e, 'explode') && (e.seenX !== 0 || e.seenY !== 0));
     if (inCombat) {
@@ -19,6 +37,7 @@ function startFollowing(follower, followed) {
     let root = followed;
     while (root.following) root = root.following;
     follower.following = root;
+    groupLeadsWithFollowers();
     console.log(follower.name + " is following " + root.name + ".");
 }
 
@@ -345,6 +364,9 @@ var turns = {
                 enemy.seenY = closestVisible.y;
 
                 if (wasUnaware) {
+                    // On combat start, group each lead with their followers at the top of allPlayers (stable),
+                    // then dissolve player follow-chains so each player acts independently in combat.
+                    groupLeadsWithFollowers();
                     allPlayers.forEach(p => {
                         if (p.following) {
                             console.log(p.name + " stopped following " + p.following.name + ".");

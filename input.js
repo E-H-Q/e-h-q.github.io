@@ -1027,10 +1027,11 @@ var input = {
                         action: function() {
                             console.log(clickedEntity.name + " stopped following " + activeEnt.name + ".");
                             clickedEntity.following = null;
+                            groupLeadsWithFollowers();
                             update();
                         }
                     });
-                } else {
+                } else if (!activeEnt.following) {
                     options.push({
                         text: "(f) Follow",
                         key: "f",
@@ -1045,7 +1046,7 @@ var input = {
                 const isActiveTurn = isPlayerControlled(entities[currentEntityIndex]) && entities[currentEntityIndex] === activeEnt;
                 const turnAvailable = clickedIdx > currentEntityIndex;
 
-                if (isActiveTurn && turnAvailable && currentEntityTurnsRemaining >= activeEnt.turns) {
+                if (isActiveTurn && turnAvailable && currentEntityTurnsRemaining >= activeEnt.turns && !clickedEntity.following) {
                     options.push({
                         text: "(t) Transfer Turn",
                         key: "t",
