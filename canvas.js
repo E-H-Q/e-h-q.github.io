@@ -484,9 +484,7 @@ var canvas = {
 	},
 
 	enemy: () => {
-		const tilesImg = document.getElementById("tiles");
 		const itemsImg = document.getElementById("items");
-		const hasTileSprites = tilesImg && tilesImg.complete && tilesImg.naturalWidth > 0;
 		const hasItemSprites = itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0;
 		const liveGrenadeSprite = ITEM_SPRITE_MAP.grenadeLive;
 
@@ -496,12 +494,10 @@ var canvas = {
 				const screenX = (entity.x - camera.x) * tileSize;
 				const screenY = (entity.y - camera.y) * tileSize;
 				if (screenX >= -tileSize && screenX < c.width && screenY >= -tileSize && screenY < c.height) {
-					// Floor tile underneath so the grenade sprite's transparent pixels
-					// don't show the layers below (player tint, prior frame, etc).
-					if (hasTileSprites) {
-						ctx.drawImage(tilesImg, TILE_FLOOR * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE,
-							screenX, screenY, tileSize, tileSize);
-					}
+					// If another living entity (e.g. the player) is on this tile, match
+					// canvas.items: draw at half opacity so the entity beneath stays visible.
+					const isOccupied = entities.some(e => e !== entity && e.hp > 0 && e.x === entity.x && e.y === entity.y);
+					if (isOccupied) ctx.globalAlpha = 0.5;
 					// Draw live grenade sprite
 					if (hasItemSprites && liveGrenadeSprite) {
 						ctx.drawImage(itemsImg,
@@ -518,6 +514,7 @@ var canvas = {
 							screenX + tileSize / 2,
 							screenY + tileSize * 0.65);
 					}
+					ctx.globalAlpha = 1.0;
 				}
 			} else { // not grenade
 				if (entity.hp >= 1) canvas.drawEntity(entity, "rgba(125, 125, 0, 0.5)", "enemy");
