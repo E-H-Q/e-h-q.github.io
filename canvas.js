@@ -534,7 +534,7 @@ var canvas = {
 
 	// Draws the 3×10 inventory in the bottom-right corner of the canvas.
 	// Slot size = tileSize. Top row (cols 0..9) is the hotbar (numeric keys 1..0).
-	// Equipped items get a faint green overlay. Hovered slot's item name renders below the grid.
+	// Equipped items get a faint yellow overlay. Hovered slot's item name renders below the grid.
 	// While dragging, the source slot is dimmed and a ghost sprite follows the cursor.
 	inventory: () => {
 		if (typeof inventoryHidden !== 'undefined' && inventoryHidden) return;
@@ -589,9 +589,9 @@ var canvas = {
 							sx, sy, slot, slot);
 					}
 
-					// Faint green overlay on equipped items
+					// Faint yellow overlay on equipped items
 					if (isItemEquipped(entity, item)) {
-						ctx.fillStyle = "rgba(0, 255, 0, 0.1)";
+						ctx.fillStyle = "rgba(255, 255, 0, 0.25)";
 						ctx.fillRect(sx, sy, slot, slot);
 					}
 
