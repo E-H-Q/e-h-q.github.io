@@ -537,6 +537,7 @@ var canvas = {
 	// Equipped items get a faint green overlay. Hovered slot's item name renders below the grid.
 	// While dragging, the source slot is dimmed and a ghost sprite follows the cursor.
 	inventory: () => {
+		if (typeof inventoryHidden !== 'undefined' && inventoryHidden) return;
 		if (allPlayers.length === 0) return;
 		const entity = getActivePlayerEntity();
 		if (!entity) return;
@@ -588,13 +589,13 @@ var canvas = {
 							sx, sy, slot, slot);
 					}
 
-					// Faint overlay on equipped items
+					// Faint green overlay on equipped items
 					if (isItemEquipped(entity, item)) {
-						ctx.fillStyle = "rgba(255, 255, 0, 0.25)";
+						ctx.fillStyle = "rgba(0, 255, 0, 0.1)";
 						ctx.fillRect(sx, sy, slot, slot);
 					}
 
-					// Quantity (bottom-left)
+					// Quantity (bottom-left, white, like HP)
 					if (item.quantity && item.quantity > 1) {
 						ctx.fillStyle = "rgba(255, 255, 255, 1)";
 						ctx.font = '14px serif';
@@ -610,7 +611,7 @@ var canvas = {
 						ctx.fillText(item.turnsRemaining, sx + slot / 2, sy + slot * 0.65);
 					}
 
-					// Ammo counter bottom right
+					// Ammo (bottom-right, yellow / red when empty)
 					if (def?.slot === "weapon" && def.maxAmmo !== undefined && def.maxAmmo !== Infinity) {
 						const ammo = item.currentAmmo !== undefined ? item.currentAmmo : def.maxAmmo;
 						ctx.fillStyle = ammo === 0 ? "#FF0000" : "#FFFF00";

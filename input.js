@@ -7,6 +7,7 @@ var cursorVisible = true;
 var isAiming = false;
 var aimCamera = null;
 var isZoomedOut = false;
+var inventoryHidden = false;
 var lastCameraUpdateCursorX = null;
 var lastCameraUpdateCursorY = null;
 
@@ -352,6 +353,12 @@ var input = {
             edit.checked = !edit.checked;
             if (!edit.checked) selectedEditTiles = [];
             document.getElementById('size-input-container').style.display = edit.checked ? 'inline-block' : 'none';
+            update();
+            return;
+        }
+
+        if (event.shiftKey && event.keyCode === 73) { // Shift+I toggles the inventory display
+            inventoryHidden = !inventoryHidden;
             update();
             return;
         }
@@ -1081,7 +1088,9 @@ var input = {
         if (EntitySystem._explosionPending) return;
         if (event.button !== 0) return;
 
-        if (typeof WindowSystem !== 'undefined' && activeContextMenu) return; // context menu gets priority over inventory window
+        // If a context menu is open, let WindowSystem own the click — don't capture
+        // it as an inventory interaction even if it happens to land over inventory.
+        if (typeof WindowSystem !== 'undefined' && activeContextMenu) return;
 
         const rect = c.getBoundingClientRect();
         const canvasX = event.clientX - rect.left;
@@ -1145,8 +1154,9 @@ var input = {
         isMouseDown = false;
         lastTile = null;
 
-        // Drag-drop onto another item: swap
-        // No movement, just plain click: use item
+        // Complete any inventory interaction:
+        //   - dragged + dropped on a different valid slot → swap
+        //   - no significant movement → treat as a click → useItem
         if (window.inventoryDrag.startSlot >= 0) {
             const drag = window.inventoryDrag;
             const activeEnt = getActivePlayerEntity();
