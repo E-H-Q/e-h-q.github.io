@@ -219,7 +219,6 @@ var input = {
         // Hands off if the user is typing in a text input — let the browser handle it.
         if (isTypingInTextField()) return;
         if (EntitySystem._explosionPending) return;
-        if (allPlayers.length === 0) return;
 
         if (typeof WindowSystem !== 'undefined') {
             if (activeContextMenu || WindowSystem.isOpen()) {
@@ -228,7 +227,7 @@ var input = {
             }
         }
 
-        if (currentEntityIndex < 0 || !isPlayerControlled(entities[currentEntityIndex])) return;
+        if (currentEntityIndex >= 0 && entities[currentEntityIndex] && !isPlayerControlled(entities[currentEntityIndex]) && allPlayers.length > 0) return;
 
         // SPACE KEY - Toggle aim mode
         if (event.keyCode === 32) {
@@ -528,8 +527,6 @@ var input = {
     },
 
     mouse: function(event) {
-        if (allPlayers.length === 0) return;
-
         const rect = c.getBoundingClientRect();
         const canvasX = event.clientX - rect.left;
         const canvasY = event.clientY - rect.top;
@@ -625,7 +622,6 @@ var input = {
 
     click: function() {
         if (EntitySystem._explosionPending) return;
-        if (allPlayers.length === 0) return;
 
         // Mousedown started over the inventory — that click was already handled in mouseup
         if (window.suppressNextClick) {

@@ -527,8 +527,7 @@ action.selectedIndex = 0;
 
 function handleMouseMove(event) {
 	if (EntitySystem._explosionPending) return;
-	if (allPlayers.length === 0) return;
-	if (currentEntityIndex >= 0 && !isPlayerControlled(entities[currentEntityIndex])) return;
+	if (currentEntityIndex >= 0 && !isPlayerControlled(entities[currentEntityIndex]) && allPlayers.length > 0) return;
 	input.mouse(event);
 }
 

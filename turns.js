@@ -2,6 +2,7 @@
 
 var currentEntityIndex = -1;
 var currentEntityTurnsRemaining = 0;
+var hasDied = false;
 
 function startFollowing(follower, followed) {
     const inCombat = allEnemies.some(e => e.hp > 0 && !helper.hasTrait(e, 'explode') && (e.seenX !== 0 || e.seenY !== 0));
@@ -62,13 +63,17 @@ var turns = {
     check: function() {
         if (EntitySystem._explosionPending) return; // explosion animation in progress
         if (allPlayers.length === 0) {
-            const music = new Audio('sound.wav');
-            music.play();
-            music.loop = false;
-            music.playbackRate = 1.5;
-            console.log("YOU DIED\n");
+            if (!hasDied) {
+                const music = new Audio('sound.wav');
+                music.play();
+                music.loop = false;
+                music.playbackRate = 1.5;
+                console.log("YOU DIED\n");
+                hasDied = true;
+            }
             return;
         }
+        hasDied = false;
 
         if (currentEntityTurnsRemaining <= 0) { // ONLY RUNS WHEN NON-PLAYER ENTITIES ARE ALSO PRESENT!? NEEDS TO TRIGGER AFTER *ALL* ENTITY TURNS!!!
             const previousEntity = entities[currentEntityIndex];
