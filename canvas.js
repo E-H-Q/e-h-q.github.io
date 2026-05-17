@@ -62,8 +62,10 @@ function getInventoryOrigin() {
 	};
 }
 
-// Returns the slot index (0..29) under a canvas-pixel position, or -1 if outside.
+// Returns the slot index (0..29) under a canvas-pixel position, or -1 if outside
+// (or if the inventory is currently hidden — treat the area as empty space).
 function getInventorySlotAt(canvasX, canvasY) {
+	if (typeof inventoryHidden !== 'undefined' && inventoryHidden) return -1;
 	const o = getInventoryOrigin();
 	const w = INVENTORY_COLS * tileSize;
 	const h = INVENTORY_ROWS * tileSize;
