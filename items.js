@@ -2,7 +2,11 @@
 
 var mapItems = [];
 var nextItemId = 0;
-var maxInventorySlots = 10;
+
+// Inventory dimensions: 3 rows × 10 cols (top row is the hotbar)
+const INVENTORY_COLS = 10;
+const INVENTORY_ROWS = 3;
+var maxInventorySlots = INVENTORY_COLS * INVENTORY_ROWS; // 30
 
 const consumablesData = {
 	healthPotion: {
@@ -66,13 +70,83 @@ const equipmentData = {
 
 var itemTypes = {...consumablesData, ...weaponsData, ...equipmentData};
 
-/*
-const itemLabels = {
-	healthPotion: "HP+", speedPotion: "SP+", grenade: "Gnade", scope: "Scope",
-	rifle: "Rifle", kevlarVest: "Vest", shotgun: "Shotgun", rocketLauncher: "RPG",
-	machinegun: "SMG", breachingKit: "Breach", knife: "Knife", flameBadge: "Flame"
-};
-*/
+// === SPARSE INVENTORY HELPERS ============================================
+
+// Lazily ensures entity.inventory is a fixed-length sparse array of size maxInventorySlots.
+// Pads or migrates legacy packed inventories. Returns the inventory array.
+function getInventory(entity) {
+	if (!entity.inventory) {
+		entity.inventory = new Array(maxInventorySlots).fill(null);
+		return entity.inventory;
+	}
+	if (entity.inventory.length < maxInventorySlots) {
+		while (entity.inventory.length < maxInventorySlots) entity.inventory.push(null);
+	} else if (entity.inventory.length > maxInventorySlots) {
+		entity.inventory.length = maxInventorySlots;
+	}
+	for (let i = 0; i < entity.inventory.length; i++) {
+		if (entity.inventory[i] === undefined) entity.inventory[i] = null;
+	}
+	return entity.inventory;
+}
+
+function findFirstEmptySlot(entity) {
+	const inv = getInventory(entity);
+	// Prefer slots below the hotbar — the hotbar (top row) only fills when
+	// every non-hotbar slot is already taken.
+	for (let i = INVENTORY_COLS; i < inv.length; i++) if (!inv[i]) return i;
+	for (let i = 0; i < INVENTORY_COLS; i++) if (!inv[i]) return i;
+	return -1;
+}
+
+// True if `item` is currently in one of entity.equipment's slots (by identity).
+function isItemEquipped(entity, item) {
+	if (!item || !entity.equipment) return false;
+	for (const slot in entity.equipment) {
+		if (entity.equipment[slot] === item) return true;
+	}
+	return false;
+}
+
+function swapInventorySlots(entity, fromIdx, toIdx) {
+	const inv = getInventory(entity);
+	if (fromIdx < 0 || fromIdx >= inv.length || toIdx < 0 || toIdx >= inv.length) return;
+	const tmp = inv[fromIdx];
+	inv[fromIdx] = inv[toIdx];
+	inv[toIdx] = tmp;
+}
+
+// After loading from JSON, re-link entity.equipment[slot] objects to the actual
+// item instance inside entity.inventory (so identity-based checks like
+// isItemEquipped() work). If an equipped item isn't in the loaded inventory,
+// it gets inserted into the first empty slot. Non-equipment values in equipment
+// slots are dropped — only equipment items belong there.
+function normalizeEntityInventory(entity) {
+	getInventory(entity);
+	if (!entity.equipment) return;
+	for (const slot in entity.equipment) {
+		const eq = entity.equipment[slot];
+		if (!eq) continue;
+		const eqDef = itemTypes[eq.itemType];
+		if (!eqDef || eqDef.type !== "equipment") {
+			entity.equipment[slot] = null;
+			continue;
+		}
+		let linked = null;
+		for (let item of entity.inventory) {
+			if (item && item.id === eq.id && item.itemType === eq.itemType) { linked = item; break; }
+		}
+		if (!linked) {
+			const emptyIdx = entity.inventory.findIndex(i => !i);
+			if (emptyIdx >= 0) entity.inventory[emptyIdx] = eq;
+			else entity.inventory[0] = eq; // force in if completely full (shouldn't happen normally)
+			linked = eq;
+		}
+		entity.equipment[slot] = linked;
+	}
+}
+
+// === WEAPON / EQUIPMENT LOOKUPS ==========================================
 
 function getWeaponAimStyle(entity) {
 	return entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.aimStyle || "standard" : "standard";
@@ -124,6 +198,8 @@ function reloadWeapon(entity) {
 	console.log(entity.name + " reloaded their " + weaponDef.name + "!");
 	return true;
 }
+
+// === TARGETING =========================================================
 
 // Collects all tiles inside a circle blast area using the raw array buffer.
 function collectAreaTiles(centerX, centerY, radius) {
@@ -182,11 +258,9 @@ function getTargetedEntities(attacker, endX, endY) {
 	if (!tiles || tiles.length === 0) return [];
 
 	if (aimStyle === "direct") {
-		// If there's an entity at the cursor and the cursor is in the path, hit it directly.
 		const cursorInPath = tiles.some(t => t.x === endX && t.y === endY);
 		const atCursor = cursorInPath ? entities.find(e => e.hp > 0 && e.x === endX && e.y === endY) : null;
 		if (atCursor) return [atCursor];
-		// Otherwise hit the first entity in the path.
 		for (const tile of tiles) {
 			const found = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
 			if (found) return [found];
@@ -198,7 +272,7 @@ function getTargetedEntities(attacker, endX, endY) {
 }
 
 function calculateGrenadeTargeting(entity, endX, endY) {
-	const itemDef   = itemTypes.grenade;
+	const itemDef    = itemTypes.grenade;
 	const throwRange = entity.attack_range;
 
 	let path = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
@@ -213,9 +287,13 @@ function calculateGrenadeTargeting(entity, endX, endY) {
 	return [...path, ...areaTiles.filter(t => !pathSet.has(`${t.x},${t.y}`))];
 }
 
+// === ITEM ACTIONS =======================================================
+
 function throwItem(entity, inventoryIndex, targetX, targetY) {
-	if (inventoryIndex < 0 || inventoryIndex >= entity.inventory.length) return false;
-	const item    = entity.inventory[inventoryIndex];
+	const inv = getInventory(entity);
+	if (inventoryIndex < 0 || inventoryIndex >= inv.length) return false;
+	const item = inv[inventoryIndex];
+	if (!item) return false;
 	const itemDef = itemTypes[item.itemType];
 	if (!item.isLive || itemDef.effect !== "grenade") return false;
 
@@ -247,7 +325,7 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 		turnsRemaining: item.turnsRemaining,
 		inventory: [], traits: grenadeTraits
 	});
-	entity.inventory.splice(inventoryIndex, 1);
+	inv[inventoryIndex] = null;
 	console.log(entity.name + " threw a grenade to (" + landingSpot.x + ", " + landingSpot.y + ")!");
 	return true;
 }
@@ -271,26 +349,14 @@ function spawnItem(itemType, x, y) {
 	return true;
 }
 
-function sortInventory(entity) {
-	if (!entity.inventory) return;
-	const order = item => {
-		const def = itemTypes[item.itemType];
-		if (!def) return 3;
-		if (def.type === 'consumable') return 0;
-		if (def.type === 'equipment' && def.slot === 'weapon') return 1;
-		if (def.type === 'equipment') return 2;
-		return 3;
-	};
-	entity.inventory.sort((a, b) => order(a) - order(b));
-}
-
 function giveItem(entity, itemType) {
-	if (!entity.inventory) entity.inventory = [];
+	const inv = getInventory(entity);
 	const itemDef = itemTypes[itemType];
 
+	// Stack consumables into an existing slot if possible
 	if (itemDef.type === "consumable") {
-		for (let item of entity.inventory) {
-			if (item.itemType === itemType && !item.isLive) {
+		for (let item of inv) {
+			if (item && item.itemType === itemType && !item.isLive) {
 				item.quantity = (item.quantity || 1) + 1;
 				console.log(entity.name + " received another " + itemDef.name);
 				update();
@@ -299,8 +365,9 @@ function giveItem(entity, itemType) {
 		}
 	}
 
-	if (isPlayerControlled(entity) && entity.inventory.length >= maxInventorySlots) {
-		console.log("Inventory full!");
+	const emptySlot = findFirstEmptySlot(entity);
+	if (emptySlot < 0) {
+		if (isPlayerControlled(entity)) console.log("Inventory full!");
 		return false;
 	}
 
@@ -308,14 +375,14 @@ function giveItem(entity, itemType) {
 	if (itemDef.type === "consumable") newItem.quantity = 1;
 	if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) newItem.currentAmmo = itemDef.maxAmmo;
 
-	entity.inventory.push(newItem);
+	inv[emptySlot] = newItem;
 	console.log(entity.name + " received " + itemDef.name);
 
+	// Enemies auto-equip equipment
 	if (!isPlayerControlled(entity) && itemDef.type === "equipment") {
 		if (!entity.equipment) entity.equipment = {};
 		if (entity.equipment[itemDef.slot]) unequipItem(entity, itemDef.slot);
-		const itemIndex = entity.inventory.findIndex(item => item.id === newItem.id);
-		if (itemIndex >= 0) equipItem(entity, itemIndex);
+		equipItem(entity, emptySlot);
 	}
 
 	update();
@@ -348,7 +415,7 @@ function updateItemDropdown() {
 }
 
 function pickupItem(entity, x, y) {
-	if (!entity.inventory) return false;
+	const inv = getInventory(entity);
 
 	if (isPlayerControlled(entity)) {
 		const itemsAtLocation = mapItems.filter(item => item.x === x && item.y === y);
@@ -368,10 +435,13 @@ function pickupItem(entity, x, y) {
 	if (itemDef.type === "equipment" && shouldEnemyEquip(entity, itemDef)) {
 		if (!entity.equipment) entity.equipment = {};
 		if (entity.equipment[itemDef.slot]) unequipItem(entity, itemDef.slot);
-		const pickedItem = {itemType: mostRecent.itemType, id: mostRecent.itemType};
+		const emptySlot = findFirstEmptySlot(entity);
+		if (emptySlot < 0) return false;
+		const pickedItem = {itemType: mostRecent.itemType, id: nextItemId++};
 		if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
 			pickedItem.currentAmmo = mostRecent.currentAmmo !== undefined ? mostRecent.currentAmmo : itemDef.maxAmmo;
 		}
+		inv[emptySlot] = pickedItem;
 		entity.equipment[itemDef.slot] = pickedItem;
 		applyEquipmentEffects(entity, itemDef, true);
 		console.log(entity.name + " equipped " + itemDef.name);
@@ -381,7 +451,19 @@ function pickupItem(entity, x, y) {
 
 	if (itemDef.type === "consumable") {
 		const stack = itemsAtLocation.filter(item => item.itemType === mostRecent.itemType);
-		entity.inventory.push({itemType: mostRecent.itemType, id: nextItemId++, quantity: stack.length});
+		let stacked = false;
+		for (let invItem of inv) {
+			if (invItem && invItem.itemType === mostRecent.itemType && !invItem.isLive) {
+				invItem.quantity = (invItem.quantity || 1) + stack.length;
+				stacked = true;
+				break;
+			}
+		}
+		if (!stacked) {
+			const emptySlot = findFirstEmptySlot(entity);
+			if (emptySlot < 0) return false;
+			inv[emptySlot] = {itemType: mostRecent.itemType, id: nextItemId++, quantity: stack.length};
+		}
 		console.log(entity.name + " picked up " + stack.length + " " + itemDef.name + (stack.length > 1 ? "s" : ""));
 		for (let i = 0; i < stack.length; i++) {
 			const idx = mapItems.findIndex(item => item.x === x && item.y === y && item.itemType === mostRecent.itemType);
@@ -390,11 +472,13 @@ function pickupItem(entity, x, y) {
 		return true;
 	}
 
+	const emptySlot = findFirstEmptySlot(entity);
+	if (emptySlot < 0) return false;
 	const newItem = {itemType: mostRecent.itemType, id: mostRecent.id};
 	if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
 		newItem.currentAmmo = mostRecent.currentAmmo !== undefined ? mostRecent.currentAmmo : itemDef.maxAmmo;
 	}
-	entity.inventory.push(newItem);
+	inv[emptySlot] = newItem;
 	console.log(entity.name + " picked up " + itemDef.name);
 	mapItems.splice(mapItems.indexOf(mostRecent), 1);
 	return true;
@@ -420,25 +504,27 @@ function applyEquipmentEffects(entity, itemDef, equip) {
 	}
 }
 
+// Equipped items now stay in inventory; equipment[slot] just references them.
 function unequipItem(entity, slot) {
 	if (!entity.equipment?.[slot]) return false;
 	const equippedItem = entity.equipment[slot];
 	const itemDef      = itemTypes[equippedItem.itemType];
 	applyEquipmentEffects(entity, itemDef, false);
-	entity.inventory.push(equippedItem);
 	entity.equipment[slot] = null;
 	console.log(entity.name + " unequipped " + itemDef.name);
 	return true;
 }
 
 function equipItem(entity, inventoryIndex) {
-	if (inventoryIndex < 0 || inventoryIndex >= entity.inventory.length) return false;
-	const item    = entity.inventory[inventoryIndex];
+	const inv = getInventory(entity);
+	if (inventoryIndex < 0 || inventoryIndex >= inv.length) return false;
+	const item = inv[inventoryIndex];
+	if (!item) return false;
 	const itemDef = itemTypes[item.itemType];
 	if (!itemDef || itemDef.type !== "equipment") return false;
 	if (!entity.equipment) entity.equipment = {};
+	if (entity.equipment[itemDef.slot] === item) return false; // already equipped
 	if (entity.equipment[itemDef.slot]) unequipItem(entity, itemDef.slot);
-	entity.inventory.splice(inventoryIndex, 1);
 	entity.equipment[itemDef.slot] = item;
 	applyEquipmentEffects(entity, itemDef, true);
 	console.log(entity.name + " equipped " + itemDef.name);
@@ -447,20 +533,26 @@ function equipItem(entity, inventoryIndex) {
 }
 
 function useItem(entity, inventoryIndex) {
-	if (inventoryIndex < 0 || inventoryIndex >= entity.inventory.length) return false;
-	const item    = entity.inventory[inventoryIndex];
+	const inv = getInventory(entity);
+	if (inventoryIndex < 0 || inventoryIndex >= inv.length) return false;
+	const item = inv[inventoryIndex];
+	if (!item) return false;
 	const itemDef = itemTypes[item.itemType];
 	if (!itemDef) return false;
 
 	if (itemDef.type === "consumable") {
+		const consume = () => {
+			if (item.quantity > 1) item.quantity--;
+			else inv[inventoryIndex] = null;
+		};
 		if (itemDef.effect === "heal") {
 			entity.hp += itemDef.value;
 			console.log(entity.name + " heals for " + itemDef.value + "HP!");
-			item.quantity > 1 ? item.quantity-- : entity.inventory.splice(inventoryIndex, 1);
+			consume();
 		} else if (itemDef.effect === "speed") {
 			entity.range += itemDef.value;
 			console.log(entity.name + " feels themselves moving faster!");
-			item.quantity > 1 ? item.quantity-- : entity.inventory.splice(inventoryIndex, 1);
+			consume();
 		} else if (itemDef.effect === "grenade") {
 			if (item.isLive) {
 				window.throwingGrenadeIndex = inventoryIndex;
@@ -469,8 +561,18 @@ function useItem(entity, inventoryIndex) {
 				update();
 				return true;
 			} else {
-				item.quantity > 1 ? item.quantity-- : entity.inventory.splice(inventoryIndex, 1);
-				entity.inventory.push({itemType: 'grenade', id: nextItemId++, isLive: true, turnsRemaining: itemDef.fuse, quantity: 1});
+				// Pull the pin: replace this slot with a live grenade (or add live grenade to first empty slot if stack > 1)
+				if (item.quantity > 1) {
+					const emptyIdx = findFirstEmptySlot(entity);
+					if (emptyIdx < 0) {
+						console.log("No inventory space for live grenade!");
+						return false;
+					}
+					item.quantity--;
+					inv[emptyIdx] = {itemType: 'grenade', id: nextItemId++, isLive: true, turnsRemaining: itemDef.fuse, quantity: 1};
+				} else {
+					inv[inventoryIndex] = {itemType: 'grenade', id: nextItemId++, isLive: true, turnsRemaining: itemDef.fuse, quantity: 1};
+				}
 				console.log(entity.name + " pulled the pin! Use/click to throw!");
 				update();
 				return true;
@@ -479,23 +581,60 @@ function useItem(entity, inventoryIndex) {
 		currentEntityTurnsRemaining--;
 		if (isPeekMode) { exitPeekMode(); return true; }
 	} else if (itemDef.type === "equipment") {
-		equipItem(entity, inventoryIndex);
+		// Toggle equip/unequip
+		if (isItemEquipped(entity, item)) unequipItem(entity, itemDef.slot);
+		else equipItem(entity, inventoryIndex);
 	}
 
 	update();
 	return true;
 }
 
+// Drops a single inventory slot's item onto the entity's tile.
+function dropInventoryItemAtSlot(entity, slotIdx) {
+	const inv = getInventory(entity);
+	if (slotIdx < 0 || slotIdx >= inv.length) return false;
+	const item = inv[slotIdx];
+	if (!item) return false;
+	const itemDef = itemTypes[item.itemType];
+
+	if (isItemEquipped(entity, item)) unequipItem(entity, itemDef.slot);
+
+	if (item.isLive && itemDef.effect === "grenade") {
+		const grenadeEntity = {
+			name: "Grenade", hp: 1,
+			x: entity.x, y: entity.y,
+			range: 0, attack_range: 0, turns: 1,
+			turnsRemaining: item.turnsRemaining,
+			inventory: [], traits: ['explode', 'active']
+		};
+		allEnemies.push(grenadeEntity);
+		console.log(entity.name + " dropped a LIVE grenade with " + item.turnsRemaining + " turns remaining!");
+	} else {
+		const quantity = item.quantity || 1;
+		for (let i = 0; i < quantity; i++) {
+			const dropped = {x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++};
+			if (item.currentAmmo !== undefined) dropped.currentAmmo = item.currentAmmo;
+			mapItems.push(dropped);
+		}
+		console.log(entity.name + " dropped " + quantity + " " + itemDef.name + (quantity > 1 ? "s" : ""));
+	}
+	inv[slotIdx] = null;
+	update();
+	return true;
+}
+
 function processInventoryGrenades(entity) {
-	if (!entity.inventory) return;
-	for (let i = entity.inventory.length - 1; i >= 0; i--) {
-		const item    = entity.inventory[i];
+	const inv = getInventory(entity);
+	for (let i = inv.length - 1; i >= 0; i--) {
+		const item = inv[i];
+		if (!item) continue;
 		const itemDef = itemTypes[item.itemType];
 		if (!item.isLive || itemDef?.effect !== "grenade") continue;
 
 		item.turnsRemaining--;
 		if (item.turnsRemaining <= 0) {
-			entity.inventory.splice(i, 1);
+			inv[i] = null;
 			const grenadeTraits = ['explode', 'active'];
 			if (canEntityImmolate(entity)) grenadeTraits.push('immolate');
 			const grenadeEntity = { // Spawns the grenade that is exploding in the inventory

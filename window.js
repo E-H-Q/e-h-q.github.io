@@ -423,6 +423,13 @@ var WindowSystem = {
     },
 
     openContextMenu: function(menu) {
+        // Keep the menu fully visible on the canvas, the way browsers nudge a
+        // right-click menu inward when it would spill past the edge.
+        const height = menu.options.length * menu.itemHeight + menu.padding * 2;
+        if (menu.x + menu.width > c.width)  menu.x = c.width  - menu.width;
+        if (menu.y + height     > c.height) menu.y = c.height - height;
+        if (menu.x < 0) menu.x = 0;
+        if (menu.y < 0) menu.y = 0;
         activeContextMenu = menu;
         update();
     },
@@ -619,7 +626,7 @@ var WindowSystem = {
             if (entity.permanent) win.items.push({ danger: true, text: "It is permanent and cannot be destroyed." });
         } else if (entity.itemType) {
             win.items = [];
-            const itemsAtLocation = mapItems.filter(item => item.x === entity.x && item.y === entity.y);
+            const itemsAtLocation = entity._fromInventory ? [entity] : mapItems.filter(item => item.x === entity.x && item.y === entity.y);
             const grouped = {};
             itemsAtLocation.forEach(item => {
                 grouped[item.itemType] = (grouped[item.itemType] || 0) + 1;
@@ -679,7 +686,7 @@ var WindowSystem = {
             ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
 
         } else if (entity.itemType) {
-            const itemsAtLocation = mapItems.filter(item => item.x === entity.x && item.y === entity.y);
+            const itemsAtLocation = entity._fromInventory ? [entity] : mapItems.filter(item => item.x === entity.x && item.y === entity.y);
             const distinctTypes = [...new Set(itemsAtLocation.map(i => i.itemType))];
             if (distinctTypes.length > 1) {
                 const smallSize = Math.ceil(spriteSize * 0.75);
@@ -696,8 +703,12 @@ var WindowSystem = {
             ctx.font = "bold 16px monospace";
             ctx.textAlign = "center";
             const topItemDef = itemTypes[entity.itemType];
-            ctx.fillText(distinctTypes.length <= 1 ? topItemDef.displayName : "Multiple Items",
-                spriteX + spriteSize / 2, spriteY + spriteSize + 20);
+            // Count of this item: inventory stub uses item.quantity, mapItems use the
+            // number of stacked items at the tile. Same display in both branches.
+            const itemCount = entity._fromInventory ? (entity.quantity || 1) : itemsAtLocation.length;
+            let titleText = distinctTypes.length <= 1 ? topItemDef.displayName : "Multiple Items";
+            if (distinctTypes.length <= 1 && itemCount > 1) titleText += ` (x${itemCount})`;
+            ctx.fillText(titleText, spriteX + spriteSize / 2, spriteY + spriteSize + 20);
             ctx.font = "14px monospace";
             ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
 
@@ -769,7 +780,7 @@ var WindowSystem = {
         if (entity.damage) stats.push({ text: `Damage: +${entity.damage}` });
         if (entity.armor) stats.push({ text: `Armor: ${entity.armor}` });
 
-        if (entity.equipment && entity.equipment.weapon || entity.equipment.armor || entity.equipment.accessory) {
+        if (entity.equipment && (entity.equipment.weapon || entity.equipment.armor || entity.equipment.accessory)) {
             stats.push({ text: "" });
             stats.push({ text: "EQUIPMENT:" });
 
@@ -797,20 +808,23 @@ var WindowSystem = {
             }
         }
 
-        if (entity.inventory && entity.inventory.length > 0) {
-            stats.push({ text: "" });
-            stats.push({ text: `INVENTORY (${entity.inventory.length} items):` });
-            entity.inventory.forEach(item => {
-                const itemDef = itemTypes[item.itemType];
-                let itemText = `  - ${itemDef.displayName}`;
-                if (item.quantity > 1) itemText += ` (x${item.quantity})`;
-                if (item.currentAmmo !== undefined && itemDef.maxAmmo !== Infinity) {
-                    itemText += ` [${item.currentAmmo}/${itemDef.maxAmmo}]`;
-                } else if (itemDef.maxAmmo !== undefined && itemDef.maxAmmo !== Infinity) {
-                    itemText += ` [${itemDef.maxAmmo}/${itemDef.maxAmmo}]`;   // show ammo
-                }
-                stats.push({ text: itemText });
-            });
+        if (entity.inventory) {
+            const filledItems = entity.inventory.filter(i => i);
+            if (filledItems.length > 0) {
+                stats.push({ text: "" });
+                stats.push({ text: `INVENTORY (${filledItems.length} items):` });
+                filledItems.forEach(item => {
+                    const itemDef = itemTypes[item.itemType];
+                    let itemText = `  - ${itemDef.displayName}`;
+                    if (item.quantity > 1) itemText += ` (x${item.quantity})`;
+                    if (item.currentAmmo !== undefined && itemDef.maxAmmo !== Infinity) {
+                        itemText += ` [${item.currentAmmo}/${itemDef.maxAmmo}]`;
+                    } else if (itemDef.maxAmmo !== undefined && itemDef.maxAmmo !== Infinity) {
+                        itemText += ` [${itemDef.maxAmmo}/${itemDef.maxAmmo}]`;   // show ammo
+                    }
+                    stats.push({ text: itemText });
+                });
+            }
         }
 
         if (entity.traits) {

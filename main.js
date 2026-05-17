@@ -14,7 +14,8 @@ edit.checked = false;
 
 var tileSize = 32;
 var size = 50;
-var viewportWidth = Math.floor((window.innerWidth * 0.5) / tileSize);
+// Default viewport is wider now that the HTML sidebar is gone (0.7 vs old 0.5)
+var viewportWidth = Math.floor((window.innerWidth * 0.7) / tileSize);
 var viewportHeight = Math.floor((window.innerWidth * 0.5) / tileSize);
 
 // Fire damage configuration
@@ -30,6 +31,11 @@ var peekEntity = null; // which player-controlled entity is peeking
 
 // Edit mode tile selection
 var selectedEditTiles = []; // array of {x, y} for shift+click selected tiles in edit mode
+
+// Inventory drag/drop + hover state
+window.inventoryDrag = { startSlot: -1, startMouse: null, isDragging: false, item: null, overSlot: -1, mouse: null };
+window.inventoryHoverSlot = -1;
+window.suppressNextClick = false;
 
 // Colors for extra player-controlled entities
 const PLAYER_COLORS = [
@@ -78,6 +84,7 @@ var mouse_pos = {x: 0, y: 0};
 var array;
 var graph;
 
+// 30-slot sparse inventory (length stays fixed, nulls = empty slots)
 var player = {
 	name: "player",
 	hp: 20,
@@ -86,7 +93,7 @@ var player = {
 	range: 3,
 	attack_range: 4,
 	turns: 2,
-	inventory: [],
+	inventory: new Array(30).fill(null),
 	equipment: {},
 	traits: ['player'],
 	playerColor: "rgba(0, 0, 255, 0.5)"
@@ -102,7 +109,7 @@ var enemy = {
 	turns: 2,
 	seenX: 0,
 	seenY: 0,
-	inventory: [],
+	inventory: new Array(30).fill(null),
 	traits: []
 };
 
@@ -213,7 +220,7 @@ function spawnEnemy() {
 			attack_range: attackRange,
 			turns: turnsVal,
 			seenX: 0, seenY: 0,
-			inventory: [],
+			inventory: new Array(maxInventorySlots).fill(null),
 			traits: [trait],
 			maxHp: hp,
 			lastAttacker: null,

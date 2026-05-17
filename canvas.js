@@ -49,6 +49,31 @@ const ITEM_SPRITE_MAP = {
 	flameBadge:     { row: 2, col: 3 },
 };
 
+// Inventory display layout
+const INV_NAME_BUFFER = 22;  // space above the grid for the hover-name text
+
+// Inventory is pinned flush to the bottom-right of the canvas so its slots line
+// up with the map tile grid (slot size = tileSize). The hover-name strip sits
+// above the grid; the grid's bottom row hugs the bottom edge of the canvas.
+function getInventoryOrigin() {
+	return {
+		x: c.width  - INVENTORY_COLS * tileSize,
+		y: c.height - INVENTORY_ROWS * tileSize
+	};
+}
+
+// Returns the slot index (0..29) under a canvas-pixel position, or -1 if outside.
+function getInventorySlotAt(canvasX, canvasY) {
+	const o = getInventoryOrigin();
+	const w = INVENTORY_COLS * tileSize;
+	const h = INVENTORY_ROWS * tileSize;
+	if (canvasX < o.x || canvasX >= o.x + w) return -1;
+	if (canvasY < o.y || canvasY >= o.y + h) return -1;
+	const col = Math.floor((canvasX - o.x) / tileSize);
+	const row = Math.floor((canvasY - o.y) / tileSize);
+	return row * INVENTORY_COLS + col;
+}
+
 // Returns a Set of "x,y" strings for every tile occupied by a living entity.
 function getOccupiedTiles() {
 	const occupied = new Set();
@@ -407,6 +432,8 @@ var canvas = {
 
 	cursor: () => {
 		if (!cursorVisible || !window.cursorWorldPos) return;
+		// Hide the world cursor while mousing over the inventory panel
+		if (window.inventoryHoverSlot >= 0) return;
 		const screenX = (window.cursorWorldPos.x - camera.x) * tileSize;
 		const screenY = (window.cursorWorldPos.y - camera.y) * tileSize;
 		if (screenX >= 0 && screenX < c.width && screenY >= 0 && screenY < c.height) {
@@ -501,6 +528,161 @@ var canvas = {
 				if (calc.distance(entity.x, camera.x + i, entity.y, camera.y + j) > range) {
 					ctx.fillRect(i * tileSize, j * tileSize, tileSize, tileSize);
 				}
+			}
+		}
+	},
+
+	// Draws the 3×10 inventory in the bottom-right corner of the canvas.
+	// Slot size = tileSize. Top row (cols 0..9) is the hotbar (numeric keys 1..0).
+	// Equipped items get a faint green overlay. Hovered slot's item name renders below the grid.
+	// While dragging, the source slot is dimmed and a ghost sprite follows the cursor.
+	inventory: () => {
+		if (allPlayers.length === 0) return;
+		const entity = getActivePlayerEntity();
+		if (!entity) return;
+		const inv = getInventory(entity);
+
+		const origin = getInventoryOrigin();
+		const cols = INVENTORY_COLS;
+		const rows = INVENTORY_ROWS;
+		const slot = tileSize;
+		const w = cols * slot;
+		const h = rows * slot;
+
+		const itemsImg = document.getElementById("items");
+		const hasItemSprites = itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0;
+		const drag = window.inventoryDrag;
+
+		// Translucent dark backdrop — covers the hover-name strip above the grid
+		// plus the grid itself. No horizontal padding so the right edge hugs the canvas.
+		ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+		ctx.fillRect(origin.x, origin.y - INV_NAME_BUFFER, w, h + INV_NAME_BUFFER);
+
+		for (let r = 0; r < rows; r++) {
+			for (let col = 0; col < cols; col++) {
+				const i = r * cols + col;
+				const sx = origin.x + col * slot;
+				const sy = origin.y + r * slot;
+				const item = inv[i];
+
+				// Highlight a valid drop-target slot during drag
+				if (drag.isDragging && drag.overSlot === i && drag.startSlot !== i) {
+					ctx.fillStyle = "rgba(255, 255, 0, 0.25)";
+					ctx.fillRect(sx, sy, slot, slot);
+				}
+
+				if (item) {
+					const def = itemTypes[item.itemType];
+					let spriteKey = item.itemType;
+					if (item.isLive && def?.effect === "grenade") spriteKey = "grenadeLive";
+					const sp = ITEM_SPRITE_MAP[spriteKey];
+
+					// Dim the source slot while it's being dragged
+					const isDragSource = drag.isDragging && drag.startSlot === i;
+					if (isDragSource) ctx.globalAlpha = 0.3;
+
+					if (hasItemSprites && sp) {
+						ctx.drawImage(itemsImg,
+							sp.col * ITEM_SPRITE_SIZE, sp.row * ITEM_SPRITE_SIZE,
+							ITEM_SPRITE_SIZE, ITEM_SPRITE_SIZE,
+							sx, sy, slot, slot);
+					}
+
+					// Faint overlay on equipped items
+					if (isItemEquipped(entity, item)) {
+						ctx.fillStyle = "rgba(255, 255, 0, 0.25)";
+						ctx.fillRect(sx, sy, slot, slot);
+					}
+
+					// Quantity (bottom-left)
+					if (item.quantity && item.quantity > 1) {
+						ctx.fillStyle = "rgba(255, 255, 255, 1)";
+						ctx.font = '14px serif';
+						ctx.textAlign = 'left';
+						ctx.fillText(item.quantity, sx + 2, sy + slot - 2);
+					}
+
+					// Live grenade countdown (centered red number)
+					if (item.isLive && def?.effect === "grenade") {
+						ctx.fillStyle = "#FF0000";
+						ctx.font = "bold " + (slot / 2) + "px monospace";
+						ctx.textAlign = "center";
+						ctx.fillText(item.turnsRemaining, sx + slot / 2, sy + slot * 0.65);
+					}
+
+					// Ammo counter bottom right
+					if (def?.slot === "weapon" && def.maxAmmo !== undefined && def.maxAmmo !== Infinity) {
+						const ammo = item.currentAmmo !== undefined ? item.currentAmmo : def.maxAmmo;
+						ctx.fillStyle = ammo === 0 ? "#FF0000" : "#FFFF00";
+						ctx.font = '10px monospace';
+						ctx.textAlign = 'right';
+						ctx.fillText(ammo + "/" + def.maxAmmo, sx + slot - 2, sy + slot - 2);
+					}
+
+					if (isDragSource) ctx.globalAlpha = 1.0;
+				}
+
+				// Slot outline: green for hotbar (top row), white otherwise.
+				// Hotbar slots also get a small filled green badge in the upper-left
+				// with the matching number-key label (slot 0 = "1", ..., slot 9 = "0").
+				const isHotbar = r === 0;
+				if (isHotbar) {
+					const badgeSize = 12;
+					ctx.fillStyle = "rgba(0, 200, 0, 1)";
+					ctx.fillRect(sx + 1, sy + 1, badgeSize, badgeSize);
+					ctx.fillStyle = "#FFFFFF";
+					ctx.font = "bold 10px monospace";
+					ctx.textAlign = "center";
+					ctx.fillText(col === 9 ? "0" : String(col + 1), sx + 1 + badgeSize / 2, sy + 1 + badgeSize - 2);
+				}
+				ctx.strokeStyle = isHotbar ? "rgba(0, 255, 0, 1)" : "rgba(255, 255, 255, 1)";
+				ctx.lineWidth = 1;
+				ctx.strokeRect(sx + 0.5, sy + 0.5, slot - 1, slot - 1);
+			}
+		}
+
+		// Hover name above the grid (default to "INVENTORY" when nothing is hovered).
+		// Yellow + centered to match the context-menu title style.
+		const hover = window.inventoryHoverSlot;
+		const hoveredItem = (hover !== undefined && hover !== null && hover >= 0) ? inv[hover] : null;
+		if (hoveredItem) {
+			const item = hoveredItem;
+			const def = itemTypes[item.itemType];
+			let name = def.displayName;
+			if (item.isLive && def.effect === "grenade") {
+				name = "Grenade (LIVE: " + item.turnsRemaining + "/" + def.fuse + ")";
+			} else if (item.quantity > 1) {
+				name = "(" + item.quantity + ") " + name;
+			}
+			if (def.slot === "weapon" && def.maxAmmo !== undefined && def.maxAmmo !== Infinity) {
+				const ammo = item.currentAmmo !== undefined ? item.currentAmmo : def.maxAmmo;
+				name += " [" + ammo + "/" + def.maxAmmo + "]";
+			}
+			if (isItemEquipped(entity, item)) name += " (equipped)";
+			ctx.fillStyle = "#FFFFFF";
+			ctx.font = "13px monospace";
+			ctx.textAlign = "left";
+			ctx.fillText(name, origin.x + 4, origin.y - 6);
+		} else {
+			ctx.fillStyle = "#ffdf00";
+			ctx.font = "14px monospace";
+			ctx.textAlign = "center";
+			ctx.fillText("INVENTORY", origin.x + w / 2, origin.y - 6);
+		}
+
+		// Drag ghost — follows the cursor
+		if (drag.isDragging && drag.item && drag.mouse) {
+			const def = itemTypes[drag.item.itemType];
+			let spriteKey = drag.item.itemType;
+			if (drag.item.isLive && def?.effect === "grenade") spriteKey = "grenadeLive";
+			const sp = ITEM_SPRITE_MAP[spriteKey];
+			if (hasItemSprites && sp) {
+				ctx.globalAlpha = 0.75;
+				ctx.drawImage(itemsImg,
+					sp.col * ITEM_SPRITE_SIZE, sp.row * ITEM_SPRITE_SIZE,
+					ITEM_SPRITE_SIZE, ITEM_SPRITE_SIZE,
+					drag.mouse.x - slot / 2, drag.mouse.y - slot / 2, slot, slot);
+				ctx.globalAlpha = 1.0;
 			}
 		}
 	},

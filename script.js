@@ -121,7 +121,7 @@ function spawnExtraPlayer() {
 		x: spawnX,
 		y: spawnY,
 		range, attack_range, turns,
-		inventory: [],
+		inventory: new Array(maxInventorySlots).fill(null),
 		equipment: {},
 		traits: ['player'],
 		playerColor: color
@@ -232,171 +232,6 @@ function updateTurnOrder() {
 	}
 
 	turnOrder.innerHTML = html;
-}
-
-function updateInventory() {
-	var inventoryDiv = document.getElementById("inventory-items");
-	var html = '';
-
-	const activeEnt = getActivePlayerEntity();
-	if (typeof sortInventory === 'function') sortInventory(activeEnt);
-
-	if (activeEnt.inventory.length === 0) {
-		html = '<p style="color: #888;">Empty</p>';
-	} else {
-		for (let i = 0; i < activeEnt.inventory.length; i++) {
-			const item = activeEnt.inventory[i];
-			const itemDef = itemTypes[item.itemType];
-
-			let itemTypeLabel = "";
-			if (itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined && itemDef.maxAmmo !== Infinity) {
-				const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
-				if (currentAmmo > 0) itemTypeLabel = " [" + currentAmmo + "/" + itemDef.maxAmmo + "]";
-				else itemTypeLabel = " [E]";
-			}
-
-			let displayName = itemDef.displayName;
-			let quantityLabel = "";
-
-			if (item.isLive && itemDef.effect === "grenade") {
-				displayName = "*!!!* Grenade: (" + item.turnsRemaining + "/" + itemDef.fuse + ")";
-			} else if (item.quantity > 1) {
-				quantityLabel = "(" + item.quantity + ") ";
-			}
-
-			const slotNumber = i === 9 ? 0 : i + 1;
-			html += '<div style="padding: 5px; margin: 3px 0; border: 1px solid #fff; cursor: pointer;" ' +
-					'onclick="useInventoryItem(' + i + ')" ' +
-					'oncontextmenu="dropInventoryItem(event, ' + i + ')" ' +
-					'onmouseover="this.style.backgroundColor=\'#333\'" ' +
-					'onmouseout="this.style.backgroundColor=\'transparent\'">' +
-					slotNumber + '. ' + quantityLabel + displayName + itemTypeLabel + '</div>';
-		}
-	}
-
-	inventoryDiv.innerHTML = html;
-}
-
-function useInventoryItem(inventoryIndex) {
-	if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) return;
-
-	if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex])) {
-		const activeEnt = getActivePlayerEntity();
-		if (typeof useItem !== 'undefined') useItem(activeEnt, inventoryIndex);
-	}
-}
-
-function dropInventoryItem(event, inventoryIndex) {
-	event.preventDefault();
-
-	if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) return;
-
-	if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex])) {
-		const activeEnt = getActivePlayerEntity();
-		if (inventoryIndex >= 0 && inventoryIndex < activeEnt.inventory.length) {
-			const item = activeEnt.inventory[inventoryIndex];
-			const itemDef = itemTypes[item.itemType];
-			const quantity = item.quantity || 1;
-
-			if (typeof mapItems !== 'undefined' && typeof nextItemId !== 'undefined') {
-				if (item.isLive && itemDef.effect === "grenade") {
-					const grenadeEntity = {
-						name: "Grenade",
-						hp: 1,
-						x: activeEnt.x,
-						y: activeEnt.y,
-						range: 0, attack_range: 0, turns: 1,
-						turnsRemaining: item.turnsRemaining,
-						inventory: [],
-						traits: ['explode', 'active']
-					};
-					allEnemies.push(grenadeEntity);
-					console.log(activeEnt.name + " dropped a LIVE grenade with " + item.turnsRemaining + " turns remaining!");
-					activeEnt.inventory.splice(inventoryIndex, 1);
-				} else {
-					for (var i = 0; i < quantity; i++) {
-						const dropped = {x: activeEnt.x, y: activeEnt.y, itemType: item.itemType, id: nextItemId++};
-						if (item.currentAmmo !== undefined) dropped.currentAmmo = item.currentAmmo;
-						mapItems.push(dropped);
-					}
-					console.log(activeEnt.name + " dropped " + quantity + " " + itemDef.name);
-					activeEnt.inventory.splice(inventoryIndex, 1);
-				}
-			}
-
-			update();
-		}
-	}
-}
-
-function updateEquipment() {
-	var equipmentDiv = document.getElementById("equipment-items");
-	var html = '';
-
-	const activeEnt = getActivePlayerEntity();
-	if (!activeEnt.equipment) activeEnt.equipment = {};
-
-	const slots = ["weapon", "armor", "accessory"];
-	let hasEquipment = false;
-
-	for (let slot of slots) {
-		if (activeEnt.equipment[slot]) {
-			hasEquipment = true;
-			const item = activeEnt.equipment[slot];
-			const itemDef = itemTypes[item.itemType];
-
-			let effectsStr = '';
-			if (itemDef.effects) {
-				for (let i = 0; i < itemDef.effects.length; i++) {
-					if (i > 0) effectsStr += ', ';
-					effectsStr += '+' + itemDef.effects[i].value + ' ' + itemDef.effects[i].stat.replace('_', ' ');
-				}
-			}
-			if (itemDef.grantsDestroy) {
-				if (effectsStr) effectsStr += ', ';
-				effectsStr += 'Attacks destroy terrain';
-			}
-			if (itemDef.grantsImmolate) {
-				if (effectsStr) effectsStr += ', ';
-				effectsStr += "Attacks spread fire";
-			}
-			if (itemDef.maxAmmo == Infinity) {
-				if (effectsStr) effectsStr += ', ';
-				effectsStr += "Infinite Ammo";
-			}
-
-			let ammoStr = '';
-			if (slot === "weapon" && itemDef.maxAmmo !== undefined && itemDef.maxAmmo !== Infinity) {
-				const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
-				ammoStr = '<br><span style="color: ' + (currentAmmo === 0 ? '#ff0000' : '#ffff00') + ';">Ammo: ' + currentAmmo + '/' + itemDef.maxAmmo + '</span>';
-			}
-
-			html += '<div class="equipment-item" onclick="unequipSlot(\'' + slot + '\')">' +
-					slot.toUpperCase() + ': ' + itemDef.displayName + '<br>' +
-					'<span style="color: #0f0;">(' + effectsStr + ')</span>' +
-					ammoStr +
-					'<br><span style="font-size: 10px; color: #888;">Click to unequip</span></div>';
-		} else {
-			html += '<div style="padding: 5px; margin: 3px 0; color: #888;">' +
-					slot.toUpperCase() + ': Empty</div>';
-		}
-	}
-
-	if (!hasEquipment && slots.length === 0) {
-		html = '<p style="color: #888;">No equipment slots</p>';
-	}
-
-	equipmentDiv.innerHTML = html;
-}
-
-function unequipSlot(slot) {
-	if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex])) {
-		const activeEnt = getActivePlayerEntity();
-		if (typeof unequipItem !== 'undefined') {
-			unequipItem(activeEnt, slot);
-			update();
-		}
-	}
 }
 
 function killEntity(index) {
@@ -672,11 +507,10 @@ function update() {
 	}
 
 	canvas.cursor();
+	canvas.inventory();
 	canvas.window();
 
 	updateTurnOrder();
-	updateInventory();
-	updateEquipment();
 	updatePeekButton();
 
 	if (isPlayerControlled(currentEntity)) {
@@ -709,29 +543,37 @@ document.addEventListener("keyup", input.keyboard);
 var div_for_coords = document.createElement("div");
 document.body.appendChild(div_for_coords);
 
-// Shared helper: pick up a set of items from a resolved windowItems list into activeEnt's inventory
+// Shared helper: pick up a set of items from a resolved windowItems list into activeEnt's inventory.
+// Uses the sparse-null model — picks the first empty slot, stacks consumables into existing slots,
+// and returns items to the map if no inventory space is available.
 function _doPickupItems(activeEnt, selectedWindowItems) {
+	const inv = getInventory(activeEnt);
 	selectedWindowItems.forEach(selection => {
 		const itemDef = itemTypes[selection.itemType];
+
+		// Remove the picked items from the map up front
 		selection.items.forEach(item => {
 			const itemIndex = mapItems.indexOf(item);
 			if (itemIndex >= 0) mapItems.splice(itemIndex, 1);
 		});
+
 		if (itemDef.type === "consumable") {
-			let added = false;
-			for (let invItem of activeEnt.inventory) {
-				if (invItem.itemType === selection.itemType && !invItem.isLive) {
+			// Try stacking into an existing consumable slot first
+			let stacked = false;
+			for (let invItem of inv) {
+				if (invItem && invItem.itemType === selection.itemType && !invItem.isLive) {
 					invItem.quantity = (invItem.quantity || 1) + selection.count;
-					added = true;
+					stacked = true;
 					break;
 				}
 			}
-			if (!added) {
-				if (activeEnt.inventory.length >= maxInventorySlots) {
+			if (!stacked) {
+				const emptySlot = findFirstEmptySlot(activeEnt);
+				if (emptySlot < 0) {
 					console.log("Inventory full! Couldn't pick up " + itemDef.name);
 					selection.items.forEach(item => mapItems.push(item));
 				} else {
-					activeEnt.inventory.push({ itemType: selection.itemType, id: nextItemId++, quantity: selection.count });
+					inv[emptySlot] = { itemType: selection.itemType, id: nextItemId++, quantity: selection.count };
 					console.log("Picked up " + selection.count + " " + itemDef.name + (selection.count > 1 ? "s" : ""));
 				}
 			} else {
@@ -740,7 +582,8 @@ function _doPickupItems(activeEnt, selectedWindowItems) {
 		} else {
 			let pickedCount = 0;
 			for (let i = 0; i < selection.items.length; i++) {
-				if (activeEnt.inventory.length >= maxInventorySlots) {
+				const emptySlot = findFirstEmptySlot(activeEnt);
+				if (emptySlot < 0) {
 					console.log("Inventory full! Picked up " + pickedCount + " of " + selection.count);
 					for (let j = i; j < selection.items.length; j++) mapItems.push(selection.items[j]);
 					break;
@@ -750,7 +593,7 @@ function _doPickupItems(activeEnt, selectedWindowItems) {
 				if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
 					newItem.currentAmmo = mapItem.currentAmmo !== undefined ? mapItem.currentAmmo : itemDef.maxAmmo;
 				}
-				activeEnt.inventory.push(newItem);
+				inv[emptySlot] = newItem;
 				pickedCount++;
 			}
 			if (pickedCount > 0) console.log("Picked up " + pickedCount + " " + itemDef.name + (pickedCount > 1 ? "s" : ""));
@@ -808,6 +651,70 @@ function showItemPickupWindow(x, y) {
 			if (adjacentSelect) adjacentSelect = null;
 		}
 	});
+}
+
+// Right-click context menu for an inventory slot. // should be in input.js with the rest of them TBQH
+function showInventoryContextMenu(slotIdx, event) {
+	if (currentEntityIndex < 0) return;
+	const activeEnt = getActivePlayerEntity();
+	const inv = getInventory(activeEnt);
+	const item = inv[slotIdx];
+	if (!item) return;
+	const def = itemTypes[item.itemType];
+	if (!def) return;
+	const equipped = isItemEquipped(activeEnt, item);
+
+	let useLabel = "(u) Use";
+	if (def.type === "equipment") useLabel = equipped ? "(u) Unequip" : "(u) Equip";
+
+	const options = [
+		{ text: def.displayName.toUpperCase() },
+		{
+			text: "(e) Examine",
+			key: "e",
+			action: function() {
+				const stub = Object.assign({}, item, {
+					x: activeEnt.x,
+					y: activeEnt.y,
+					_fromInventory: true
+				});
+				WindowSystem.showExamineWindow(stub);
+			}
+		},
+		{
+			text: useLabel,
+			key: "u",
+			action: function() {
+				if (equipped) {
+					unequipItem(activeEnt, def.slot);
+					update();
+				} else {
+					useItem(activeEnt, slotIdx);
+				}
+			}
+		},
+		{
+			text: "(d) Drop",
+			key: "d",
+			danger: true,
+			action: function() {
+				dropInventoryItemAtSlot(activeEnt, slotIdx);
+			}
+		}
+	];
+
+	const rect = c.getBoundingClientRect();
+	const menuX = Math.ceil((event.clientX - rect.left) / tileSize) * tileSize - tileSize + 8;
+	const menuY = Math.ceil((event.clientY - rect.top) / tileSize) * tileSize - tileSize / 2;
+
+	const menu = WindowSystem.createContextMenu({
+		x: menuX,
+		y: menuY,
+		tileX: window.cursorWorldPos ? window.cursorWorldPos.x : -9999,
+		tileY: window.cursorWorldPos ? window.cursorWorldPos.y : -9999,
+		options
+	});
+	WindowSystem.openContextMenu(menu);
 }
 
 function updateViewportSize() {

@@ -186,27 +186,37 @@ const EntitySystem = {
 		return destroyedAny;
 	},
 
+	// Equipped items are now also IN entity.inventory, so a single pass handles both.
+	// We just clear equipment refs first (without re-pushing to inventory) so the
+	// drop loop sees them once.
 	dropAllItems: function(entity) {
 		if (typeof mapItems === 'undefined' || typeof nextItemId === 'undefined') return;
-		entity.inventory?.forEach(item => {
+
+		// Strip equipment stat bonuses but leave items in inventory for the drop loop
+		if (entity.equipment) {
+			for (const slot in entity.equipment) {
+				if (entity.equipment[slot]) {
+					const def = itemTypes[entity.equipment[slot].itemType];
+					if (def) applyEquipmentEffects(entity, def, false);
+					entity.equipment[slot] = null;
+				}
+			}
+		}
+
+		if (!entity.inventory) return;
+		for (let i = 0; i < entity.inventory.length; i++) {
+			const item = entity.inventory[i];
+			if (!item) continue;
 			const itemDef = itemTypes[item.itemType];
 			const qty = (itemDef.type === "consumable" && item.quantity > 1) ? item.quantity : 1;
-			for (let i = 0; i < qty; i++) {
+			for (let j = 0; j < qty; j++) {
 				const dropped = {x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++};
 				if (item.currentAmmo !== undefined) dropped.currentAmmo = item.currentAmmo;
 				mapItems.push(dropped);
 			}
 			console.log(entity.name + " dropped " + (qty > 1 ? qty + " " : "") + itemDef.name + (qty > 1 ? "s" : ""));
-		});
-		entity.inventory = [];
-		for (const slot in entity.equipment ?? {}) {
-			if (!entity.equipment[slot]) continue;
-			const dropped = {x: entity.x, y: entity.y, itemType: entity.equipment[slot].itemType, id: nextItemId++};
-			if (entity.equipment[slot].currentAmmo !== undefined) dropped.currentAmmo = entity.equipment[slot].currentAmmo;
-			mapItems.push(dropped);
-			console.log(entity.name + " dropped " + itemTypes[entity.equipment[slot].itemType].name);
+			entity.inventory[i] = null;
 		}
-		entity.equipment = {};
 	},
 
 	death: function(entity) {

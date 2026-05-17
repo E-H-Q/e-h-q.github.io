@@ -48,18 +48,6 @@
 				display: flex;
 				gap: 10px;
 			}
-			#sidebar {
-				width: calc(20vw);
-				min-width: 15vw;
-				padding: 10px;
-				border: 1px solid #FFFFFF;
-				overflow-y: auto;
-				display: flex;
-				flex-direction: column;
-			}
-			#sidebar h3 {
-				margin-top: 0;
-			}
 			#log {
 				overflow-x: auto;
 				overflow-y: auto;
@@ -81,16 +69,6 @@
 				border: 1px solid #fff;
 				padding: 5px;
 				margin: 0;
-			}
-			.equipment-item {
-				padding: 5px;
-				margin: 3px 0;
-				border: 1px solid #0f0;
-				background-color: #002200;
-				cursor: pointer;
-			}
-			.equipment-item:hover {
-				background-color: #003300;
 			}
 			#size-input-container {
 				display: none;
@@ -124,30 +102,17 @@
 		<div class="hidden" id="content">
 			<div id="main-container">
 				<div id="left-section">
-					<div style="display: flex; gap: 10px;">
-						<div>
-							<div id="canvas-container">
-								<canvas id="canvas"></canvas>
-							</div>
-							<div style="display: flex; gap: 5px; margin-top: 5px;">
-								<select id="actions" onchange="update()" style="flex: 1;">
-									<option value="move">MOVE</option>
-									<option value="attack">ATTK</option>
-								</select>
-								<button id="peek-button" class="peek-button" onclick="activatePeekMode()">PEEK</button>
-							</div>
+					<div>
+						<div id="canvas-container">
+							<canvas id="canvas"></canvas>
 						</div>
-						<div id="sidebar">
-							<fieldset style="width: auto; overflow-y:auto; margin-bottom: 10px; flex: 1;">
-								<legend>EQUIPMENT</legend>
-								<div id="equipment-items" style="height: 100%; overflow-y: auto;"></div>
-							</fieldset>
-							<fieldset style="width: auto; overflow-y:auto; flex: 1;">
-								<legend>INVENTORY</legend>
-								<div id="inventory-items" style="height: 100%; overflow-y: auto;"></div>
-							</fieldset>
+						<div style="display: flex; gap: 5px; margin-top: 5px;">
+							<select id="actions" onchange="update()" style="flex: 1;">
+								<option value="move">MOVE</option>
+								<option value="attack">ATTK</option>
+							</select>
+							<button id="peek-button" class="peek-button" onclick="activatePeekMode()">PEEK</button>
 						</div>
-
 					</div>
 					<div style="margin-top: 10px;">
 						<span id="size-input-container">
@@ -262,9 +227,9 @@
 				Press &lt;D&gt; to open/close an adjacent door.<br>
 				Press &lt; , &gt;, (Comma) to pick up item(s) you are standing on.<br>
 				Press &lt; . &gt;, (Period) to pass your turn.<br>
-				Press &lt;Number Keys&gt; to use/equip the cooresponding inventory item.<br>
-				&lt;L. Click&gt; items in inventory to use/equip them.<br>
-				&lt;R. Click&gt; items in inventory to drop them.<br><br>
+				Press &lt;Number Keys&gt; to use/equip the cooresponding hotbar item.<br>
+				&lt;L. Click&gt; items in inventory to use/equip them. Drag & drop to rearrange.<br>
+				&lt;R. Click&gt; items in inventory for a context menu.<br><br>
 				Press &lt;Z&gt; to toggle zoom in/out.<br>
 				Press &lt;SHIFT+E&gt; to toggle EDIT mode.<br>
 				Press &lt;ESC&gt; to exit EDIT mode or PEEK mode, and to cancel throwing an item.<br>

@@ -59,7 +59,11 @@ function load_map() {
         walls = walls.map(wall => wall.type ? wall : {x: wall.x, y: wall.y, type: 'wall'});
 
         allEnemies = loaded_enemies ? JSON.parse(loaded_enemies) : [];
-		allEnemies.forEach(e => { e.seenX = 0; e.seenY = 0; });
+		allEnemies.forEach(e => {
+			e.seenX = 0;
+			e.seenY = 0;
+			normalizeEntityInventory(e);
+		});
 
         if (legacy_player) {
             try {
@@ -92,6 +96,7 @@ function load_map() {
                     }
                     if (!pp.traits) pp.traits = [];
                     if (!pp.traits.includes('player')) pp.traits.push('player');
+                    normalizeEntityInventory(pp);
                 });
             } catch(e) { console.log("Failed to load legacy player."); }
         }
@@ -113,6 +118,7 @@ function load_map() {
                     }
                     if (!p.traits) p.traits = [];
                     if (!p.traits.includes('player')) p.traits.push('player');
+                    normalizeEntityInventory(p);
                 });
                 if (allPlayers.length > 0) player = allPlayers[0];
                 else updatePlayer();

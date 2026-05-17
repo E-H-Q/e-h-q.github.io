@@ -80,6 +80,10 @@ function grabItemsFromTile(x, y) {
 	return true;
 }
 
+function resetInventoryDrag() {
+	window.inventoryDrag = { startSlot: -1, startMouse: null, isDragging: false, item: null, overSlot: -1, mouse: null };
+}
+
 function updateCamera() {
     if (isAiming && window.cursorWorldPos && !isZoomedOut && !edit.checked) {
         const deadZone = 2;
@@ -188,6 +192,22 @@ function applyPathTileEffects(entity, destX, destY) {
 	}
 }
 
+// Returns true when keystrokes should be left to the browser (the user is
+// typing in a text input, textarea, or contenteditable element). Checkboxes,
+// ranges, file pickers, buttons, and plain <select>s don't count — they don't
+// accept text and shouldn't suppress game hotkeys.
+function isTypingInTextField() {
+	const a = document.activeElement;
+	if (!a) return false;
+	if (a.isContentEditable) return true;
+	if (a.tagName === 'TEXTAREA') return true;
+	if (a.tagName === 'INPUT') {
+		const type = (a.type || 'text').toLowerCase();
+		return !['checkbox', 'radio', 'range', 'file', 'button', 'submit', 'reset', 'color', 'image'].includes(type);
+	}
+	return false;
+}
+
 var input = {
     init: function() {
         window.cursorWorldPos = {x: player.x, y: player.y};
@@ -195,6 +215,8 @@ var input = {
     },
 
     keyboard: function(event) {
+        // Hands off if the user is typing in a text input — let the browser handle it.
+        if (isTypingInTextField()) return;
         if (EntitySystem._explosionPending) return;
         if (allPlayers.length === 0) return;
 
@@ -451,14 +473,16 @@ var input = {
             return;
         }
 
+        // Number keys 1..0 -> use hotbar slot (top row of inventory)
         if (event.keyCode >= 48 && event.keyCode <= 57) {
             if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) return;
             if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex])) {
                 let slotIndex = event.keyCode - 49;
                 if (event.keyCode === 48) slotIndex = 9;
                 const activeEnt = getActivePlayerEntity();
-                if (slotIndex >= 0 && slotIndex < activeEnt.inventory.length) {
-                    if (typeof useItem !== 'undefined') useItem(activeEnt, slotIndex);
+                const inv = getInventory(activeEnt);
+                if (slotIndex >= 0 && slotIndex < INVENTORY_COLS && inv[slotIndex]) {
+                    useItem(activeEnt, slotIndex);
                 }
             }
             return;
@@ -513,6 +537,19 @@ var input = {
         if (typeof WindowSystem !== 'undefined' && (activeContextMenu || WindowSystem.isOpen())) {
             WindowSystem.handleMouseMove(canvasX, canvasY);
             return;
+        }
+
+        // Inventory hover & drag tracking — runs every move regardless of mode
+        const invSlot = getInventorySlotAt(canvasX, canvasY);
+        if (window.inventoryHoverSlot !== invSlot) window.inventoryHoverSlot = invSlot;
+        if (window.inventoryDrag.startSlot >= 0) {
+            window.inventoryDrag.mouse = { x: canvasX, y: canvasY };
+            if (!window.inventoryDrag.isDragging) {
+                const dx = canvasX - window.inventoryDrag.startMouse.x;
+                const dy = canvasY - window.inventoryDrag.startMouse.y;
+                if (dx*dx + dy*dy > 16) window.inventoryDrag.isDragging = true; // > 4px
+            }
+            window.inventoryDrag.overSlot = invSlot;
         }
 
         if (keyboardMode) keyboardMode = false;
@@ -582,6 +619,12 @@ var input = {
     click: function() {
         if (EntitySystem._explosionPending) return;
         if (allPlayers.length === 0) return;
+
+        // Mousedown started over the inventory — that click was already handled in mouseup
+        if (window.suppressNextClick) {
+            window.suppressNextClick = false;
+            return;
+        }
 
         if (typeof WindowSystem !== 'undefined' && activeContextMenu) {
             const canvasX = mouse_pos.canvasX || 0;
@@ -744,6 +787,16 @@ var input = {
     right_click: function(event) {
         event.preventDefault();
 
+        // Inventory right-click → context menu (Examine / Use|Equip / Drop)
+        const rect = c.getBoundingClientRect();
+        const canvasX = event.clientX - rect.left;
+        const canvasY = event.clientY - rect.top;
+        const invSlot = getInventorySlotAt(canvasX, canvasY);
+        if (invSlot >= 0 && typeof showInventoryContextMenu === 'function') {
+            showInventoryContextMenu(invSlot, event);
+            return;
+        }
+
         if (!window.cursorWorldPos) return;
 
         document.getElementById('spawn_x').value = window.cursorWorldPos.x;
@@ -820,7 +873,6 @@ var input = {
                     }
                 });
 
-                const rect = c.getBoundingClientRect();
                 const menuX = Math.ceil((event.clientX - rect.left) / tileSize) * tileSize - tileSize + 8;
                 const menuY = Math.ceil((event.clientY - rect.top) / tileSize) * tileSize - tileSize / 2;
                 const menu = WindowSystem.createContextMenu({
@@ -857,7 +909,11 @@ var input = {
 
         if (clickedEntity) displayName = clickedEntity.name || "Entity";
         else if (clickedWall) displayName = clickedWall.type || "Wall";
-        else if (clickedItem) displayName = "Items";
+        else if (clickedItem) {
+            const itemsHere = mapItems.filter(m => m.x === window.cursorWorldPos.x && m.y === window.cursorWorldPos.y);
+            const distinctTypes = new Set(itemsHere.map(m => m.itemType));
+            displayName = distinctTypes.size === 1 ? itemTypes[clickedItem.itemType].displayName : "Items";
+        }
 
         options.push({ text: displayName.toUpperCase() });
         if (clickedObject == activeEnt) options[0].text += " (current)";
@@ -1006,7 +1062,6 @@ var input = {
         }
 
         if (options.length > 0) {
-            const rect = c.getBoundingClientRect();
             const menuX = Math.ceil((event.clientX - rect.left) / tileSize) * tileSize - tileSize + 8;
             const menuY = Math.ceil((event.clientY - rect.top) / tileSize) * tileSize - tileSize / 2;
 
@@ -1024,46 +1079,87 @@ var input = {
 
     mousedown: function(event) {
         if (EntitySystem._explosionPending) return;
-        if (event.button === 0) {
-            isMouseDown = true;
+        if (event.button !== 0) return;
 
-            if (edit.checked && window.cursorWorldPos && !activeContextMenu && !WindowSystem.isOpen()) {
-                const click_pos = {
-                    x: window.cursorWorldPos.x,
-                    y: window.cursorWorldPos.y
-                };
-                if (click_pos.x < 0 || click_pos.y < 0 || click_pos.x >= size || click_pos.y >= size) return;
+        if (typeof WindowSystem !== 'undefined' && activeContextMenu) return; // context menu gets priority over inventory window
 
-                // Shift held — add wall tiles to selection only
-                if (event.shiftKey) {
-                    const hasWall = walls.some(w => w.x === click_pos.x && w.y === click_pos.y);
-                    if (hasWall) toggleEditTileSelection(click_pos.x, click_pos.y);
-                    update();
-                    return;
-                }
+        const rect = c.getBoundingClientRect();
+        const canvasX = event.clientX - rect.left;
+        const canvasY = event.clientY - rect.top;
 
-                // Normal click while selection exists — clear selection, don't toggle wall
-                if (selectedEditTiles.length > 0) {
-                    selectedEditTiles = [];
-                    update();
-                    return;
-                }
-
-                // Normal click — toggle wall
-                lastTile = {x: click_pos.x, y: click_pos.y};
-                const tileType = document.getElementById('tile-type').value;
-                const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
-                if (dup < 0) walls.push({x: click_pos.x, y: click_pos.y, type: tileType});
-                else walls.splice(dup, 1);
-                update();
+        // INVENTORY mousedown — starts a drag (or click candidate). Always suppress the
+        // subsequent map click so we don't accidentally move/attack at the cursor world pos.
+        const invSlot = getInventorySlotAt(canvasX, canvasY);
+        if (invSlot >= 0) {
+            window.suppressNextClick = true;
+            const activeEnt = getActivePlayerEntity();
+            const inv = getInventory(activeEnt);
+            if (inv[invSlot]) {
+                window.inventoryDrag.startSlot = invSlot;
+                window.inventoryDrag.startMouse = { x: canvasX, y: canvasY };
+                window.inventoryDrag.mouse = { x: canvasX, y: canvasY };
+                window.inventoryDrag.isDragging = false;
+                window.inventoryDrag.overSlot = invSlot;
+                window.inventoryDrag.item = inv[invSlot];
             }
+            isMouseDown = false; // don't trigger edit-mode drag paint
+            return;
+        }
+
+        isMouseDown = true;
+
+        if (edit.checked && window.cursorWorldPos && !activeContextMenu && !WindowSystem.isOpen()) {
+            const click_pos = {
+                x: window.cursorWorldPos.x,
+                y: window.cursorWorldPos.y
+            };
+            if (click_pos.x < 0 || click_pos.y < 0 || click_pos.x >= size || click_pos.y >= size) return;
+
+            // Shift held — add wall tiles to selection only
+            if (event.shiftKey) {
+                const hasWall = walls.some(w => w.x === click_pos.x && w.y === click_pos.y);
+                if (hasWall) toggleEditTileSelection(click_pos.x, click_pos.y);
+                update();
+                return;
+            }
+
+            // Normal click while selection exists — clear selection, don't toggle wall
+            if (selectedEditTiles.length > 0) {
+                selectedEditTiles = [];
+                update();
+                return;
+            }
+
+            // Normal click — toggle wall
+            lastTile = {x: click_pos.x, y: click_pos.y};
+            const tileType = document.getElementById('tile-type').value;
+            const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
+            if (dup < 0) walls.push({x: click_pos.x, y: click_pos.y, type: tileType});
+            else walls.splice(dup, 1);
+            update();
         }
     },
 
     mouseup: function(event) {
-        if (event.button === 0) {
-            isMouseDown = false;
-            lastTile = null;
+        if (event.button !== 0) return;
+        isMouseDown = false;
+        lastTile = null;
+
+        // Drag-drop onto another item: swap
+        // No movement, just plain click: use item
+        if (window.inventoryDrag.startSlot >= 0) {
+            const drag = window.inventoryDrag;
+            const activeEnt = getActivePlayerEntity();
+
+            if (drag.isDragging) {
+                if (drag.overSlot >= 0 && drag.overSlot !== drag.startSlot) {
+                    swapInventorySlots(activeEnt, drag.startSlot, drag.overSlot);
+                }
+            } else if (drag.item) {
+                useItem(activeEnt, drag.startSlot);
+            }
+            resetInventoryDrag();
+            update();
         }
     }
 };

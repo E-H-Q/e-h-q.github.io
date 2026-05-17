@@ -136,6 +136,7 @@ var turns = {
             canvas.items();
             canvas.player();
             canvas.enemy();
+			canvas.inventory();
         }
 
         let currentEntity = entities[currentEntityIndex];
@@ -365,6 +366,7 @@ var turns = {
         if (!entity.inventory) return -1;
         for (let i = 0; i < entity.inventory.length; i++) {
             const item = entity.inventory[i];
+			if (!item) continue;
             const itemDef = itemTypes[item.itemType];
             if (itemDef && itemDef.type === "equipment" && itemDef.slot === "weapon") {
                 if (itemDef.maxAmmo === undefined) return i;
@@ -387,6 +389,7 @@ var turns = {
         }
         for (let i = 0; i < entity.inventory.length; i++) {
             const item = entity.inventory[i];
+			if (!item) continue;
             const itemDef = itemTypes[item.itemType];
             if (itemDef && itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
                 const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
