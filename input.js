@@ -551,9 +551,11 @@ var input = {
             if (!window.inventoryDrag.isDragging) {
                 const dx = canvasX - window.inventoryDrag.startMouse.x;
                 const dy = canvasY - window.inventoryDrag.startMouse.y;
-                if (dx*dx + dy*dy > 16) window.inventoryDrag.isDragging = true; // > 4px
+                if (dx*dx + dy*dy > 16) window.inventoryDrag.isDragging = true;
             }
             window.inventoryDrag.overSlot = invSlot;
+            update();
+            return;
         }
 
         if (keyboardMode) keyboardMode = false;
@@ -1155,9 +1157,6 @@ var input = {
         isMouseDown = false;
         lastTile = null;
 
-        // Complete any inventory interaction:
-        //   - dragged + dropped on a different valid slot → swap
-        //   - no significant movement → treat as a click → useItem
         if (window.inventoryDrag.startSlot >= 0) {
             const drag = window.inventoryDrag;
             const activeEnt = getActivePlayerEntity();
@@ -1166,11 +1165,14 @@ var input = {
                 if (drag.overSlot >= 0 && drag.overSlot !== drag.startSlot) {
                     swapInventorySlots(activeEnt, drag.startSlot, drag.overSlot);
                 }
+                resetInventoryDrag();
+                update();
             } else if (drag.item) {
+                resetInventoryDrag();
                 useItem(activeEnt, drag.startSlot);
+            } else {
+                resetInventoryDrag();
             }
-            resetInventoryDrag();
-            //update();
         }
     }
 };
