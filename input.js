@@ -14,6 +14,10 @@ var lastCameraUpdateCursorY = null;
 // Adjacent select mode: { mode: 'grab' | 'door' }
 var adjacentSelect = null;
 
+function getDoorBlocker(x, y) {
+	return entities.find(e => e.hp > 0 && e.x === x && e.y === y && !helper.isGrenadeEntity(e));
+}
+
 function exitAdjacentSelect() {
 	if (!adjacentSelect) return;
 	adjacentSelect = null;
@@ -56,6 +60,13 @@ function activateDoorMode() {
 
 	if (adjacentDoors.length === 1) {
 		const door = walls.find(w => w.x === adjacentDoors[0].x && w.y === adjacentDoors[0].y && w.type === 'door');
+		if (door.open) {
+			const blocker = getDoorBlocker(door.x, door.y);
+			if (blocker) {
+				console.log("Door is blocked by " + blocker.name + "!");
+				return;
+			}
+		}
 		door.open = !door.open;
 		console.log(activeEnt.name + (door.open ? " opened" : " closed") + " a door.");
 		update();
@@ -667,6 +678,15 @@ var input = {
             } else if (adjacentSelect.mode === 'door') {
                 const door = walls.find(w => w.x === click_pos.x && w.y === click_pos.y && w.type === 'door');
                 if (dist <= 1 && door) {
+                    if (door.open) {
+                        const blocker = getDoorBlocker(door.x, door.y);
+                        if (blocker) {
+                            console.log("Door is blocked by " + blocker.name + "!");
+                            adjacentSelect = null;
+                            update();
+                            return;
+                        }
+                    }
                     door.open = !door.open;
                     console.log(activeEnt.name + (door.open ? " opened" : " closed") + " a door.");
                     adjacentSelect = null;
@@ -938,6 +958,14 @@ var input = {
                     text: "(d) Open/Close: " + clickedWall.type,
                     key: "d",
                     action: function() {
+                        if (clickedWall.open) {
+                            const blocker = getDoorBlocker(clickedWall.x, clickedWall.y);
+                            if (blocker) {
+                                console.log("Door is blocked by " + blocker.name + "!");
+                                update();
+                                return;
+                            }
+                        }
                         clickedWall.open = !clickedWall.open;
                         update();
                     }
