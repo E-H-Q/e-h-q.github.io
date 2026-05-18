@@ -703,19 +703,23 @@ function showInventoryContextMenu(slotIdx, event) {
 		}
 	];
 
-	const rect = c.getBoundingClientRect();
-	const menuX = Math.ceil((event.clientX - rect.left) / tileSize) * tileSize - tileSize + 8;
-	const menuY = Math.ceil((event.clientY - rect.top) / tileSize) * tileSize - tileSize / 2;
-
 	const menu = WindowSystem.createContextMenu({
-		x: menuX,
-		y: menuY,
-		tileX: window.cursorWorldPos ? window.cursorWorldPos.x : -9999,
-		tileY: window.cursorWorldPos ? window.cursorWorldPos.y : -9999,
-		options
-	});
-	WindowSystem.openContextMenu(menu);
-}
+			x: 0,
+			y: 0,
+			tileX: window.cursorWorldPos.x,
+			tileY: window.cursorWorldPos.y,
+			options
+		});
+
+		const origin = getInventoryOrigin();
+		const slotX = origin.x + (slotIdx % INVENTORY_COLS) * tileSize;
+		const slotY = origin.y + Math.floor(slotIdx / INVENTORY_COLS) * tileSize;
+		const menuHeight = menu.options.length * menu.itemHeight + menu.padding * 2;
+		menu.x = slotX - 8 - menu.width + tileSize/2;
+		menu.y = slotY + tileSize / 2 - menuHeight;
+
+		WindowSystem.openContextMenu(menu);
+	}
 
 function updateViewportSize() {
 	let newWidth = parseInt(document.getElementById('viewport-width').value);
