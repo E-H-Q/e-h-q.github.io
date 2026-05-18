@@ -426,7 +426,8 @@ function pickupItem(entity, x, y) {
 
 	if (isPlayerControlled(entity)) {
 		const itemsAtLocation = mapItems.filter(item => item.x === x && item.y === y);
-		if (itemsAtLocation.length > 0) {
+		const grenadesAtLocation = allEnemies.filter(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === x && e.y === y);
+		if (itemsAtLocation.length > 0 || grenadesAtLocation.length > 0) {
 			if (typeof showItemPickupWindow !== 'undefined') showItemPickupWindow(x, y);
 			return true;
 		}

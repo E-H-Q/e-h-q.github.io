@@ -460,16 +460,24 @@ function update() {
 				if (wall.type === 'glass' && wall.damaged) ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
 			}
 			const tileItems = mapItems.filter(item => item.x === v.x && item.y === v.y);
-			if (tileItems.length > 0) {
-				const topItem = tileItems[tileItems.length - 1];
-				const spriteInfo = typeof ITEM_SPRITE_MAP !== 'undefined' ? ITEM_SPRITE_MAP[topItem.itemType] : null;
+			const tileGrenade = allEnemies.find(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === v.x && e.y === v.y);
+			if (tileItems.length > 0 || tileGrenade) {
+				const topItem = tileItems.length > 0 ? tileItems[tileItems.length - 1] : null;
+				const spriteKey = topItem ? topItem.itemType : 'grenadeLive';
+				const spriteInfo = typeof ITEM_SPRITE_MAP !== 'undefined' ? ITEM_SPRITE_MAP[spriteKey] : null;
 				if (itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0 && spriteInfo) {
 					ctx.drawImage(itemsImg, spriteInfo.col * 32, spriteInfo.row * 32, 32, 32, sx, sy, tileSize, tileSize);
-				} else {
+				} else if (topItem) {
 					const itemDef = itemTypes[topItem.itemType];
 					const isEquipment = itemDef?.type === "equipment";
 					ctx.fillStyle = isEquipment ? "rgba(255, 165, 0, 0.8)" : "rgba(255, 255, 255, 0.8)";
 					ctx.fillRect(sx, sy, tileSize, tileSize);
+				}
+				if (tileGrenade && helper.hasTrait(tileGrenade, 'active')) {
+					ctx.fillStyle = "#FF0000";
+					ctx.font = "bold " + (tileSize / 2) + "px monospace";
+					ctx.textAlign = "center";
+					ctx.fillText(tileGrenade.turnsRemaining.toString(), sx + tileSize / 2, sy + tileSize * 0.65);
 				}
 				if (tileItems.length > 1) {
 					const fontSize = Math.max(8, Math.round(tileSize * 0.35));
@@ -549,6 +557,39 @@ document.body.appendChild(div_for_coords);
 function _doPickupItems(activeEnt, selectedWindowItems) {
 	const inv = getInventory(activeEnt);
 	selectedWindowItems.forEach(selection => {
+if (selection._grenadeEntity) {
+			const g = selection._grenadeEntity;
+			const isInert = !helper.hasTrait(g, 'active');
+			const idx = allEnemies.indexOf(g);
+			if (idx >= 0) allEnemies.splice(idx, 1);
+			if (isInert) {
+				let stacked = false;
+				for (let invItem of inv) {
+					if (invItem && invItem.itemType === 'grenade' && !invItem.isLive) { // Pick up live grenade without Active trait
+						invItem.quantity = (invItem.quantity || 1) + 1;
+						stacked = true;
+						break;
+					}
+				}
+				if (!stacked) {
+					const emptySlot = findFirstEmptySlot(activeEnt);
+					if (emptySlot < 0) { // inventory full
+						allEnemies.push(g);
+						return;
+					}
+					inv[emptySlot] = { itemType: 'grenade', id: nextItemId++, quantity: 1 };
+				}
+			} else {
+				const emptySlot = findFirstEmptySlot(activeEnt);
+				if (emptySlot < 0) { // inventory full
+					allEnemies.push(g);
+					return;
+				}
+				inv[emptySlot] = { itemType: 'grenade', id: nextItemId++, isLive: true, turnsRemaining: g.turnsRemaining, quantity: 1 };
+				console.log(activeEnt.name + " picked up a live grenade!");
+			}
+			return;
+		}
 		const itemDef = itemTypes[selection.itemType];
 
 		// Remove the picked items from the map up front
@@ -604,7 +645,8 @@ function _doPickupItems(activeEnt, selectedWindowItems) {
 function showItemPickupWindow(x, y) {
 	const activeEnt = getActivePlayerEntity();
 	const itemsAtLocation = mapItems.filter(item => item.x === x && item.y === y);
-	if (itemsAtLocation.length === 0) return;
+	const grenadesAtLocation = allEnemies.filter(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === x && e.y === y);
+	if (itemsAtLocation.length === 0 && grenadesAtLocation.length === 0) return;
 
 	// Build display list, grouping stackable consumables
 	const windowItems = [];
@@ -626,6 +668,13 @@ function showItemPickupWindow(x, y) {
 				: '';
 			windowItems.push({ text: itemDef.displayName + ammoText, itemType: item.itemType, items: [item], count: 1, isStackable: false });
 		}
+	});
+
+	grenadesAtLocation.forEach(g => {
+		windowItems.push({
+			text: `LIVE Grenade (${g.turnsRemaining} turns left)`,
+			itemType: 'grenade', items: [], count: 1, isStackable: false, _grenadeEntity: g
+		});
 	});
 
 	// Auto-pickup when there's only one distinct item stack/type

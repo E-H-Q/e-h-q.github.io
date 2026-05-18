@@ -28,7 +28,7 @@ const EntitySystem = {
 
 		const graph = new Graph(pts, {diagonal: true});
 		entities.forEach(e => {
-			if (e !== entity && e.hp > 0 && pts[e.x]?.[e.y] !== undefined) pts[e.x][e.y] = 0;
+			if (e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && pts[e.x]?.[e.y] !== undefined) pts[e.x][e.y] = 0;
 		});
 
 		if (specialMode === 'peek') entity.range = Math.floor(savedPlayerRange / 2);

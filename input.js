@@ -24,9 +24,9 @@ function exitAdjacentSelect() {
 function activateGrabMode() {
 	if (currentEntityIndex < 0 || !isPlayerControlled(entities[currentEntityIndex])) return;
 	const activeEnt = getActivePlayerEntity();
-	const hasItemsOnSelf = mapItems.some(item => item.x === activeEnt.x && item.y === activeEnt.y);
+	const hasItemsOnSelf = helper.hasGrabbableAt(activeEnt.x, activeEnt.y);
 	const adjacentWithItems = helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
-		.filter(tile => mapItems.some(item => item.x === tile.x && item.y === tile.y));
+		.filter(tile => helper.hasGrabbableAt(tile.x, tile.y));
 
 	if (hasItemsOnSelf && adjacentWithItems.length === 0) {
 		grabItemsFromTile(activeEnt.x, activeEnt.y);
@@ -68,8 +68,7 @@ function activateDoorMode() {
 
 function grabItemsFromTile(x, y) {
 	const activeEnt = getActivePlayerEntity();
-	const itemsAtTile = mapItems.filter(item => item.x === x && item.y === y);
-	if (itemsAtTile.length === 0) return false;
+	if (!helper.hasGrabbableAt(x, y)) return false;
 
 	const origX = activeEnt.x;
 	const origY = activeEnt.y;
@@ -659,7 +658,7 @@ var input = {
             const dist = calc.distance(activeEnt.x, click_pos.x, activeEnt.y, click_pos.y);
 
             if (adjacentSelect.mode === 'grab') {
-                const hasItemsHere = mapItems.some(item => item.x === click_pos.x && item.y === click_pos.y);
+                const hasItemsHere = helper.hasGrabbableAt(click_pos.x, click_pos.y);
                 if (dist <= 1 && hasItemsHere) {
                     grabItemsFromTile(click_pos.x, click_pos.y);
                     if (!WindowSystem.isOpen()) adjacentSelect = null;

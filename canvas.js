@@ -79,7 +79,7 @@ function getInventorySlotAt(canvasX, canvasY) {
 // Returns a Set of "x,y" strings for every tile occupied by a living entity.
 function getOccupiedTiles() {
 	const occupied = new Set();
-	entities.forEach(e => { if (e.hp > 0) occupied.add(`${e.x},${e.y}`); });
+	entities.forEach(e => { if (e.hp > 0 && !helper.isGrenadeEntity(e)) occupied.add(`${e.x},${e.y}`); });
 	return occupied;
 }
 
@@ -418,7 +418,7 @@ var canvas = {
 				...helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
 			];
 			for (const tile of grabTiles) {
-				if (mapItems.some(item => item.x === tile.x && item.y === tile.y)) {
+				if (helper.hasGrabbableAt(tile.x, tile.y)) {
 					ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
 				}
 			}

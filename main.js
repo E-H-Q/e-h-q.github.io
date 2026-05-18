@@ -257,7 +257,7 @@ var populate = {
 	},
 	enemies: () => {
 		entities.forEach(e => {
-			if (e !== player && e.hp > 0 && pts[e.x]?.[e.y] !== undefined) {
+			if (e !== player && e.hp > 0 && !helper.isGrenadeEntity(e) && pts[e.x]?.[e.y] !== undefined) {
 				pts[e.x][e.y] = 0;
 			}
 		});
@@ -295,9 +295,14 @@ var helper = {
 		update();
 	},
 
+	isGrenadeEntity: (e) => !!e && helper.hasTrait(e, 'explode'),
+
+	hasGrabbableAt: (x, y) => mapItems.some(i => i.x === x && i.y === y) ||
+	                         allEnemies.some(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === x && e.y === y),
+
 	tileBlocked: (x, y) => {
 		return walls.some(w => w.x === x && w.y === y && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open)) ||
-		       allEnemies.some(e => e.hp > 0 && e.x === x && e.y === y) ||
+		       allEnemies.some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === x && e.y === y) ||
 		       allPlayers.some(e => e.hp > 0 && e.x === x && e.y === y) ||
 		       (player.x === x && player.y === y);
 	},

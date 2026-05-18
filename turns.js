@@ -650,7 +650,7 @@ var turns = {
             const newY = entity.y + dy;
             if (newX < 0 || newY < 0 || newX >= size || newY >= size) continue;
             const isWall = walls.some(w => w.x === newX && w.y === newY && w.type !== 'water' && !(w.type === 'door' && w.open));
-            const isOccupied = entities.some(e => e !== entity && e.hp > 0 && e.x === newX && e.y === newY);
+            const isOccupied = entities.some(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === newX && e.y === newY);
             if (!isWall && !isOccupied && entity.range > 0) {
                 entity.x = newX;
                 entity.y = newY;
@@ -677,7 +677,7 @@ var turns = {
 
         const graph = new Graph(pts, { diagonal: true });
         entities.forEach(e => {
-            if (e !== entity && e.hp > 0 && !(e.x === targetX && e.y === targetY)) {
+            if (e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && !(e.x === targetX && e.y === targetY)) {
                 if (graph.grid[e.x]?.[e.y]) graph.grid[e.x][e.y].weight = 0;
             }
         });
@@ -698,7 +698,7 @@ var turns = {
         for (let step of path) {
             const stepCost = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water') ? 2 : 1;
             if (distanceMoved + stepCost <= entity.range) {
-                const occupied = entities.some(e => e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y);
+                const occupied = entities.some(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y);
                 const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open));
                 if (!occupied && !isWall) { trimmed.push(step); distanceMoved += stepCost; }
                 else break;
@@ -717,7 +717,7 @@ var turns = {
 
         const diagonalGraph = new Graph(pts, { diagonal: true });
         entities.forEach(e => {
-            if (e !== entity && e.hp > 0 && !(e.x === targetX && e.y === targetY)) {
+            if (e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && !(e.x === targetX && e.y === targetY)) {
                 if (passable.some(p => p.x === e.x && p.y === e.y)) return;
                 if (diagonalGraph.grid[e.x]?.[e.y]) diagonalGraph.grid[e.x][e.y].weight = 0;
             }
@@ -751,7 +751,7 @@ var turns = {
             const stepCost = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water') ? 2 : 1;
             if (distanceMoved + stepCost > entity.range) break;
 
-            const occupied = entities.some(e => e !== entity && e.hp > 0 && e.x === step.x && e.y === step.y);
+            const occupied = entities.some(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y);
             const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open));
 
             if (occupied || isWall) break;
