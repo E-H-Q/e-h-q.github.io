@@ -295,7 +295,7 @@ var helper = {
 		update();
 	},
 
-	isGrenadeEntity: (e) => !!e && helper.hasTrait(e, 'explode'),
+	isGrenadeEntity: (e) => !!e && helper.hasTrait(e, 'explode') && e.turnsRemaining !== undefined,
 
 	hasGrabbableAt: (x, y) => mapItems.some(i => i.x === x && i.y === y) ||
 	                         allEnemies.some(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === x && e.y === y),
