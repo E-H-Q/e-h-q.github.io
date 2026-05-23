@@ -186,13 +186,9 @@ const EntitySystem = {
 		return destroyedAny;
 	},
 
-	// Equipped items are now also IN entity.inventory, so a single pass handles both.
-	// We just clear equipment refs first (without re-pushing to inventory) so the
-	// drop loop sees them once.
 	dropAllItems: function(entity) {
 		if (typeof mapItems === 'undefined' || typeof nextItemId === 'undefined') return;
 
-		// Strip equipment stat bonuses but leave items in inventory for the drop loop
 		if (entity.equipment) {
 			for (const slot in entity.equipment) {
 				if (entity.equipment[slot]) {
@@ -288,6 +284,13 @@ const EntitySystem = {
 				if (!existing) walls.push({x: tile.x, y: tile.y, type: 'fire'});
 			}
 		}
+	},
+
+	// Returns true if entity can reach any tile further than radius from (centerX, centerY)
+	canMoveOutsideRadius: function(entity, centerX, centerY, radius) {
+		return this.calculateMovement(entity).some(
+			move => calc.distance(move.x, centerX, move.y, centerY) > radius
+		);
 	},
 
 	triggerExplosion: function(grenade) {

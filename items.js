@@ -194,6 +194,59 @@ function consumeAmmo(entity) {
 	weapon.currentAmmo = Math.max(0, weapon.currentAmmo - 1);
 }
 
+function findGrenadeInInventory(entity, live) {
+	if (!entity.inventory) return -1;
+	for (let i = 0; i < entity.inventory.length; i++) {
+		const item = entity.inventory[i];
+		if (!item || item.itemType !== 'grenade') continue;
+		if (live === true && !item.isLive) continue;
+		if (live === false && item.isLive) continue;
+		return i;
+	}
+	return -1;
+}
+
+function pullGrenadePin(entity, slotIdx) {
+	const inv = getInventory(entity);
+	const item = inv[slotIdx];
+	if (!item || item.itemType !== 'grenade' || item.isLive) return -1;
+	const itemDef = itemTypes.grenade;
+	const liveGrenade = {itemType: 'grenade', id: nextItemId++, isLive: true, turnsRemaining: itemDef.fuse, quantity: 1};
+	if (item.quantity > 1) {
+		let destIdx = findFirstEmptyHotbarSlot(entity);
+		if (destIdx < 0) destIdx = findFirstEmptySlot(entity);
+		if (destIdx < 0) return -1;
+		item.quantity--;
+		inv[destIdx] = liveGrenade;
+		return destIdx;
+	}
+	const sourceInHotbar = slotIdx < INVENTORY_COLS;
+	const hotbarIdx = sourceInHotbar ? -1 : findFirstEmptyHotbarSlot(entity);
+	if (hotbarIdx >= 0) {
+		inv[slotIdx] = null;
+		inv[hotbarIdx] = liveGrenade;
+		return hotbarIdx;
+	}
+	inv[slotIdx] = liveGrenade;
+	return slotIdx;
+}
+
+function getOrActivateGrenade(entity) {
+	const inv = getInventory(entity);
+	let bestIdx = -1, bestTurns = Infinity;
+	for (let i = 0; i < inv.length; i++) {
+		const item = inv[i];
+		if (item?.itemType === 'grenade' && item.isLive && item.turnsRemaining < bestTurns) {
+			bestTurns = item.turnsRemaining;
+			bestIdx = i;
+		}
+	}
+	if (bestIdx >= 0) return bestIdx;
+	const nonLiveIdx = findGrenadeInInventory(entity, false);
+	if (nonLiveIdx < 0) return -1;
+	return pullGrenadePin(entity, nonLiveIdx);
+}
+
 function reloadWeapon(entity) {
 	if (!entity.equipment?.weapon) return false;
 	const weapon = entity.equipment.weapon;
@@ -569,29 +622,9 @@ function useItem(entity, inventoryIndex) {
 				update();
 				return true;
 			} else {
-				// Pull the pin: place the live grenade in the hotbar if there's room,
-				// otherwise fall back to (multi-stack) any empty slot or (single) in-place.
-				const liveGrenade = {itemType: 'grenade', id: nextItemId++, isLive: true, turnsRemaining: itemDef.fuse, quantity: 1};
-				if (item.quantity > 1) {
-					let destIdx = findFirstEmptyHotbarSlot(entity);
-					if (destIdx < 0) destIdx = findFirstEmptySlot(entity);
-					if (destIdx < 0) {
-						console.log("No inventory space for live grenade!");
-						return false;
-					}
-					item.quantity--;
-					inv[destIdx] = liveGrenade;
-				} else {
-					// Source slot already in the hotbar: keep it there.
-					// Otherwise move to an open hotbar slot if one exists.
-					const sourceInHotbar = inventoryIndex < INVENTORY_COLS;
-					const hotbarIdx = sourceInHotbar ? -1 : findFirstEmptyHotbarSlot(entity);
-					if (hotbarIdx >= 0) {
-						inv[inventoryIndex] = null;
-						inv[hotbarIdx] = liveGrenade;
-					} else {
-						inv[inventoryIndex] = liveGrenade;
-					}
+				if (pullGrenadePin(entity, inventoryIndex) < 0) {
+					console.log("No inventory space for live grenade!");
+					return false;
 				}
 				console.log(entity.name + " pulled the pin! Use/click to throw!");
 				update();

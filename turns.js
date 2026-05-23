@@ -149,6 +149,7 @@ var turns = {
 
             if (!entities[currentEntityIndex]) currentEntityIndex = 0;
             currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+            if (entities[currentEntityIndex]) entities[currentEntityIndex]._droppedGrenadeThisRound = false;
 
             const currentEntity = entities[currentEntityIndex];
             camera = {
@@ -455,6 +456,39 @@ var turns = {
         }
     },
 
+    tryThrowGrenade: function(entity, targetX, targetY) {
+        let aimX = targetX, aimY = targetY;
+        const dist = calc.distance(entity.x, targetX, entity.y, targetY);
+        if (dist > entity.attack_range) {
+            const path = line({x: entity.x, y: entity.y}, {x: targetX, y: targetY});
+            const aim = path[Math.min(path.length - 1, entity.attack_range)];
+            aimX = aim.x; aimY = aim.y;
+        }
+        const liveIdx = getOrActivateGrenade(entity);
+        if (liveIdx < 0) return false;
+        return throwItem(entity, liveIdx, aimX, aimY);
+    },
+
+    // Drops one live grenade in place without calling update() to avoid re-entering enemyTurn via turns.check()
+    _defenderDropGrenade: function(entity) {
+        if (entity._droppedGrenadeThisRound) return null;
+        const liveIdx = getOrActivateGrenade(entity);
+        if (liveIdx < 0) return null;
+        const inv = getInventory(entity);
+        const grenade = {
+            name: "Grenade", hp: 1,
+            x: entity.x, y: entity.y,
+            range: 0, attack_range: 0, turns: 1,
+            turnsRemaining: inv[liveIdx].turnsRemaining,
+            inventory: [], traits: ['explode', 'active']
+        };
+        allEnemies.push(grenade);
+        inv[liveIdx] = null;
+        entity._droppedGrenadeThisRound = true;
+        console.log(entity.name + " drops a live grenade!");
+        return grenade;
+    },
+
     findWeaponWithAmmo: function(entity) {
         if (!entity.inventory) return -1;
         for (let i = 0; i < entity.inventory.length; i++) {
@@ -519,31 +553,90 @@ var turns = {
         }
 
         if (helper.hasTrait(entity, 'defensive') && entity.lastAttacker && entity.hp < entity.maxHp) {
+            calc.move(entity);
             const attackerPos = entity.lastAttacker;
-            const cover = helper.findNearestCover(entity, attackerPos.x, attackerPos.y);
-            if (cover) {
-                this.enemyMoveToward(entity, cover.x, cover.y);
-                // After moving, close any adjacent open door that now blocks LOS to the attacker
+            const blastRadius = itemTypes.grenade.damageRadius;
+
+            // Close an adjacent door that breaks LOS first — no grenade needed
+            if (EntitySystem.hasLOS(entity, attackerPos.x, attackerPos.y, false)) {
                 const doorToClose = helper.getAdjacentTiles(entity.x, entity.y, false)
                     .map(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'door' && w.open))
-                    .find(Boolean);
+                    .filter(Boolean)
+                    .find(door => {
+                        door.open = false;
+                        const blocks = !EntitySystem.hasLOS(entity, attackerPos.x, attackerPos.y, false);
+                        door.open = true;
+                        return blocks;
+                    });
                 if (doorToClose) {
                     doorToClose.open = false;
                     console.log(entity.name + " closed a door");
-                }
-                if (entity.x === cover.x && entity.y === cover.y) {
-                    entity.lastAttacker = null;
                     currentEntityTurnsRemaining--;
-                    console.log(entity.name + " hides...");
+                    return;
                 }
+            }
+
+            // Cover search: entity.range * 2 radius, hard geometry only (doors forced open), outside all blast zones
+            const searchRadius = entity.range * 2;
+            const closedDoors  = walls.filter(w => w.type === 'door' && !w.open);
+            closedDoors.forEach(d => { d.open = true; });
+            const activeGrenades = allEnemies.filter(e => helper.isGrenadeEntity(e) && helper.hasTrait(e, 'active') && e.hp > 0);
+            let cover = null, coverDist = Infinity;
+            for (let x = Math.max(0, entity.x - searchRadius); x <= Math.min(size - 1, entity.x + searchRadius); x++) {
+                for (let y = Math.max(0, entity.y - searchRadius); y <= Math.min(size - 1, entity.y + searchRadius); y++) {
+                    if (helper.tileBlocked(x, y) || (x === entity.x && y === entity.y)) continue;
+                    if (EntitySystem.hasLOS({x, y}, attackerPos.x, attackerPos.y, false)) continue;
+                    if (activeGrenades.some(g => calc.distance(x, g.x, y, g.y) <= blastRadius)) continue;
+                    const d = calc.distance(entity.x, x, entity.y, y);
+                    if (d < coverDist) { coverDist = d; cover = {x, y}; }
+                }
+            }
+            closedDoors.forEach(d => { d.open = false; });
+
+            const canEscape = EntitySystem.canMoveOutsideRadius(entity, entity.x, entity.y, blastRadius);
+            const exposed   = EntitySystem.hasLOS(entity, attackerPos.x, attackerPos.y, false);
+
+            if (!cover) {
+                const dx = Math.sign(entity.x - attackerPos.x);
+                const dy = Math.sign(entity.y - attackerPos.y);
+                const dropped = (canEscape && exposed) ? this._defenderDropGrenade(entity) : null;
+                this.enemyMoveToward(entity, Math.max(0, Math.min(size - 1, entity.x + dx * entity.range)), Math.max(0, Math.min(size - 1, entity.y + dy * entity.range)), [], true, dropped);
                 return;
             }
+
+            const dropped = (canEscape && exposed && (entity.x !== cover.x || entity.y !== cover.y)) ? this._defenderDropGrenade(entity) : null;
+            this.enemyMoveToward(entity, cover.x, cover.y, [], true, dropped);
+
+            if (entity.x === cover.x && entity.y === cover.y) {
+                entity.lastAttacker = null;
+                currentEntityTurnsRemaining--;
+                console.log(entity.name + " hides...");
+            }
+            return;
         }
 
         if (canSeeTarget) {
             entity.seenX = target.x;
             entity.seenY = target.y;
             if (entity.huntingTurns !== undefined) entity.huntingTurns = 0;
+
+            if (helper.hasTrait(entity, 'defensive')) {
+                const inBlast = allEnemies.some(e =>
+                    helper.isGrenadeEntity(e) && helper.hasTrait(e, 'active') && e.hp > 0 &&
+                    calc.distance(entity.x, e.x, entity.y, e.y) <= itemTypes.grenade.damageRadius
+                );
+                if (inBlast) { currentEntityTurnsRemaining--; return; }
+            }
+
+            if (helper.hasTrait(entity, 'aggressive')) {
+                const gDef = itemTypes.grenade;
+                if (dist > gDef.damageRadius && dist <= entity.attack_range + gDef.damageRadius) {
+                    if (this.tryThrowGrenade(entity, target.x, target.y)) {
+                        currentEntityTurnsRemaining--;
+                        return;
+                    }
+                }
+            }
 
             if (dist <= effectiveRange) {
                 if (!hasAmmo(entity)) {
@@ -563,7 +656,7 @@ var turns = {
                 }
                 if (EntitySystem.attack(entity, target.x, target.y)) currentEntityTurnsRemaining--;
             } else {
-                this.enemyMoveToward(entity, target.x, target.y);
+                this.enemyMoveToward(entity, target.x, target.y, [], !helper.hasTrait(entity, 'default'));
             }
         } else {
             const weaponToReload = this.findWeaponToReload(entity);
@@ -604,7 +697,7 @@ var turns = {
                             if (hidingSpots.length > 0) {
                                 hidingSpots.sort((a, b) => a.distance - b.distance);
                                 const t = hidingSpots[Math.floor(Math.random() * Math.min(3, hidingSpots.length))];
-                                this.enemyMoveToward(entity, t.x, t.y);
+                                this.enemyMoveToward(entity, t.x, t.y, [], true);
                                 entity.huntingTurns++;
                                 return;
                             }
@@ -622,7 +715,7 @@ var turns = {
                             walls.find(w => w.x === t.x && w.y === t.y && w.type === 'door' && !w.open)
                         ).find(Boolean);
                         if (blockingDoor) {
-                            this.enemyMoveToward(entity, blockingDoor.x, blockingDoor.y);
+                            this.enemyMoveToward(entity, blockingDoor.x, blockingDoor.y, [], true);
                             if (entity.x === blockingDoor.x && entity.y === blockingDoor.y ||
                                 calc.distance(entity.x, blockingDoor.x, entity.y, blockingDoor.y) <= 1) {
                                 blockingDoor.open = true;
@@ -631,7 +724,7 @@ var turns = {
                             return;
                         }
                     }
-                    this.enemyMoveToward(entity, entity.seenX, entity.seenY);
+                    this.enemyMoveToward(entity, entity.seenX, entity.seenY, [], !helper.hasTrait(entity, 'default'));
                 }
             } else {
                 this.enemyRandomMove(entity);
@@ -707,7 +800,7 @@ var turns = {
         return trimmed;
     },
 
-    enemyMoveToward: function(entity, targetX, targetY, passable = []) {
+    enemyMoveToward: function(entity, targetX, targetY, passable = [], avoidGrenades = false, excludeGrenade = null) {
         if (!pts) { currentEntityTurnsRemaining--; return; }
         if (targetX < 0 || targetX >= size || targetY < 0 || targetY >= size) {
             entity.seenX = 0; entity.seenY = 0;
@@ -722,6 +815,19 @@ var turns = {
                 if (diagonalGraph.grid[e.x]?.[e.y]) diagonalGraph.grid[e.x][e.y].weight = 0;
             }
         });
+
+        const grenadeRadius  = itemTypes.grenade.damageRadius;
+        const activeGrenades = avoidGrenades ? allEnemies.filter(e => e !== excludeGrenade && helper.isGrenadeEntity(e) && helper.hasTrait(e, 'active') && e.hp > 0) : [];
+        const blastTileSet   = new Set();
+
+        if (avoidGrenades) {
+            activeGrenades.forEach(e => {
+                collectAreaTiles(e.x, e.y, grenadeRadius).forEach(t => {
+                    blastTileSet.add(`${t.x},${t.y}`);
+                    if (diagonalGraph.grid[t.x]?.[t.y]) diagonalGraph.grid[t.x][t.y].weight = 0;
+                });
+            });
+        }
 
         if (!diagonalGraph.grid[entity.x]?.[entity.y] || !diagonalGraph.grid[targetX]?.[targetY]) {
             entity.seenX = 0; entity.seenY = 0;
@@ -756,6 +862,8 @@ var turns = {
 
             if (occupied || isWall) break;
 
+            if (avoidGrenades && blastTileSet.has(`${step.x},${step.y}`)) break;
+
             // check for fire tiles and water tiles
             const fireTiles = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'fire');
             const waterTiles = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water');
@@ -778,9 +886,11 @@ var turns = {
             distanceMoved += stepCost;
         }
 
-        // Apply final position
-        entity.x = currentX;
-        entity.y = currentY;
+        // Apply final position only if not landing in a blast zone
+        if (!blastTileSet.has(`${currentX},${currentY}`)) {
+            entity.x = currentX;
+            entity.y = currentY;
+        }
 
         currentEntityTurnsRemaining--;
     },
