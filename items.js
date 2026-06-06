@@ -186,7 +186,7 @@ function hasAmmo(entity) {
 	if (!entity.equipment?.weapon) return true;
 	const weapon = entity.equipment.weapon;
 	const weaponDef = itemTypes[weapon.itemType];
-	if (weaponDef.maxAmmo === undefined) return true;
+	if (!weaponDef.maxAmmo || weaponDef.maxAmmo === Infinity) return true;
 	if (weapon.currentAmmo === undefined) weapon.currentAmmo = weaponDef.maxAmmo;
 	return weapon.currentAmmo > 0;
 }
@@ -195,7 +195,7 @@ function consumeAmmo(entity) {
 	if (!entity.equipment?.weapon) return;
 	const weapon = entity.equipment.weapon;
 	const weaponDef = itemTypes[weapon.itemType];
-	if (weaponDef.maxAmmo === undefined) return;
+	if (!weaponDef.maxAmmo || weaponDef.maxAmmo === Infinity) return;
 	if (weapon.currentAmmo === undefined) weapon.currentAmmo = weaponDef.maxAmmo;
 	weapon.currentAmmo = Math.max(0, weapon.currentAmmo - 1);
 }
@@ -257,7 +257,7 @@ function reloadWeapon(entity) {
 	if (!entity.equipment?.weapon) return false;
 	const weapon = entity.equipment.weapon;
 	const weaponDef = itemTypes[weapon.itemType];
-	if (weaponDef.maxAmmo === undefined) { console.log(entity.name + "'s weapon doesn't need reloading!"); return false; }
+	if (!weaponDef.maxAmmo || weaponDef.maxAmmo === Infinity) { console.log(entity.name + "'s weapon doesn't need reloading!"); return false; }
 	if (weapon.currentAmmo === undefined) weapon.currentAmmo = weaponDef.maxAmmo;
 	if (weapon.currentAmmo >= weaponDef.maxAmmo) { console.log(entity.name + "'s weapon is already fully loaded!"); return false; }
 	weapon.currentAmmo = weaponDef.maxAmmo;
