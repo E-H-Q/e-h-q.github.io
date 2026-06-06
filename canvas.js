@@ -179,8 +179,13 @@ var canvas = {
 			} else {
 				if (hasSprites) {
 					ctx.drawImage(tilesImg, TILE_WALL * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+					if (wall.damaged) {
+						ctx.filter = "invert(1)";
+						ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+						ctx.filter = "none";
+					}
 				} else {
-					ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
+					ctx.fillStyle = wall.damaged ? "rgba(200, 100, 0, 0.7)" : "rgba(255, 0, 0, 0.5)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
 			}

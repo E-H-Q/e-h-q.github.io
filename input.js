@@ -752,23 +752,26 @@ var input = {
 
                 const effectiveRange = getEntityAttackRange(activeEnt);
                 const dist = calc.distance(activeEnt.x, click_pos.x, activeEnt.y, click_pos.y);
-                const hasLOS = hasPermissiveLOS(activeEnt.x, activeEnt.y, click_pos.x, click_pos.y);
+                const canBreach = canEntityBreach(activeEnt);
+                const hasLOS = canBreach
+                    ? hasBreachingLOS(activeEnt.x, activeEnt.y, click_pos.x, click_pos.y)
+                    : hasPermissiveLOS(activeEnt.x, activeEnt.y, click_pos.x, click_pos.y);
+
 
                 if (dist > effectiveRange || !hasLOS) return;
 
                 const targetingTiles = calculateEntityTargeting(activeEnt, click_pos.x, click_pos.y);
-                const accessoryDef = activeEnt.equipment?.accessory ? itemTypes[activeEnt.equipment.accessory.itemType] : null;
-                const weaponDef = activeEnt.equipment?.weapon ? itemTypes[activeEnt.equipment.weapon.itemType] : null;
-                const canDestroy = weaponDef?.canDestroy || accessoryDef?.grantsDestroy;
+                const canDestroy = canEntityDestroyWalls(activeEnt);
 
                 const targetsInArea = getTargetedEntities(activeEnt, click_pos.x, click_pos.y);
                 const enemies = targetsInArea.filter(e => e !== activeEnt && e.hp > 0);
-                const hasWalls = canDestroy && targetingTiles.some(t => {
+                const hasWalls = (canDestroy || canBreach) && targetingTiles.some(t => {
                     const w = walls.find(w => w.x === t.x && w.y === t.y);
-                    return w && w.type !== 'glass';
+                    return w && w.type !== 'glass' && w.type !== 'water' && w.type !== 'fire';
                 });
-                const hasBreakable = targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'glass' || w.type === 'door'));
+                const hasBreakable = targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y && (w.type === 'glass' || w.type === 'door')));
                 const hasTargets = targetingTiles.length > 0 && (enemies.length > 0 || hasWalls || hasBreakable);
+
 
                 if (!hasTargets) return;
 

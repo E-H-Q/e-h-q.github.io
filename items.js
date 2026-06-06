@@ -60,7 +60,7 @@ const equipmentData = {
 	},
 	breachingKit: {
 		name: "Breaching Kit", type: "equipment", slot: "accessory",
-		grantsDestroy: true, displayName: "Breaching Kit"
+		grantsBreaching: true, displayName: "Breaching Kit"
 	},
 	flameBadge: {
 		name: "Flame Badge", type: "equipment", slot: "accessory",
@@ -163,6 +163,12 @@ function canEntityDestroyWalls(entity) {
 	const accessoryDef = entity.equipment?.accessory ? itemTypes[entity.equipment.accessory.itemType] : null;
 	const weaponDef    = entity.equipment?.weapon    ? itemTypes[entity.equipment.weapon.itemType]    : null;
 	return !!(weaponDef?.canDestroy || accessoryDef?.grantsDestroy);
+}
+
+function canEntityBreach(entity) {
+	const acc = entity.equipment?.accessory;
+	if (!acc) return false;
+	return acc.itemType === 'breachingKit';
 }
 
 function canEntityImmolate(entity) {
@@ -278,16 +284,20 @@ function collectAreaTiles(centerX, centerY, radius) {
 function calculateEntityTargeting(entity, endX, endY) {
 	const aimStyle   = getWeaponAimStyle(entity);
 	const canDestroy = canEntityDestroyWalls(entity);
+	const canBreach  = canEntityBreach(entity);
 	const range      = getEntityAttackRange(entity);
 
 	let path = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
-	path = clipPathAtWall(path, canDestroy, true); // stopAtDoor so doors can be targeted
+	path = clipPathAtWall(path, canDestroy, true, canBreach);
 	path = path.length > range + 1 ? path.slice(1, range + 1) : path.slice(1);
 
 	if (path.length === 0) {
-		// canDestroy: still allow targeting a wall tile just outside reach
 		if (canDestroy) {
 			const isWall = walls.find(w => w.x === endX && w.y === endY);
+			if (calc.distance(entity.x, endX, entity.y, endY) <= range && isWall) return [{x: endX, y: endY}];
+		}
+		if (canBreach) {
+			const isWall = walls.find(w => w.x === endX && w.y === endY && w.type !== 'glass' && w.type !== 'water' && w.type !== 'fire' && w.type !== 'door');
 			if (calc.distance(entity.x, endX, entity.y, endY) <= range && isWall) return [{x: endX, y: endY}];
 		}
 		return [];

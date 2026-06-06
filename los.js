@@ -28,7 +28,6 @@ function line(p0, p1) {
 	return points;
 }
 
-// Returns true if a wall tile blocks LOS (closed doors block, open doors don't)
 function wallBlocksLOS(wall) {
 	if (!wall) return false;
 	if (wall.type === 'glass' || wall.type === 'water' || wall.type === 'fire') return false;
@@ -36,41 +35,38 @@ function wallBlocksLOS(wall) {
 	return true;
 }
 
-// Clips a path array at the first blocking wall. Pass canDestroy=true to ignore walls.
-// Optional stopAtDoor=true includes the door tile in the path so it can be targeted.
-function clipPathAtWall(path, canDestroy = false, stopAtDoor = false) {
-    if (canDestroy) return path;
-    if (!path || path.length === 0) return [];
+// Clips a path to the first blocking wall.
+// canDestroy: ignore all walls. canBreach: pass through 1 adjacent regular wall + 1 tile beyond.
+// stopAtDoor: include the door tile so it can be targeted.
+function clipPathAtWall(path, canDestroy = false, stopAtDoor = false, canBreach = false) {
+	if (canDestroy) return path;
+	if (!path || path.length === 0) return [];
 
-    for (let i = 1; i < path.length; i++) {
-        const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
-        if (!wall) continue;
+	const startX = path[0].x;
+	const startY = path[0].y;
 
-        if (wall.type === 'water' || wall.type === 'fire') continue;
-
-        // Glass handling
-        if (wall.type === 'glass') {
-            if (wall.damaged) {
-                continue;
-            }
-            if (i === path.length - 1) return path; // targeting the glass itself
-            continue;
-        }
-
-        if (wall.type === 'door' && wall.open) continue;
-
-        // Blocking wall or closed door
-        if (wall.type === 'door' && !wall.open && stopAtDoor) {
-            return path.slice(0, i + 1);
-        }
-        return path.slice(0, i);
-    }
-    return path;
+	for (let i = 1; i < path.length; i++) {
+		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+		if (!wall) continue;
+		if (wall.type === 'water' || wall.type === 'fire') continue;
+		if (wall.type === 'glass') {
+			if (wall.damaged) continue;
+			if (i === path.length - 1) return path;
+			continue;
+		}
+		if (wall.type === 'door' && wall.open) continue;
+		if (wall.type === 'door' && !wall.open) {
+			return stopAtDoor ? path.slice(0, i + 1) : path.slice(0, i);
+		}
+		// Regular wall tile
+		if (canBreach) return path.slice(0, Math.min(i + 2, path.length));
+		return path.slice(0, i);
+	}
+	return path;
 }
 
 function hasPermissiveLOS(startX, startY, endX, endY) {
-	const end = {x: endX, y: endY};
-	const path = line({x: startX, y: startY}, end);
+	const path = line({x: startX, y: startY}, {x: endX, y: endY});
 	for (let i = 1; i < path.length - 1; i++) {
 		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
 		if (wallBlocksLOS(wall)) return false;
@@ -78,7 +74,23 @@ function hasPermissiveLOS(startX, startY, endX, endY) {
 	return true;
 }
 
-// Returns all unique living entities whose position appears in the given tile list.
+// LOS check for breaching kit: clear path OR 1 adjacent regular wall tile + 1 tile beyond it.
+function hasBreachingLOS(startX, startY, endX, endY) {
+	const path = line({x: startX, y: startY}, {x: endX, y: endY});
+	let wallsHit = 0;
+	for (let i = 1; i < path.length; i++) {
+		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+		if (!wall) continue;
+		if (wall.type === 'water' || wall.type === 'fire') continue;
+		if (wall.type === 'glass') continue;
+		if (wall.type === 'door' && wall.open) continue;
+		if (wall.type === 'door' && !wall.open) return false;
+		if (wallsHit === 0) { wallsHit++; i++; continue; }
+		return false;
+	}
+	return true;
+}
+
 function getEntitiesInTiles(tiles) {
 	const hit = [];
 	for (const tile of tiles) {

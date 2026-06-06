@@ -288,7 +288,8 @@ var turns = {
                 const targetingTiles = calculateEntityTargeting(currentEntity, cursorX, cursorY);
                 if (targetingTiles.length > 0) {
                     if (getWeaponAimStyle(currentEntity) === 'direct') {
-                        canvas.los(targetingTiles, true);
+                        const isBreach = canEntityBreach(currentEntity);
+                        canvas.los(targetingTiles, !isBreach);
                         const cursorInPath = targetingTiles.some(t => t.x === cursorX && t.y === cursorY);
                         const atCursor = cursorInPath ?
                             entities.find(e => e.hp > 0 && e.x === cursorX && e.y === cursorY) : null;
@@ -296,8 +297,10 @@ var turns = {
                             canvas.crosshair(atCursor.x, atCursor.y);
                         } else {
                             for (const tile of targetingTiles) {
+                                const wallHere = walls.find(w => w.x === tile.x && w.y === tile.y);
                                 const found = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
                                 if (found) { canvas.crosshair(found.x, found.y); break; }
+                                if (isBreach && wallHere) { canvas.crosshair(tile.x, tile.y); break; }
                             }
                         }
                     } else if (getWeaponAimStyle(currentEntity) === 'area') {
@@ -307,7 +310,7 @@ var turns = {
                             ? itemTypes[currentEntity.equipment.weapon.itemType]?.areaRadius || 2 : 2;
                         const center = (() => {
                             let p = line({x: currentEntity.x, y: currentEntity.y}, {x: cursorX, y: cursorY});
-                            p = clipPathAtWall(p, canEntityDestroyWalls(currentEntity), true);
+                            p = clipPathAtWall(p, canEntityDestroyWalls(currentEntity), true, canEntityBreach(currentEntity));
                             const range = getEntityAttackRange(currentEntity);
                             p = p.length > range + 1 ? p.slice(1, range + 1) : p.slice(1);
                             return p.length > 0 ? p[p.length - 1] : {x: cursorX, y: cursorY};

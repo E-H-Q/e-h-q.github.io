@@ -158,8 +158,8 @@ const EntitySystem = {
 
 	destroyWalls: function(attacker, targetX, targetY) {
 		const weaponDef  = attacker.equipment?.weapon    ? itemTypes[attacker.equipment.weapon.itemType]    : null;
-		const accessory  = attacker.equipment?.accessory ? itemTypes[attacker.equipment.accessory.itemType] : null;
-		const canDestroy = weaponDef?.canDestroy || accessory?.grantsDestroy;
+		const canDestroy = canEntityDestroyWalls(attacker);
+		const canBreach  = canEntityBreach(attacker);
 		let destroyedAny = false;
 
 		for (const tile of calculateEntityTargeting(attacker, targetX, targetY)) {
@@ -169,7 +169,7 @@ const EntitySystem = {
 			if (wall.permanent) continue;
 			if (wall.type === 'water' || wall.type === 'fire') continue;
 			if (wall.type === 'glass' || (wall.type === 'door' && !wall.open)) {
-				if (canDestroy || wall.damaged) {
+				if (canDestroy || canBreach || wall.damaged) {
 					walls.splice(idx, 1);
 					console.log(attacker.name + " destroyed " + (wall.type === 'door' ? "a door!" : "glass!"));
 				} else {
@@ -177,9 +177,18 @@ const EntitySystem = {
 				}
 				destroyedAny = true;
 			} else if (canDestroy) {
-				if (wall.open) return destroyedAny; // open doors can't be destroyed via targeting
+				if (wall.open) return destroyedAny;
 				walls.splice(idx, 1);
 				console.log(attacker.name + " destroyed a wall!");
+				destroyedAny = true;
+			} else if (canBreach) {
+				if (wall.damaged) {
+					walls.splice(idx, 1);
+					console.log(attacker.name + " breached through a wall!");
+				} else {
+					wall.damaged = true;
+					console.log(attacker.name + " damaged a wall!");
+				}
 				destroyedAny = true;
 			}
 		}
