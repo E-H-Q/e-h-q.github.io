@@ -46,7 +46,7 @@ function clipPathAtWall(path, canDestroy = false, stopAtDoor = false, canBreach 
 	const startY = path[0].y;
 
 	for (let i = 1; i < path.length; i++) {
-		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+		const wall = wallAt(path[i].x, path[i].y);
 		if (!wall) continue;
 		if (wall.type === 'water' || wall.type === 'fire') continue;
 		if (wall.type === 'glass') {
@@ -68,7 +68,7 @@ function clipPathAtWall(path, canDestroy = false, stopAtDoor = false, canBreach 
 function hasPermissiveLOS(startX, startY, endX, endY) {
 	const path = line({x: startX, y: startY}, {x: endX, y: endY});
 	for (let i = 1; i < path.length - 1; i++) {
-		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+		const wall = wallAt(path[i].x, path[i].y);
 		if (wallBlocksLOS(wall)) return false;
 	}
 	return true;
@@ -79,7 +79,7 @@ function hasBreachingLOS(startX, startY, endX, endY) {
 	const path = line({x: startX, y: startY}, {x: endX, y: endY});
 	let wallsHit = 0;
 	for (let i = 1; i < path.length; i++) {
-		const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+		const wall = wallAt(path[i].x, path[i].y);
 		if (!wall) continue;
 		if (wall.type === 'water' || wall.type === 'fire') continue;
 		if (wall.type === 'glass') continue;

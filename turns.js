@@ -51,19 +51,14 @@ function startFollowing(follower, followed) {
 var turns = {
     // === NEW: PERFORMANCE CACHE ===
     updateAwarenessCache: function() {
+        const playerEntities = entities.filter(e => isPlayerControlled(e) && e.hp > 0);
+        this._visibleCache = new Map();
         allEnemies.forEach(enemy => {
-            if (enemy.hp < 1) {
-                enemy.awareOfPlayer = false;
-                return;
-            }
             enemy.awareOfPlayer = false;
-            const playerEntities = entities.filter(e => isPlayerControlled(e) && e.hp > 0);
-            for (let p of playerEntities) {
-                if (EntitySystem.hasLOS(enemy, p.x, p.y, false)) {
-                    enemy.awareOfPlayer = true;
-                    break;
-                }
-            }
+            if (enemy.hp < 1) return;
+            const vis = playerEntities.filter(p => EntitySystem.hasLOS(enemy, p.x, p.y, false));
+            if (vis.length) enemy.awareOfPlayer = true;
+            this._visibleCache.set(enemy, vis);
         });
     },
 
@@ -84,6 +79,12 @@ var turns = {
             entity.y >= playerCamera.y - buffer &&
             entity.y <= playerCamera.y + viewportHeight + buffer
         );
+    },
+
+    _chainStep: function(fn) {
+        enemyChainDepth++;
+        try { fn(); update(); } finally { enemyChainDepth--; }
+        if (!enemyChainDepth) update();
     },
 
     check: function() {
@@ -161,14 +162,16 @@ var turns = {
                 window.cursorWorldPos = {x: currentEntity.x, y: currentEntity.y};
             }
 
-            canvas.init();
-            canvas.clear();
-            canvas.grid();
-            canvas.walls();
-            canvas.items();
-            canvas.player();
-            canvas.enemy();
-            canvas.inventory();
+            if (!enemyChainDepth) {
+                canvas.init();
+                canvas.clear();
+                canvas.grid();
+                canvas.walls();
+                canvas.items();
+                canvas.player();
+                canvas.enemy();
+                canvas.inventory();
+            }
         }
 
         let currentEntity = entities[currentEntityIndex];
@@ -187,14 +190,11 @@ var turns = {
                         if (currentEntityIndex != entities.length) currentEntityIndex--;
                     }
                     currentEntityTurnsRemaining--;
-
-                    update();
                 };
-                processGrenadeTurn();
+                this._chainStep(processGrenadeTurn);
             } else {
                 // Inactive grenade — consume its turn slot without ticking the fuse
-                currentEntityTurnsRemaining--;
-                update();
+                this._chainStep(() => currentEntityTurnsRemaining--);
             }
             return;
         }
@@ -204,8 +204,7 @@ var turns = {
             const followTarget = currentEntity.following;
 
             if (calc.distance(currentEntity.x, followTarget.x, currentEntity.y, followTarget.y) <= 1) {
-                currentEntityTurnsRemaining--;
-                update();
+                this._chainStep(() => currentEntityTurnsRemaining--);
                 return;
             }
 
@@ -218,8 +217,7 @@ var turns = {
             populate.enemies();
             siblings.forEach(s => { if (pts[s.x]?.[s.y] !== undefined) pts[s.x][s.y] = 1; });
 
-            this.enemyMoveToward(currentEntity, followTarget.x, followTarget.y, siblings);
-            update();
+            this._chainStep(() => this.enemyMoveToward(currentEntity, followTarget.x, followTarget.y, siblings));
             return;
         }
 
@@ -236,9 +234,13 @@ var turns = {
 
             if (!willAttack && isInCombat && shouldProcess) {
                 calc.move(currentEntity);
-                const previewPath = this.computeEnemyPath(currentEntity, currentEntity.seenX || target.x, currentEntity.seenY || target.y);
+                const ptx = currentEntity.seenX || target.x, pty = currentEntity.seenY || target.y;
+                const previewPath = this.computeEnemyPath(currentEntity, ptx, pty);
                 if (previewPath && previewPath.length > 0) {
                     canvas.path(previewPath, currentEntity.x, currentEntity.y, currentEntity);
+                    const pv = previewPath.map(p => ({x: p.x, y: p.y}));
+                    pv.tx = ptx; pv.ty = pty;
+                    currentEntity._previewPath = pv;
                 }
             } else if (willAttack && shouldProcess) {
                 const targetingTiles = calculateEntityTargeting(currentEntity, target.x, target.y);
@@ -247,13 +249,16 @@ var turns = {
             }
 
             if (isInCombat && shouldProcess) {
-                setTimeout(() => {
-                    this.enemyTurn(currentEntity, target, canSeeTarget, dist, effectiveRange);
-                    update();
-                }, parseInt(document.getElementById('turn-delay').value) || 0);
+                if (!this._enemyActionPending) {
+                    this._enemyActionPending = true;
+                    setTimeout(() => {
+                        this._enemyActionPending = false;
+                        this.enemyTurn(currentEntity, target, canSeeTarget, dist, effectiveRange);
+                        update();
+                    }, parseInt(document.getElementById('turn-delay').value) || 0);
+                }
             } else {
-                this.enemyTurn(currentEntity, target, canSeeTarget, dist, effectiveRange);
-                update();
+                this._chainStep(() => this.enemyTurn(currentEntity, target, canSeeTarget, dist, effectiveRange));
             }
             return;
         }
@@ -332,8 +337,9 @@ var turns = {
 
     checkStandingTileEffects: function(entity) {
         if (!entity) return;
-        const standingOnFire  = walls.some(w => w.x === entity.x && w.y === entity.y && w.type === 'fire');
-        const standingOnWater = walls.some(w => w.x === entity.x && w.y === entity.y && w.type === 'water');
+        const w = wallAt(entity.x, entity.y);
+        const standingOnFire  = w?.type === 'fire';
+        const standingOnWater = w?.type === 'water';
         if (standingOnFire && !helper.hasTrait(entity, 'fire')) {
             if (!entity.traits) entity.traits = [];
             entity.traits.push('fire');
@@ -354,7 +360,6 @@ var turns = {
         this.updateAwarenessCache();
 
         const buffer = 5;
-        const playerEntities = entities.filter(e => isPlayerControlled(e) && e.hp > 0);
         const spottedSquadMembers = new Set(); // players whose squad was just dissolved this call
 
         allEnemies.forEach(enemy => {
@@ -364,13 +369,10 @@ var turns = {
 
             let closestVisible = null;
             let closestDist = Infinity;
-            const visiblePlayers = [];
-            for (let pe of playerEntities) {
-                if (EntitySystem.hasLOS(enemy, pe.x, pe.y, false)) {
-                    visiblePlayers.push(pe);
-                    const d = calc.distance(enemy.x, pe.x, enemy.y, pe.y);
-                    if (d < closestDist) { closestDist = d; closestVisible = pe; }
-                }
+            const visiblePlayers = this._visibleCache.get(enemy) || [];
+            for (let pe of visiblePlayers) {
+                const d = calc.distance(enemy.x, pe.x, enemy.y, pe.y);
+                if (d < closestDist) { closestDist = d; closestVisible = pe; }
             }
 
             if (closestVisible) {
@@ -745,15 +747,14 @@ var turns = {
             const newX = entity.x + dx;
             const newY = entity.y + dy;
             if (newX < 0 || newY < 0 || newX >= size || newY >= size) continue;
-            const isWall = walls.some(w => w.x === newX && w.y === newY && w.type !== 'water' && !(w.type === 'door' && w.open));
+            const w = wallAt(newX, newY);
+            const isWall = w && w.type !== 'water' && !(w.type === 'door' && w.open);
             const isOccupied = entities.some(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === newX && e.y === newY);
             if (!isWall && !isOccupied && entity.range > 0) {
                 entity.x = newX;
                 entity.y = newY;
 
-                // Check if entity moved onto a fire tile
-                const fireTile = walls.find(w => w.x === newX && w.y === newY && w.type === 'fire');
-                if (fireTile && !helper.hasTrait(entity, 'fire')) {
+                if (w?.type === 'fire' && !helper.hasTrait(entity, 'fire')) {
                     if (!entity.traits) entity.traits = [];
                     entity.traits.push('fire');
                     console.log(entity.name + " caught fire!");
@@ -792,10 +793,11 @@ var turns = {
         let distanceMoved = 0;
         const trimmed = [];
         for (let step of path) {
-            const stepCost = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water') ? 2 : 1;
+            const w = wallAt(step.x, step.y);
+            const stepCost = w?.type === 'water' ? 2 : 1;
             if (distanceMoved + stepCost <= entity.range) {
                 const occupied = entities.some(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y);
-                const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open));
+                const isWall = w && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open);
                 if (!occupied && !isWall) { trimmed.push(step); distanceMoved += stepCost; }
                 else break;
             } else break;
@@ -811,39 +813,43 @@ var turns = {
             return;
         }
 
-        const diagonalGraph = new Graph(pts, { diagonal: true });
-        entities.forEach(e => {
-            if (e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && !(e.x === targetX && e.y === targetY)) {
-                if (passable.some(p => p.x === e.x && p.y === e.y)) return;
-                if (diagonalGraph.grid[e.x]?.[e.y]) diagonalGraph.grid[e.x][e.y].weight = 0;
-            }
-        });
+        const pv = entity._previewPath;
+        entity._previewPath = null;
+        const blastTileSet = new Set();
+        let path = (pv && pv.length && !passable.length && !avoidGrenades && pv.tx === targetX && pv.ty === targetY) ? pv : null;
 
-        const grenadeRadius  = itemTypes.grenade.damageRadius;
-        const activeGrenades = avoidGrenades ? allEnemies.filter(e => e !== excludeGrenade && helper.isGrenadeEntity(e) && helper.hasTrait(e, 'active') && e.hp > 0) : [];
-        const blastTileSet   = new Set();
-
-        if (avoidGrenades) {
-            activeGrenades.forEach(e => {
-                collectAreaTiles(e.x, e.y, grenadeRadius).forEach(t => {
-                    blastTileSet.add(`${t.x},${t.y}`);
-                    if (diagonalGraph.grid[t.x]?.[t.y]) diagonalGraph.grid[t.x][t.y].weight = 0;
-                });
+        if (!path) {
+            const diagonalGraph = new Graph(pts, { diagonal: true });
+            entities.forEach(e => {
+                if (e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && !(e.x === targetX && e.y === targetY)) {
+                    if (passable.some(p => p.x === e.x && p.y === e.y)) return;
+                    if (diagonalGraph.grid[e.x]?.[e.y]) diagonalGraph.grid[e.x][e.y].weight = 0;
+                }
             });
-        }
 
-        if (!diagonalGraph.grid[entity.x]?.[entity.y] || !diagonalGraph.grid[targetX]?.[targetY]) {
-            entity.seenX = 0; entity.seenY = 0;
-            currentEntityTurnsRemaining--;
-            return;
-        }
+            if (avoidGrenades) {
+                const grenadeRadius = itemTypes.grenade.damageRadius;
+                allEnemies.filter(e => e !== excludeGrenade && helper.isGrenadeEntity(e) && helper.hasTrait(e, 'active') && e.hp > 0).forEach(e => {
+                    collectAreaTiles(e.x, e.y, grenadeRadius).forEach(t => {
+                        blastTileSet.add(`${t.x},${t.y}`);
+                        if (diagonalGraph.grid[t.x]?.[t.y]) diagonalGraph.grid[t.x][t.y].weight = 0;
+                    });
+                });
+            }
 
-        const path = astar.search(
-            diagonalGraph,
-            diagonalGraph.grid[entity.x][entity.y],
-            diagonalGraph.grid[targetX][targetY],
-            { closest: true, heuristic: astar.heuristics.diagonal }
-        );
+            if (!diagonalGraph.grid[entity.x]?.[entity.y] || !diagonalGraph.grid[targetX]?.[targetY]) {
+                entity.seenX = 0; entity.seenY = 0;
+                currentEntityTurnsRemaining--;
+                return;
+            }
+
+            path = astar.search(
+                diagonalGraph,
+                diagonalGraph.grid[entity.x][entity.y],
+                diagonalGraph.grid[targetX][targetY],
+                { closest: true, heuristic: astar.heuristics.diagonal }
+            );
+        }
 
         if (!path || path.length === 0) {
             entity.seenX = 0; entity.seenY = 0;
@@ -857,19 +863,19 @@ var turns = {
 
         // Walk through the path tile by tile and check for fire on every step
         for (let step of path) {
-            const stepCost = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water') ? 2 : 1;
+            const w = wallAt(step.x, step.y);
+            const stepCost = w?.type === 'water' ? 2 : 1;
             if (distanceMoved + stepCost > entity.range) break;
 
             const occupied = entities.some(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y);
-            const isWall = walls.some(w => w.x === step.x && w.y === step.y && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open));
+            const isWall = w && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open);
 
             if (occupied || isWall) break;
 
             if (avoidGrenades && blastTileSet.has(`${step.x},${step.y}`)) break;
 
-            // check for fire tiles and water tiles
-            const fireTiles = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'fire');
-            const waterTiles = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water');
+            const fireTiles = w?.type === 'fire';
+            const waterTiles = w?.type === 'water';
 
             if (fireTiles && !helper.hasTrait(entity, 'fire')) {
                 if (!entity.traits) entity.traits = [];
@@ -942,7 +948,7 @@ var turns = {
     hasStrictLOS: function(x1, y1, x2, y2) {
         const path = line({x: x1, y: y1}, {x: x2, y: y2});
         for (let i = 1; i < path.length - 1; i++) {
-            const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+            const wall = wallAt(path[i].x, path[i].y);
             if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && !(wall.type === 'door' && wall.open)) return false;
         }
         return true;

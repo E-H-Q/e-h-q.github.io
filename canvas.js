@@ -85,8 +85,9 @@ function getOccupiedTiles() {
 
 var canvas = {
 	init: () => {
-		c.width = tileSize * viewportWidth;
-		c.height = tileSize * viewportHeight;
+		const w = tileSize * viewportWidth, h = tileSize * viewportHeight;
+		if (c.width !== w) c.width = w;
+		if (c.height !== h) c.height = h;
 	},
 
 	clear: () => {

@@ -418,26 +418,31 @@ function update() {
 		window.cursorWorldPos.y = Math.max(0, Math.min(size - 1, window.cursorWorldPos.y));
 	}
 
-	canvas.init();
 	valid = [];
-	canvas.clear();
-	canvas.grid();
-	canvas.drawOnionskin();
-	canvas.walls();
-	canvas.player();
-	canvas.items();
+	const skipRender = enemyChainDepth > 0 && !EntitySystem._explosionPending;
+	if (!skipRender) {
+		canvas.init();
+		canvas.clear();
+		canvas.grid();
+		canvas.drawOnionskin();
+		canvas.walls();
+		canvas.player();
+		canvas.items();
 
-	if (isPlayerControlled(currentEntity) && typeof turns !== 'undefined' && turns.checkEnemyLOS) {
-		turns.checkEnemyLOS();
+		if (isPlayerControlled(currentEntity) && typeof turns !== 'undefined' && turns.checkEnemyLOS) {
+			turns.checkEnemyLOS();
+		}
+
+		canvas.enemy();
 	}
-
-	canvas.enemy();
 
 	populate.reset();
 	populate.enemies();
 	populate.player();
 
 	turns.check();
+
+	if (skipRender) return;
 
 	canvas.selectedEditTiles();
 

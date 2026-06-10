@@ -63,7 +63,8 @@ var entityTraits = {
 (function() {
 	var logger = document.getElementById('log');
 	console.log = function(message) {
-		logger.innerHTML += (typeof message === 'object' ? JSON.stringify(message) : message) + '<br />';
+		logger.insertAdjacentHTML('beforeend', (typeof message === 'object' ? JSON.stringify(message) : message) + '<br />');
+		while (logger.childNodes.length > 800) logger.removeChild(logger.firstChild);
 	};
 })();
 
@@ -78,7 +79,30 @@ function resizePtsArray() {
 var pts = createAndFillTwoDArray({rows: size, columns: size, defaultValue: 1});
 var valid = [];
 var walls = [];
+
+var _wallMap = new Map();
+var _wallSrc = null;
+function _indexWalls() {
+	_wallMap.clear();
+	for (const w of walls) {
+		const k = w.x + ',' + w.y;
+		if (!_wallMap.has(k)) _wallMap.set(k, w);
+	}
+	if (_wallSrc !== walls) {
+		_wallSrc = walls;
+		['push', 'splice'].forEach(m => {
+			const orig = walls[m].bind(walls);
+			walls[m] = (...a) => { _wallMap._stale = true; return orig(...a); };
+		});
+	}
+	_wallMap._stale = false;
+}
+function wallAt(x, y) {
+	if (_wallSrc !== walls || _wallMap._stale) _indexWalls();
+	return _wallMap.get(x + ',' + y);
+}
 var turns_taken = 0;
+var enemyChainDepth = 0; // >0 while synchronously resolving enemy actions; rendering deferred to chain end
 var camera = {x: 0, y: 0};
 var mouse_pos = {x: 0, y: 0};
 var array;
@@ -239,7 +263,10 @@ function spawnEnemy() {
 }
 
 var populate = {
-	reset: () => resizePtsArray(),
+	reset: () => {
+		if (pts.length !== size || pts[0]?.length !== size) resizePtsArray();
+		else pts.forEach(r => r.fill(1));
+	},
 	walls: () => {
 		walls.forEach(w => {
 			if (pts[w.x]?.[w.y] !== undefined) {
@@ -301,7 +328,8 @@ var helper = {
 	                         allEnemies.some(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === x && e.y === y),
 
 	tileBlocked: (x, y) => {
-		return walls.some(w => w.x === x && w.y === y && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open)) ||
+		const w = wallAt(x, y);
+		return (w && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open)) ||
 		       allEnemies.some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === x && e.y === y) ||
 		       allPlayers.some(e => e.hp > 0 && e.x === x && e.y === y) ||
 		       (player.x === x && player.y === y);
@@ -331,7 +359,7 @@ var helper = {
 				const blocksLOS = !EntitySystem.hasLOS({x, y}, fromX, fromY, true); // USES PERMISSIVE LOS!!!!!!!!!!!
 				// Tiles adjacent to an open door count as cover — entity can close it to block LOS
 				const nearOpenDoor = helper.getAdjacentTiles(x, y, false)
-					.some(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'door' && w.open));
+					.some(t => { const w = wallAt(t.x, t.y); return w && w.type === 'door' && w.open; });
 				if (blocksLOS || nearOpenDoor) {
 					coverTiles.push({ x, y, distance: calc.distance(entity.x, x, entity.y, y) });
 				}

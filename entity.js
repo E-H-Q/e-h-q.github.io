@@ -9,7 +9,7 @@ const EntitySystem = {
 		const path = line({x: entity.x, y: entity.y}, {x: targetX, y: targetY});
 		if (path.length < calc.distance(entity.x, targetX, entity.y, targetY) + 1) return false;
 		for (let i = 1; i < path.length - 1; i++) {
-			const wall = walls.find(w => w.x === path[i].x && w.y === path[i].y);
+			const wall = wallAt(path[i].x, path[i].y);
 			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && !(wall.type === 'door' && wall.open)) return false;
 		}
 		return true;
@@ -26,37 +26,46 @@ const EntitySystem = {
 		convert();
 		if (!pts) return [];
 
-		const graph = new Graph(pts, {diagonal: true});
 		entities.forEach(e => {
 			if (e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && pts[e.x]?.[e.y] !== undefined) pts[e.x][e.y] = 0;
 		});
 
 		if (specialMode === 'peek') entity.range = Math.floor(savedPlayerRange / 2);
 
-		const validMoves = [];
-		const minX = Math.max(0, entity.x - entity.range - 1);
-		const maxX = Math.min(pts.length - 1, entity.x + entity.range + 1);
-		const minY = Math.max(0, entity.y - entity.range - 1);
-		const maxY = Math.min(pts.length - 1, entity.y + entity.range + 1);
+		// Dijkstra flood fill; state = tile + diagonal parity (diagonals cost 1,2,1,2...)
+		const range = entity.range;
+		const best = new Map();
+		const start = (entity.x * size + entity.y) * 2;
+		best.set(start, 0);
+		const buckets = [[start]];
+		const offs = [[-1,-1],[0,-1],[1,-1],[-1,0],[1,0],[-1,1],[0,1],[1,1]];
 
-		for (let i = minX; i <= maxX; i++) {
-			for (let j = minY; j <= maxY; j++) {
-				if (pts[i][j] <= 0) continue;
-				const res = astar.search(graph, graph.grid[entity.x][entity.y], graph.grid[i][j]);
-				if (!res.length) continue;
-				let pathCost = 0, diagonalCount = 0;
-				for (let k = 0; k < res.length; k++) {
-					const prev = k === 0 ? {x: entity.x, y: entity.y} : res[k - 1];
-					const curr = res[k];
-					if (prev.x !== curr.x && prev.y !== curr.y) {
-						pathCost += (++diagonalCount % 2 === 0) ? 2 : 1;
-					} else {
-						pathCost++;
-					}
-					if (pts[curr.x]?.[curr.y] === 2) pathCost++; // Water tile costs extra
+		for (let cost = 0; cost <= range; cost++) {
+			for (const key of buckets[cost] || []) {
+				if (best.get(key) !== cost) continue;
+				const idx = key >> 1, parity = key & 1;
+				const cx = (idx / size) | 0, cy = idx % size;
+				for (const [dx, dy] of offs) {
+					const nx = cx + dx, ny = cy + dy;
+					if (nx < 0 || ny < 0 || nx >= size || ny >= size || pts[nx][ny] <= 0) continue;
+					const diag = dx !== 0 && dy !== 0;
+					const nCost = cost + (diag && parity ? 2 : 1) + (pts[nx][ny] === 2 ? 1 : 0);
+					if (nCost > range) continue;
+					const nKey = (nx * size + ny) * 2 + (diag ? parity ^ 1 : parity);
+					if (best.get(nKey) <= nCost) continue;
+					best.set(nKey, nCost);
+					(buckets[nCost] = buckets[nCost] || []).push(nKey);
 				}
-				if (pathCost <= entity.range) validMoves.push({x: i, y: j, path: res});
 			}
+		}
+
+		const validMoves = [];
+		const seen = new Set();
+		for (const key of best.keys()) {
+			const idx = key >> 1;
+			if (idx === start >> 1 || seen.has(idx)) continue;
+			seen.add(idx);
+			validMoves.push({x: (idx / size) | 0, y: idx % size});
 		}
 		return validMoves;
 	},
@@ -143,7 +152,7 @@ const EntitySystem = {
 		if (canEntityImmolate(attacker)) {
 			for (const tile of calculateEntityTargeting(attacker, targetX, targetY)) {
 				if (calc.roll(2) !== 1) continue;
-				const existing = walls.find(w => w.x === tile.x && w.y === tile.y);
+				const existing = wallAt(tile.x, tile.y);
 				if (!existing) walls.push({x: tile.x, y: tile.y, type: 'fire'});
 				const ent = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
 				if (ent && !helper.hasTrait(ent, 'fire')) {
@@ -288,7 +297,7 @@ const EntitySystem = {
 		if (helper.hasTrait(grenade, 'immolate')) {
 			for (const tile of blastTiles) {
 				if (calc.roll(3) !== 1) continue;
-				const existing = walls.find(w => w.x === tile.x && w.y === tile.y);
+				const existing = wallAt(tile.x, tile.y);
 				if (existing?.permanent) continue;
 				if (!existing) walls.push({x: tile.x, y: tile.y, type: 'fire'});
 			}

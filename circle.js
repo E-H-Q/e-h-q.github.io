@@ -1,7 +1,8 @@
 // CIRCLE.JS: BRESENHAM CIRCLE ALGORITHM FOR MOVEMENT RANGE
 
 function circle(xc, yc, r) {
-	array = new Uint8Array(size * size);
+	if (!array || array.length !== size * size) array = new Uint8Array(size * size);
+	else array.fill(0);
 	if (r < 1) return;
 
 	let xoff = 0;
@@ -37,10 +38,10 @@ function circle(xc, yc, r) {
 }
 
 function convert() {
-	pts = [];
-	const conv = Array.from(array);
-	while (conv.length) {
-		pts.push(conv.splice(0, size));
+	if (!pts || pts.length !== size || pts[0]?.length !== size) resizePtsArray();
+	for (let i = 0; i < size; i++) {
+		const row = pts[i];
+		for (let j = 0; j < size; j++) row[j] = array[i * size + j];
 	}
 	
 	walls.forEach(wall => {
@@ -56,6 +57,4 @@ function convert() {
 			}
 		}
 	});
-
-	array = new Uint8Array(size * size);
 }
