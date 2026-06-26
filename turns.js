@@ -277,6 +277,9 @@ var turns = {
                         if (validGrid[v.x] && validGrid[v.x][v.y] !== undefined) validGrid[v.x][v.y] = 1;
                     });
                     validGrid[currentEntity.x][currentEntity.y] = 1;
+                    allPlayers.forEach(p => {
+                        if (p !== currentEntity && p.hp > 0 && validGrid[p.x]?.[p.y] !== undefined) validGrid[p.x][p.y] = 1;
+                    });
 
                     const graph = new Graph(validGrid, {diagonal: true});
                     const pathResult = astar.search(graph, graph.grid[currentEntity.x][currentEntity.y], graph.grid[endX][endY]);
@@ -321,9 +324,9 @@ var turns = {
                             return p.length > 0 ? p[p.length - 1] : {x: cursorX, y: cursorY};
                         })();
                         const blastAreaTiles = collectAreaTiles(center.x, center.y, areaRadius);
-                        const blastSet = new Set(blastAreaTiles.map(t => `${t.x},${t.y}`));
-                        blastSet.add(`${center.x},${center.y}`);
-                        const blastTiles = targetingTiles.filter(t => blastSet.has(`${t.x},${t.y}`));
+                        const blastSet = new Set(blastAreaTiles.map(t => t.x + ',' + t.y));
+                        blastSet.add(center.x + ',' + center.y);
+                        const blastTiles = targetingTiles.filter(t => blastSet.has(t.x + ',' + t.y));
                         canvas.los(targetingTiles, false, blastTiles);
                     } else {
                         canvas.los(targetingTiles, false);
@@ -831,7 +834,7 @@ var turns = {
                 const grenadeRadius = itemTypes.grenade.damageRadius;
                 allEnemies.filter(e => e !== excludeGrenade && helper.isGrenadeEntity(e) && helper.hasTrait(e, 'active') && e.hp > 0).forEach(e => {
                     collectAreaTiles(e.x, e.y, grenadeRadius).forEach(t => {
-                        blastTileSet.add(`${t.x},${t.y}`);
+                        blastTileSet.add(t.x + ',' + t.y);
                         if (diagonalGraph.grid[t.x]?.[t.y]) diagonalGraph.grid[t.x][t.y].weight = 0;
                     });
                 });
@@ -872,7 +875,7 @@ var turns = {
 
             if (occupied || isWall) break;
 
-            if (avoidGrenades && blastTileSet.has(`${step.x},${step.y}`)) break;
+            if (avoidGrenades && blastTileSet.has(step.x + ',' + step.y)) break;
 
             const fireTiles = w?.type === 'fire';
             const waterTiles = w?.type === 'water';
@@ -896,7 +899,7 @@ var turns = {
         }
 
         // Apply final position only if not landing in a blast zone
-        if (!blastTileSet.has(`${currentX},${currentY}`)) {
+        if (!blastTileSet.has(currentX + ',' + currentY)) {
             entity.x = currentX;
             entity.y = currentY;
         }

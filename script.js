@@ -424,7 +424,6 @@ function update() {
 		canvas.init();
 		canvas.clear();
 		canvas.grid();
-		canvas.drawOnionskin();
 		canvas.walls();
 		canvas.player();
 		canvas.items();
@@ -434,6 +433,7 @@ function update() {
 		}
 
 		canvas.enemy();
+		canvas.drawOnionskin();
 	}
 
 	populate.reset();

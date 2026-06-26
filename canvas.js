@@ -195,6 +195,7 @@ var canvas = {
 			ctx.save();
 			ctx.font = 'italic bold 16px sans';
 			ctx.fillStyle = "#FF0000";
+			ctx.textAlign = 'left';
 			ctx.fillText("EDIT MODE ON", 5, 16); // RED EDIT MODE TEXT !!!!!!!!!!!!!!
 			ctx.restore();
 		}

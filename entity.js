@@ -16,9 +16,11 @@ const EntitySystem = {
 	},
 
 	calculateMovement: function(entity, specialMode = null) {
+		const playerMover = isPlayerControlled(entity);
 		if (entity.range === 1) {
 			return helper.getAdjacentTiles(entity.x, entity.y, true)
-				.filter(tile => !helper.tileBlocked(tile.x, tile.y))
+				.filter(tile => !helper.tileBlocked(tile.x, tile.y, playerMover) &&
+					!(playerMover && entities.some(e => e !== entity && isPlayerControlled(e) && e.hp > 0 && e.x === tile.x && e.y === tile.y)))
 				.map(tile => ({x: tile.x, y: tile.y, path: [tile]}));
 		}
 
@@ -27,7 +29,10 @@ const EntitySystem = {
 		if (!pts) return [];
 
 		entities.forEach(e => {
-			if (e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && pts[e.x]?.[e.y] !== undefined) pts[e.x][e.y] = 0;
+			if (e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && pts[e.x]?.[e.y] !== undefined) {
+				if (playerMover && isPlayerControlled(e)) return;
+				pts[e.x][e.y] = 0;
+			}
 		});
 
 		if (specialMode === 'peek') entity.range = Math.floor(savedPlayerRange / 2);
@@ -65,7 +70,9 @@ const EntitySystem = {
 			const idx = key >> 1;
 			if (idx === start >> 1 || seen.has(idx)) continue;
 			seen.add(idx);
-			validMoves.push({x: (idx / size) | 0, y: idx % size});
+			const mx = (idx / size) | 0, my = idx % size;
+			if (playerMover && entities.some(e => e !== entity && isPlayerControlled(e) && e.hp > 0 && e.x === mx && e.y === my)) continue;
+			validMoves.push({x: mx, y: my});
 		}
 		return validMoves;
 	},
