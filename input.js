@@ -18,6 +18,37 @@ function getDoorBlocker(x, y) {
 	return entities.find(e => e.hp > 0 && e.x === x && e.y === y && !helper.isGrenadeEntity(e));
 }
 
+function makeWallTile(x, y, tileType) {
+	return tileType === 'doorLocked' ? {x, y, type: 'door', locked: true} : {x, y, type: tileType};
+}
+
+function tryOpenDoor(entity, door) {
+	if (door.open) {
+		const blocker = getDoorBlocker(door.x, door.y);
+		if (blocker) {
+			console.log("Door is blocked by " + blocker.name + "!");
+			return false;
+		}
+		door.open = false;
+		console.log(entity.name + " closed a door.");
+		return true;
+	}
+	if (door.locked) {
+		const inv = getInventory(entity);
+		const keySlot = inv.findIndex(i => i && i.itemType === 'key');
+		if (keySlot < 0) {
+			console.log("It's locked!");
+			return false;
+		}
+		if (inv[keySlot].quantity > 1) inv[keySlot].quantity--;
+		else inv[keySlot] = null;
+		door.locked = false;
+	}
+	door.open = true;
+	console.log(entity.name + " opened a door.");
+	return true;
+}
+
 function exitAdjacentSelect() {
 	if (!adjacentSelect) return;
 	adjacentSelect = null;
@@ -60,15 +91,7 @@ function activateDoorMode() {
 
 	if (adjacentDoors.length === 1) {
 		const door = walls.find(w => w.x === adjacentDoors[0].x && w.y === adjacentDoors[0].y && w.type === 'door');
-		if (door.open) {
-			const blocker = getDoorBlocker(door.x, door.y);
-			if (blocker) {
-				console.log("Door is blocked by " + blocker.name + "!");
-				return;
-			}
-		}
-		door.open = !door.open;
-		console.log(activeEnt.name + (door.open ? " opened" : " closed") + " a door.");
+		tryOpenDoor(activeEnt, door);
 		update();
 		return;
 	}
@@ -623,7 +646,7 @@ var input = {
                 lastTile = {x: click_pos.x, y: click_pos.y};
                 const tileType = document.getElementById('tile-type').value;
                 const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
-                if (dup < 0) walls.push({x: click_pos.x, y: click_pos.y, type: tileType});
+                if (dup < 0) walls.push(makeWallTile(click_pos.x, click_pos.y, tileType));
                 else walls.splice(dup, 1);
                 update();
             }
@@ -678,17 +701,7 @@ var input = {
             } else if (adjacentSelect.mode === 'door') {
                 const door = walls.find(w => w.x === click_pos.x && w.y === click_pos.y && w.type === 'door');
                 if (dist <= 1 && door) {
-                    if (door.open) {
-                        const blocker = getDoorBlocker(door.x, door.y);
-                        if (blocker) {
-                            console.log("Door is blocked by " + blocker.name + "!");
-                            adjacentSelect = null;
-                            update();
-                            return;
-                        }
-                    }
-                    door.open = !door.open;
-                    console.log(activeEnt.name + (door.open ? " opened" : " closed") + " a door.");
+                    tryOpenDoor(activeEnt, door);
                     adjacentSelect = null;
                     update();
                 }
@@ -961,15 +974,7 @@ var input = {
                     text: "(d) Open/Close: " + clickedWall.type,
                     key: "d",
                     action: function() {
-                        if (clickedWall.open) {
-                            const blocker = getDoorBlocker(clickedWall.x, clickedWall.y);
-                            if (blocker) {
-                                console.log("Door is blocked by " + blocker.name + "!");
-                                update();
-                                return;
-                            }
-                        }
-                        clickedWall.open = !clickedWall.open;
+                        tryOpenDoor(activeEnt, clickedWall);
                         update();
                     }
                 });
@@ -1176,7 +1181,7 @@ var input = {
             lastTile = {x: click_pos.x, y: click_pos.y};
             const tileType = document.getElementById('tile-type').value;
             const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
-            if (dup < 0) walls.push({x: click_pos.x, y: click_pos.y, type: tileType});
+            if (dup < 0) walls.push(makeWallTile(click_pos.x, click_pos.y, tileType));
             else walls.splice(dup, 1);
             update();
         }

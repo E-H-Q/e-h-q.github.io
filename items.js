@@ -18,6 +18,9 @@ const consumablesData = {
 	grenade: {
 		name: "Grenade", type: "consumable", effect: "grenade",
 		damageRadius: 2, damage: 15, canDestroy: true, fuse: 2, displayName: "Grenade"
+	},
+	key: {
+		name: "Key", type: "consumable", effect: "key", displayName: "Key"
 	}
 };
 
@@ -640,6 +643,9 @@ function useItem(entity, inventoryIndex) {
 				update();
 				return true;
 			}
+		} else if (itemDef.effect === "key") {
+			activateDoorMode();
+			return true;
 		}
 		currentEntityTurnsRemaining--;
 		if (isPeekMode) { exitPeekMode(); return true; }

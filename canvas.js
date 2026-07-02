@@ -15,6 +15,7 @@ const SPRITE_ACTIVE    = 8;
 const SPRITE_CROSSHAIR = 9;
 const SPRITE_FOLLOWER = 10;
 const SPRITE_FIRE_STATUS = 11;
+const SPRITE_LOCKED = 12;
 
 const TILE_SIZE        = 32;
 const TILE_WALL        = 0;
@@ -42,6 +43,7 @@ const ITEM_SPRITE_MAP = {
 	speedPotion:    { row: 1, col: 1 },
 	grenade:        { row: 1, col: 2 },
 	grenadeLive:    { row: 1, col: 3 },
+	key:            { row: 1, col: 4 },
 	// Equipment row (bottom, row 2): kevlarVest, scope, breachingKit, flameBadge
 	kevlarVest:     { row: 2, col: 0 },
 	scope:          { row: 2, col: 1 },
@@ -172,6 +174,12 @@ var canvas = {
 						ctx.filter = "invert(1)";
 						ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
 						ctx.filter = "none";
+					}
+					if (wall.locked) {
+						const movesImg = document.getElementById("moves");
+						if (movesImg && movesImg.complete && movesImg.naturalWidth > 0) {
+							ctx.drawImage(movesImg, SPRITE_LOCKED * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE, screenX, screenY, tileSize, tileSize);
+						}
 					}
 				} else {
 					ctx.fillStyle = wall.open ? "rgba(139, 90, 43, 0.3)" : "rgba(139, 90, 43, 0.8)";

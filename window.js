@@ -624,6 +624,7 @@ var WindowSystem = {
                     break;
             }
             if (entity.permanent) win.items.push({ danger: true, text: "It is permanent and cannot be destroyed." });
+            if (entity.locked) win.items.push({ danger: true, text: "It is locked." });
         } else if (entity.itemType) {
             win.items = [];
             const itemsAtLocation = entity._fromInventory ? [entity] : mapItems.filter(item => item.x === entity.x && item.y === entity.y);
@@ -735,10 +736,12 @@ var WindowSystem = {
                     effectsStr = singleItemDef.effects.map(e => `+${e.value} ${e.stat.replace('_', ' ')}`).join(', ');
                 } else if (consumeItem) {
                     singleItemDef = consumablesData[consumeItem.itemType];
-                    if (singleItemDef.effect !== "grenade") {
-                        effectsStr = `${singleItemDef.effect}: ${singleItemDef.value}`;
-                    } else {
+                    if (singleItemDef.effect === "grenade") {
                         effectsStr = `Damage: ${singleItemDef.damage}, Radius: ${singleItemDef.damageRadius}, Fuse: ${singleItemDef.fuse} turns`;
+                    } else if (singleItemDef.effect === "key") {
+                        effectsStr = "A key. It can open a single locked door.";
+                    } else {
+                        effectsStr = `${singleItemDef.effect}: ${singleItemDef.value}`;
                     }
                 } else if (equipItem_) {
                     singleItemDef = equipmentData[equipItem_.itemType];
