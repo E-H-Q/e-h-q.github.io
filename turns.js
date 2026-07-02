@@ -685,7 +685,7 @@ var turns = {
                         .map(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'door' && !w.open))
                         .find(Boolean);
                     if (adjacentDoor) {
-                        adjacentDoor.open = true;
+                        tryOpenDoor(entity, adjacentDoor);
                         return;
                     }
                     if (helper.hasTrait(entity, 'aggressive')) {
@@ -726,7 +726,7 @@ var turns = {
                             this.enemyMoveToward(entity, blockingDoor.x, blockingDoor.y, [], true);
                             if (entity.x === blockingDoor.x && entity.y === blockingDoor.y ||
                                 calc.distance(entity.x, blockingDoor.x, entity.y, blockingDoor.y) <= 1) {
-                                blockingDoor.open = true;
+                                tryOpenDoor(entity, blockingDoor);
                                 return;
                             }
                             return;
