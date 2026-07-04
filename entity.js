@@ -184,6 +184,7 @@ const EntitySystem = {
 			const wall = walls[idx];
 			if (wall.permanent) continue;
 			if (wall.type === 'water' || wall.type === 'fire') continue;
+			if (wall.type === 'door' && wall.open) continue;
 			if (wall.type === 'glass') {
 				if (canDestroy || canBreach || wall.damaged) {
 					walls.splice(idx, 1);
