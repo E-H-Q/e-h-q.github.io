@@ -184,12 +184,26 @@ const EntitySystem = {
 			const wall = walls[idx];
 			if (wall.permanent) continue;
 			if (wall.type === 'water' || wall.type === 'fire') continue;
-			if (wall.type === 'glass' || (wall.type === 'door' && !wall.open)) {
+			if (wall.type === 'glass') {
 				if (canDestroy || canBreach || wall.damaged) {
 					walls.splice(idx, 1);
-					console.log(attacker.name + " destroyed " + (wall.type === 'door' ? "a door!" : "glass!"));
+					console.log(attacker.name + " destroyed glass!");
 				} else {
 					wall.damaged = true;
+				}
+				destroyedAny = true;
+			} else if (wall.type === 'door' && !wall.open) {
+				if (canDestroy) {
+					walls.splice(idx, 1);
+					console.log(attacker.name + " destroyed a door!");
+				} else if (canBreach) {
+					if (wall.damaged) {
+						walls.splice(idx, 1);
+						console.log(attacker.name + " breached through a door!");
+					} else {
+						wall.damaged = true;
+						console.log(attacker.name + " damaged a door!");
+					}
 				}
 				destroyedAny = true;
 			} else if (canDestroy) {

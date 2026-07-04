@@ -56,6 +56,7 @@ function clipPathAtWall(path, canDestroy = false, stopAtDoor = false, canBreach 
 		}
 		if (wall.type === 'door' && wall.open) continue;
 		if (wall.type === 'door' && !wall.open) {
+			if (canBreach) return path.slice(0, Math.min(i + 2, path.length));
 			return stopAtDoor ? path.slice(0, i + 1) : path.slice(0, i);
 		}
 		// Regular wall tile
@@ -84,7 +85,6 @@ function hasBreachingLOS(startX, startY, endX, endY) {
 		if (wall.type === 'water' || wall.type === 'fire') continue;
 		if (wall.type === 'glass') continue;
 		if (wall.type === 'door' && wall.open) continue;
-		if (wall.type === 'door' && !wall.open) return false;
 		if (wallsHit === 0) { wallsHit++; i++; continue; }
 		return false;
 	}
