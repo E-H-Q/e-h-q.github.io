@@ -579,6 +579,9 @@ var turns = {
                 if (doorToClose) {
                     doorToClose.open = false;
                     console.log(entity.name + " closed a door");
+                    const inv = getInventory(entity);
+                    const keySlot = inv.findIndex(i => i && i.itemType === 'key');
+                    if (keySlot >= 0 && inv[keySlot].quantity >= 2) lockDoorWithKey(entity, doorToClose);
                     currentEntityTurnsRemaining--;
                     return;
                 }

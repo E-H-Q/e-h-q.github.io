@@ -644,7 +644,7 @@ function useItem(entity, inventoryIndex) {
 				return true;
 			}
 		} else if (itemDef.effect === "key") {
-			activateDoorMode();
+			activateDoorMode(true);
 			return true;
 		}
 		currentEntityTurnsRemaining--;

@@ -22,6 +22,15 @@ function makeWallTile(x, y, tileType) {
 	return tileType === 'doorLocked' ? {x, y, type: 'door', locked: true} : {x, y, type: tileType};
 }
 
+function consumeKey(entity) {
+	const inv = getInventory(entity);
+	const keySlot = inv.findIndex(i => i && i.itemType === 'key');
+	if (keySlot < 0) return false;
+	if (inv[keySlot].quantity > 1) inv[keySlot].quantity--;
+	else inv[keySlot] = null;
+	return true;
+}
+
 function tryOpenDoor(entity, door) {
 	if (door.open) {
 		const blocker = getDoorBlocker(door.x, door.y);
@@ -34,18 +43,29 @@ function tryOpenDoor(entity, door) {
 		return true;
 	}
 	if (door.locked) {
-		const inv = getInventory(entity);
-		const keySlot = inv.findIndex(i => i && i.itemType === 'key');
-		if (keySlot < 0) {
+		if (!consumeKey(entity)) {
 			console.log("It's locked!");
 			return false;
 		}
-		if (inv[keySlot].quantity > 1) inv[keySlot].quantity--;
-		else inv[keySlot] = null;
 		door.locked = false;
+		console.log(entity.name + " used a key.");
+		return true;
 	}
 	door.open = true;
 	console.log(entity.name + " opened a door.");
+	return true;
+}
+
+function lockDoorWithKey(entity, door) {
+	if (door.locked) return tryOpenDoor(entity, door);
+	if (door.open) {
+		console.log("Close the door first.");
+		return false;
+	}
+	if (!consumeKey(entity)) return false;
+	door.locked = true;
+	console.log(entity.name + " used a key.");
+	console.log(entity.name + " locked a door.");
 	return true;
 }
 
@@ -79,7 +99,7 @@ function activateGrabMode() {
 	update();
 }
 
-function activateDoorMode() {
+function activateDoorMode(useKey = false) {
 	if (currentEntityIndex < 0 || !isPlayerControlled(entities[currentEntityIndex])) return;
 	const activeEnt = getActivePlayerEntity();
 	const adjacentDoors = helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
@@ -91,12 +111,12 @@ function activateDoorMode() {
 
 	if (adjacentDoors.length === 1) {
 		const door = walls.find(w => w.x === adjacentDoors[0].x && w.y === adjacentDoors[0].y && w.type === 'door');
-		tryOpenDoor(activeEnt, door);
+		if (useKey) lockDoorWithKey(activeEnt, door); else tryOpenDoor(activeEnt, door);
 		update();
 		return;
 	}
 
-	adjacentSelect = { mode: 'door' };
+	adjacentSelect = { mode: 'door', useKey };
 	update();
 }
 
@@ -701,7 +721,7 @@ var input = {
             } else if (adjacentSelect.mode === 'door') {
                 const door = walls.find(w => w.x === click_pos.x && w.y === click_pos.y && w.type === 'door');
                 if (dist <= 1 && door) {
-                    tryOpenDoor(activeEnt, door);
+                    if (adjacentSelect.useKey) lockDoorWithKey(activeEnt, door); else tryOpenDoor(activeEnt, door);
                     adjacentSelect = null;
                     update();
                 }
