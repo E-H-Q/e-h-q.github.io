@@ -378,6 +378,9 @@ var helper = {
 				entity.traits = entity.traits.filter(trait => trait != "fire");
 				console.log(entity.name + " stopped burning.");
 			} else {
+				if (entity.equipment && entity.equipment.accessory && entity.equipment.accessory.itemType == "flameBadge") { // Flame badge wearers take no fire damage
+					return;
+				}
 				entity.hp -= fireDamage;
 				console.log(entity.name + " takes " + fireDamage + " fire damage!");
 			}

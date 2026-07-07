@@ -739,7 +739,7 @@ var WindowSystem = {
                     if (singleItemDef.effect === "grenade") {
                         effectsStr = `Damage: ${singleItemDef.damage}, Radius: ${singleItemDef.damageRadius}, Fuse: ${singleItemDef.fuse} turns`;
                     } else if (singleItemDef.effect === "key") {
-                        effectsStr = "A key. It can open a single locked door.";
+                        effectsStr = "Use to unlock or lock a door, once per key.";
                     } else {
                         effectsStr = `${singleItemDef.effect}: ${singleItemDef.value}`;
                     }
@@ -763,6 +763,7 @@ var WindowSystem = {
                     if (weaponItem)                  win.items.push({ text: `Attack type: ${singleItemDef.aimStyle}` });
                     if (singleItemDef.canDestroy)    win.items.push({ text: "Attacks destroy terrain" });
                     if (singleItemDef.grantsImmolate) win.items.push({ text: "Attacks spread fire" });
+                    if (singleItemDef.name == "Flame Badge") win.items.push({ danger: true, text: "Wearer is immune to fire damage." });
                 }
             }
         }
