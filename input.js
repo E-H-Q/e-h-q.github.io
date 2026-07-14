@@ -950,6 +950,7 @@ var input = {
     right_click: function(event) {
         event.preventDefault();
         if (turns._playerTurnEndPending) return;
+        if (typeof WindowSystem !== 'undefined' && (activeContextMenu || WindowSystem.isOpen())) return;
 
         // Inventory right-click → context menu (Examine / Use|Equip / Drop)
         const rect = c.getBoundingClientRect();
@@ -1273,9 +1274,9 @@ var input = {
         if (turns._playerTurnEndPending) return;
         if (event.button !== 0) return;
 
-        // If a context menu is open, let WindowSystem own the click — don't capture
+        // If a window or context menu is open, let WindowSystem own the click — don't capture
         // it as an inventory interaction even if it happens to land over inventory.
-        if (typeof WindowSystem !== 'undefined' && activeContextMenu) return;
+        if (typeof WindowSystem !== 'undefined' && (activeContextMenu || WindowSystem.isOpen())) return;
 
         const rect = c.getBoundingClientRect();
         const canvasX = event.clientX - rect.left;
