@@ -78,6 +78,93 @@ function getInventorySlotAt(canvasX, canvasY) {
 	return row * INVENTORY_COLS + col;
 }
 
+// Ability bar: 2x2 grid of tileSize slots flush left of the inventory.
+const ABILITY_BAR_COLS = 2;
+const ABILITY_BAR_ROWS = 2;
+
+function getEquippedAbilities(entity) {
+	if (!entity) return [];
+	const fromTraits = (entity.traits || []).filter(t => abilityTypes[t]);
+	if (!entity.equippedAbilities) return fromTraits.slice(0, ABILITY_BAR_COLS * ABILITY_BAR_ROWS);
+	return entity.equippedAbilities.filter(k => abilityTypes[k] && fromTraits.includes(k));
+}
+
+// Prunes hotbar assignments whose slot gained an item or whose ability left the loadout.
+function syncAbilityHotbar(entity) {
+	const hb = entity && entity.abilityHotbar;
+	if (!hb) return;
+	const equipped = getEquippedAbilities(entity);
+	const inv = entity.inventory || [];
+	for (const s in hb) {
+		if (inv[s] || !equipped.includes(hb[s])) delete hb[s];
+	}
+}
+
+// Bar placement: entity.abilityBarSlots = {cell(0..3): key}, freely rearrangeable.
+// Prunes invalid entries and auto-places equipped abilities that have no cell and
+// aren't in the hotbar (defaults fill the right column first, top to bottom).
+function syncAbilityBar(entity) {
+	if (!entity) return;
+	if (!entity.abilityHotbar) entity.abilityHotbar = {};
+	syncAbilityHotbar(entity);
+	const bs = entity.abilityBarSlots || (entity.abilityBarSlots = {});
+	const equipped = getEquippedAbilities(entity);
+	const inHotbar = Object.values(entity.abilityHotbar || {});
+	const seen = [];
+	for (const c in bs) {
+		if (!equipped.includes(bs[c]) || inHotbar.includes(bs[c]) || seen.includes(bs[c])) delete bs[c];
+		else seen.push(bs[c]);
+	}
+	for (const key of equipped) {
+		if (seen.includes(key) || inHotbar.includes(key)) continue;
+		for (let i = 0; i < ABILITY_BAR_COLS * ABILITY_BAR_ROWS; i++) {
+			const cell = abilityIndexToCell(i);
+			const slot = cell.row * ABILITY_BAR_COLS + cell.col;
+			if (!bs[slot]) { bs[slot] = key; seen.push(key); break; }
+		}
+	}
+}
+
+function abilityAtBarSlot(entity, slot) {
+	syncAbilityBar(entity);
+	return (entity.abilityBarSlots || {})[slot] || null;
+}
+
+// Ability sprites from abilities.png, one 32x32 sprite per index left-to-right.
+const ABILITY_SPRITE_SIZE = 32;
+const ABILITY_SPRITE_MAP = {
+	dashAttack: 0,
+	fullAuto:   1
+};
+
+function drawAbilitySprite(key, sx, sy, usable) {
+	const img = document.getElementById("abilities");
+	const idx = ABILITY_SPRITE_MAP[key];
+	if (!img || !img.complete || !img.naturalWidth || idx === undefined) return;
+	if (!usable) ctx.globalAlpha = 0.4;
+	ctx.drawImage(img, idx * ABILITY_SPRITE_SIZE, 0, ABILITY_SPRITE_SIZE, ABILITY_SPRITE_SIZE, sx, sy, tileSize, tileSize);
+	ctx.globalAlpha = 1.0;
+}
+
+// Abilities fill the bar right-aligned: right column top-to-bottom, then left.
+function abilityIndexToCell(i) {
+	return { col: ABILITY_BAR_COLS - 1 - ((i / ABILITY_BAR_ROWS) | 0), row: i % ABILITY_BAR_ROWS };
+}
+
+function getAbilityBarOrigin() {
+	const o = getInventoryOrigin();
+	return { x: o.x - ABILITY_BAR_COLS * tileSize, y: o.y };
+}
+
+// Returns the ability slot index (0..3) under a canvas-pixel position, or -1.
+function getAbilitySlotAt(canvasX, canvasY) {
+	if (typeof inventoryHidden !== 'undefined' && inventoryHidden) return -1;
+	const o = getAbilityBarOrigin();
+	if (canvasX < o.x || canvasX >= o.x + ABILITY_BAR_COLS * tileSize) return -1;
+	if (canvasY < o.y || canvasY >= o.y + ABILITY_BAR_ROWS * tileSize) return -1;
+	return Math.floor((canvasY - o.y) / tileSize) * ABILITY_BAR_COLS + Math.floor((canvasX - o.x) / tileSize);
+}
+
 // Returns a Set of "x,y" strings for every tile occupied by a living entity.
 function getOccupiedTiles() {
 	const occupied = new Set();
@@ -400,7 +487,7 @@ var canvas = {
 	},
 
 	drawOnionskin: () => {
-		if (isPeekMode && peekStep > 0) {
+		if (specialMode === 'peek' && peekStep > 0) {
 			const screenX = (peekStartX - camera.x) * tileSize;
 			const screenY = (peekStartY - camera.y) * tileSize;
 			ctx.fillStyle = "rgba(0, 0, 255, 0.2)";
@@ -449,8 +536,8 @@ var canvas = {
 
 	cursor: () => {
 		if (!cursorVisible || !window.cursorWorldPos) return;
-		// Hide the world cursor while mousing over the inventory panel
-		if (window.inventoryHoverSlot >= 0) return;
+		// Hide the world cursor while mousing over the inventory panel or an ability tile
+		if (window.inventoryHoverSlot >= 0 || window.abilityHoverSlot >= 0) return;
 		const screenX = (window.cursorWorldPos.x - camera.x) * tileSize;
 		const screenY = (window.cursorWorldPos.y - camera.y) * tileSize;
 		if (screenX >= 0 && screenX < c.width && screenY >= 0 && screenY < c.height) {
@@ -553,7 +640,7 @@ var canvas = {
 	},
 
 	attackRangeDim: (entity) => {
-		const range = getEntityAttackRange(entity);
+		const range = (specialMode === 'dashAttack' && entity === specialModeEntity) ? entity.range : getEntityAttackRange(entity);
 		ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
 		for (let i = 0; i < viewportWidth; i++) {
 			for (let j = 0; j < viewportHeight; j++) {
@@ -653,6 +740,10 @@ var canvas = {
 					}
 
 					if (isDragSource) ctx.globalAlpha = 1.0;
+				} else if (r === 0 && entity.abilityHotbar && entity.abilityHotbar[i] &&
+					!(window.abilityDrag.isDragging && entity.abilityHotbar[i] === window.abilityDrag.key)) {
+					canvas.abilityTile(entity.abilityHotbar[i], entity, sx, sy,
+						entities[currentEntityIndex] === entity);
 				}
 
 				// Slot outline: green for hotbar (top row), white otherwise.
@@ -696,6 +787,17 @@ var canvas = {
 			ctx.font = "13px monospace";
 			ctx.textAlign = "left";
 			ctx.fillText(name, origin.x + 4, origin.y - 6);
+		} else if (hover >= 0 && entity.abilityHotbar && entity.abilityHotbar[hover]) {
+			ctx.fillStyle = "#FFFFFF";
+			ctx.font = "13px monospace";
+			ctx.textAlign = "left";
+			ctx.fillText(abilityTypes[entity.abilityHotbar[hover]].name, origin.x + 4, origin.y - 6);
+		} else if (window.abilityHoverSlot >= 0) {
+			const key = abilityAtBarSlot(entity, window.abilityHoverSlot);
+			ctx.fillStyle = "#FFFFFF";
+			ctx.font = "13px monospace";
+			ctx.textAlign = "left";
+			ctx.fillText(abilityTypes[key].name, origin.x + 4, origin.y - 6);
 		} else {
 			ctx.fillStyle = "#ffdf00";
 			ctx.font = "14px monospace";
@@ -717,6 +819,50 @@ var canvas = {
 					drag.mouse.x - slot / 2, drag.mouse.y - slot / 2, slot, slot);
 				ctx.globalAlpha = 1.0;
 			}
+		}
+	},
+
+	abilityTile: (key, entity, sx, sy, myTurn) => {
+		const usable = myTurn && !abilityTypes[key].canUse(entity);
+		drawAbilitySprite(key, sx, sy, usable);
+		if (key === specialMode) {
+			ctx.strokeStyle = "rgba(255, 255, 0, 1)";
+			ctx.lineWidth = 1;
+			ctx.strokeRect(sx + 0.5, sy + 0.5, tileSize - 1, tileSize - 1);
+		}
+	},
+
+	// Ability tiles: the 2x2 bar (right-aligned), hotbar-assigned overlays, and the drag ghost.
+	abilityBar: () => {
+		if (typeof inventoryHidden !== 'undefined' && inventoryHidden) return;
+		const entity = getActivePlayerEntity();
+		if (!entity) return;
+		const myTurn = entities[currentEntityIndex] === entity;
+		const ad = window.abilityDrag;
+		const o = getAbilityBarOrigin();
+
+		syncAbilityBar(entity);
+		const bs = entity.abilityBarSlots;
+		for (const s in bs) {
+			if (ad.isDragging && bs[s] === ad.key) continue;
+			canvas.abilityTile(bs[s], entity,
+				o.x + (s % ABILITY_BAR_COLS) * tileSize,
+				o.y + ((s / ABILITY_BAR_COLS) | 0) * tileSize, myTurn);
+		}
+
+		const hb = entity.abilityHotbar || {};
+		const io = getInventoryOrigin();
+		if (ad.isDragging && ad.key && ad.mouse) {
+			const t = getInventorySlotAt(ad.mouse.x, ad.mouse.y);
+			const b = getAbilitySlotAt(ad.mouse.x, ad.mouse.y);
+			ctx.fillStyle = "rgba(255, 255, 0, 0.25)";
+			if (t >= 0 && t < INVENTORY_COLS && !entity.inventory[t] && !hb[t]) {
+				ctx.fillRect(io.x + (t % INVENTORY_COLS) * tileSize, io.y, tileSize, tileSize);
+			} else if (b >= 0) {
+				ctx.fillRect(o.x + (b % ABILITY_BAR_COLS) * tileSize,
+					o.y + ((b / ABILITY_BAR_COLS) | 0) * tileSize, tileSize, tileSize);
+			}
+			canvas.abilityTile(ad.key, entity, ad.mouse.x - tileSize / 2, ad.mouse.y - tileSize / 2, myTurn);
 		}
 	},
 

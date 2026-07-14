@@ -5,7 +5,7 @@ var nextItemId = 0;
 
 // Inventory dimensions: 3 rows × 10 cols (top row is the hotbar)
 const INVENTORY_COLS = 10;
-const INVENTORY_ROWS = 3;
+const INVENTORY_ROWS = 2;
 var maxInventorySlots = INVENTORY_COLS * INVENTORY_ROWS; // 30
 
 const consumablesData = {
@@ -330,6 +330,14 @@ function getTargetedEntities(attacker, endX, endY) {
 
 	if (!tiles || tiles.length === 0) return [];
 
+	if (aimStyle === "default" || aimStyle === "standard") {
+		for (const tile of tiles) {
+			const found = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
+			if (found) return [found];
+		}
+		return [];
+	}
+
 	if (aimStyle === "direct") {
 		const cursorInPath = tiles.some(t => t.x === endX && t.y === endY);
 		const atCursor = cursorInPath ? entities.find(e => e.hp > 0 && e.x === endX && e.y === endY) : null;
@@ -586,6 +594,7 @@ function unequipItem(entity, slot) {
 	applyEquipmentEffects(entity, itemDef, false);
 	entity.equipment[slot] = null;
 	console.log(entity.name + " unequipped " + itemDef.name);
+	if (slot === 'weapon' && isPlayerControlled(entity)) exitSpecialMode(false);
 	return true;
 }
 
@@ -603,6 +612,7 @@ function equipItem(entity, inventoryIndex) {
 	applyEquipmentEffects(entity, itemDef, true);
 	console.log(entity.name + " equipped " + itemDef.name);
 	window.throwingGrenadeIndex = undefined;
+	if (itemDef.slot === 'weapon' && isPlayerControlled(entity)) exitSpecialMode(false);
 	return true;
 }
 
@@ -648,7 +658,7 @@ function useItem(entity, inventoryIndex) {
 			return true;
 		}
 		currentEntityTurnsRemaining--;
-		if (isPeekMode) { exitPeekMode(); return true; }
+		if (specialMode === 'peek') { exitSpecialMode(); return true; }
 	} else if (itemDef.type === "equipment") {
 		// Toggle equip/unequip
 		if (isItemEquipped(entity, item)) unequipItem(entity, itemDef.slot);

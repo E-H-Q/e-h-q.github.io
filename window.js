@@ -20,6 +20,18 @@ var WindowSystem = {
         return -1;
     },
 
+    toggleSelect: function(win, i) {
+        if (win.items[i].disabled) return;
+        if (win.selectedIndices.has(i)) {
+            win.selectedIndices.delete(i);
+        } else {
+            if (!win.multiSelect) win.selectedIndices.clear();
+            if (win.maxSelect && win.selectedIndices.size >= win.maxSelect) return;
+            win.selectedIndices.add(i);
+        }
+        update();
+    },
+
     openSelectionWindow: function(config) {
         const win = {
             title: config.title || "Select",
@@ -41,7 +53,9 @@ var WindowSystem = {
             isExamineWindow: false,
             entity: null,
             confirmLabel: config.confirmLabel || "OK",
-            multiSelect: config.multiSelect !== false
+            multiSelect: config.multiSelect !== false,
+            maxSelect: config.maxSelect || 0,
+            allowEmpty: !!config.allowEmpty
         };
         win.x = (c.width - win.width) / 2;
         win.y = (c.height - win.height) / 2;
@@ -143,7 +157,7 @@ var WindowSystem = {
             const checkboxY = itemY + 7;
             const checkboxSize = 16;
 
-            ctx.strokeStyle = "#ffffff";
+            ctx.strokeStyle = item.disabled ? "#555555" : "#ffffff";
             ctx.lineWidth = 2;
             ctx.strokeRect(checkboxX, checkboxY, checkboxSize, checkboxSize);
 
@@ -153,7 +167,7 @@ var WindowSystem = {
             }
 
             const label = this.getItemLabel(i);
-            ctx.fillStyle = "#ffffff";
+            ctx.fillStyle = item.disabled ? "#666666" : "#ffffff";
             ctx.font = "14px monospace";
             ctx.fillText("(" + label + ") " + item.text, checkboxX + checkboxSize + 10, itemY + 20);
         }
@@ -179,7 +193,7 @@ var WindowSystem = {
         const confirmX = win.x + win.width - buttonWidth - 110;
         const cancelX = win.x + win.width - buttonWidth - 10;
 
-        ctx.fillStyle = win.selectedIndices.size > 0 ? "#00aa00" : "#333333";
+        ctx.fillStyle = (win.selectedIndices.size > 0 || win.allowEmpty) ? "#00aa00" : "#333333";
         ctx.fillRect(confirmX, buttonY, buttonWidth, buttonHeight);
         ctx.strokeStyle = "#ffffff";
         ctx.lineWidth = 1;
@@ -220,7 +234,7 @@ var WindowSystem = {
 
         if (mouseX >= confirmX && mouseX <= confirmX + buttonWidth &&
             mouseY >= buttonY && mouseY <= buttonY + buttonHeight &&
-            win.selectedIndices.size > 0) {
+            (win.selectedIndices.size > 0 || win.allowEmpty)) {
             this.confirm();
             return true;
         }
@@ -250,12 +264,7 @@ var WindowSystem = {
                 mouseY >= itemY &&
                 mouseY <= itemY + win.itemHeight) {
 
-                if (win.selectedIndices.has(i)) {
-                    win.selectedIndices.delete(i);
-                } else {
-                    win.selectedIndices.add(i);
-                }
-                update();
+                this.toggleSelect(win, i);
                 return true;
             }
         }
@@ -312,11 +321,7 @@ var WindowSystem = {
             const index = this.getIndexFromKey(event.key);
             if (index >= 0 && index < win.items.length) {
                 event.preventDefault();
-                if (win.selectedIndices.has(index)) {
-                    win.selectedIndices.delete(index);
-                } else {
-                    win.selectedIndices.add(index);
-                }
+                this.toggleSelect(win, index);
                 win.hoveredIndex = index;
                 update();
                 return true;
@@ -352,11 +357,7 @@ var WindowSystem = {
 
         if (event.keyCode === 32) {
             event.preventDefault();
-            if (win.hoveredIndex >= 0) {
-                if (win.selectedIndices.has(win.hoveredIndex)) win.selectedIndices.delete(win.hoveredIndex);
-                else win.selectedIndices.add(win.hoveredIndex);
-                update();
-            }
+            if (win.hoveredIndex >= 0) this.toggleSelect(win, win.hoveredIndex);
             return true;
         }
 
@@ -367,7 +368,7 @@ var WindowSystem = {
     confirm: function() {
         if (!activeWindow) return;
         const win = activeWindow;
-        if (win.onConfirm && win.selectedIndices.size > 0) {
+        if (win.onConfirm && (win.selectedIndices.size > 0 || win.allowEmpty)) {
             const selectedItems = Array.from(win.selectedIndices).map(i => win.items[i]);
             win.onConfirm(selectedItems, win.selectedIndices);
         }
@@ -403,6 +404,37 @@ var WindowSystem = {
                 const newTraits = Array.from(selectedIndices).map(i => traitKeys[i]);
                 entity.traits = newTraits;
                 console.log(entity.name + " traits updated: " + (newTraits.join(", ") || "none"));
+                update();
+            }
+        });
+    },
+
+    openAbilitiesWindow: function(entity) {
+        const keys = (entity.traits || []).filter(t => abilityTypes[t]);
+        if (keys.length === 0) {
+            console.log(entity.name + " has no abilities.");
+            return;
+        }
+        const equipped = getEquippedAbilities(entity);
+        const items = keys.map(key => {
+            const a = abilityTypes[key];
+            return { text: a.name + ": " + a.description, key };
+        });
+        const preSelected = [];
+        keys.forEach((k, i) => { if (equipped.includes(k)) preSelected.push(i); });
+        this.openSelectionWindow({
+            title: "Abilities: " + entity.name,
+            width: 500,
+            height: Math.min(600, 100 + items.length * 35),
+            items,
+            confirmLabel: "EQUIP",
+            multiSelect: true,
+            maxSelect: 4,
+            allowEmpty: true,
+            preSelectedIndices: preSelected,
+            onConfirm: function(selectedItems) {
+                entity.equippedAbilities = selectedItems.map(it => it.key);
+                syncAbilityBar(entity);
                 update();
             }
         });
@@ -466,11 +498,11 @@ var WindowSystem = {
                 isFirst = false;
                 ctx.textAlign = "left";
             } else {
-                if (i === menu.hoveredIndex) {
+                if (i === menu.hoveredIndex && !option.disabled && !option.noHover) {
                     ctx.fillStyle = "#333333";
                     ctx.fillRect(menu.x + menu.padding, itemY, menu.width - menu.padding * 2, menu.itemHeight);
                 }
-                ctx.fillStyle = option.danger ? "#ff4444" : "#ffffff";
+                ctx.fillStyle = option.disabled ? "#666666" : option.danger ? "#ff4444" : "#ffffff";
                 ctx.fillText(option.text, menu.x + menu.padding + 5, itemY + 17);
             }
         }
@@ -520,7 +552,7 @@ var WindowSystem = {
                 if (mouseY >= itemY && mouseY <= itemY + menu.itemHeight) {
                     const option = menu.options[i];
                     this.closeContextMenu();
-                    if (option.action) option.action();
+                    if (option.action && !option.disabled) option.action();
                     return true;
                 }
             }
@@ -538,7 +570,7 @@ var WindowSystem = {
 
         if (pressedKey) {
             for (let option of menu.options) {
-                if (option.key && option.key.toLowerCase() === pressedKey) {
+                if (option.key && !option.disabled && option.key.toLowerCase() === pressedKey) {
                     event.preventDefault();
                     this.closeContextMenu();
                     if (option.action) option.action();

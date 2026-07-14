@@ -166,7 +166,7 @@ function updatePeekButton() {
 	const isActiveTurn = currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]);
 	const has2Turns = currentEntityTurnsRemaining >= 2;
 
-	if (isActiveTurn && has2Turns && !isPeekMode) {
+	if (isActiveTurn && has2Turns && !specialMode) {
 		peekButton.classList.add('active');
 		peekButton.disabled = false;
 	} else {
@@ -175,36 +175,50 @@ function updatePeekButton() {
 	}
 }
 
-function activatePeekMode() {
-	const activeEnt = getActivePlayerEntity();
-	if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]) && currentEntityTurnsRemaining >= 2) {
-		if (!isPeekMode) {
-			isPeekMode = true;
-			peekStep = 1;
-			peekStartX = activeEnt.x;
-			peekStartY = activeEnt.y;
-			savedPlayerRange = activeEnt.range;
-			peekEntity = activeEnt;
-			activeEnt.range = Math.floor(activeEnt.range / 2);
-			action.value = "move";
-			action.disabled = false;
-		}
-		update();
+// General activation for all special modes: 'peek', 'dashAttack', 'fullAuto'.
+function useSpecialMode(entity, mode) {
+	if (specialMode) return;
+	if (mode === 'peek') {
+		if (currentEntityIndex < 0 || !isPlayerControlled(entities[currentEntityIndex]) || currentEntityTurnsRemaining < 2) return;
+		peekStep = 1;
+		peekStartX = entity.x;
+		peekStartY = entity.y;
+		savedPlayerRange = entity.range;
+		entity.range = Math.floor(entity.range / 2);
+		action.value = "move";
+		action.disabled = false;
+	} else if (mode === 'dashAttack') {
+		action.value = "attack";
+		console.log("Dash Attack: select a destination.");
+	} else if (mode === 'fullAuto') {
+		action.value = "attack";
+		console.log("Full Auto: select a target.");
+	} else {
+		return;
 	}
+	specialMode = mode;
+	specialModeEntity = entity;
+	update();
 }
 
-function exitPeekMode() {
-	if (!isPeekMode) return;
+function activatePeekMode() {
+	useSpecialMode(getActivePlayerEntity(), 'peek');
+}
 
-	if (peekStep === 1 && peekEntity) peekEntity.range = savedPlayerRange;
-
-	isPeekMode = false;
-	peekStep = 1;
-	peekEntity = null;
-	action.disabled = false;
+// Exits whichever special mode is active. Pass false to leave peek mode running.
+function exitSpecialMode(includePeek = true) {
+	if (!specialMode || (specialMode === 'peek' && !includePeek)) return;
+	if (specialMode === 'peek') {
+		if (peekStep === 1 && specialModeEntity) specialModeEntity.range = savedPlayerRange;
+		peekStep = 1;
+		action.disabled = false;
+		console.log("Exited peek mode.");
+	} else {
+		console.log("Exited " + abilityTypes[specialMode].name + " mode.");
+	}
+	specialMode = null;
+	specialModeEntity = null;
 	action.value = "move";
-
-	console.log("Exited peek mode.");
 	update();
 }
 
@@ -446,6 +460,19 @@ function update() {
 
 	canvas.selectedEditTiles();
 
+	if (specialMode === 'dashAttack' && window.cursorWorldPos &&
+		canDashTo(specialModeEntity, window.cursorWorldPos.x, window.cursorWorldPos.y)) {
+		const dashPath = computeDashPath(specialModeEntity, window.cursorWorldPos.x, window.cursorWorldPos.y);
+		if (dashPath && dashPath.length > 0) {
+			canvas.path(dashPath, specialModeEntity.x, specialModeEntity.y, specialModeEntity);
+			dashPath.forEach(step => {
+				if (allEnemies.some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y)) {
+					canvas.crosshair(step.x, step.y);
+				}
+			});
+		}
+	}
+
 	if (adjacentSelect && isPlayerControlled(currentEntity)) {
 		valid.forEach(v => {
 			ctx.clearRect((v.x - camera.x) * tileSize, (v.y - camera.y) * tileSize, tileSize, tileSize);
@@ -522,6 +549,7 @@ function update() {
 
 	canvas.cursor();
 	canvas.inventory();
+	canvas.abilityBar();
 	canvas.window();
 
 	updateTurnOrder();
@@ -774,6 +802,36 @@ function showInventoryContextMenu(slotIdx, event) {
 
 		WindowSystem.openContextMenu(menu);
 	}
+
+function showAbilityContextMenu(key, anchorX, anchorY) {
+	const entity = getActivePlayerEntity();
+	const a = abilityTypes[key];
+	const reason = entities[currentEntityIndex] === entity ? a.canUse(entity) : "Not this entity's turn";
+
+	const options = [{ text: a.name.toUpperCase() }];
+	options.push({ text: a.description, noHover: true });
+	if (reason) options.push({ text: reason, danger: true, noHover: true });
+	options.push({
+		text: "(u) Use",
+		key: "u",
+		disabled: !!reason,
+		action: function() { handleAbilityClick(key); }
+	});
+
+	const menu = WindowSystem.createContextMenu({
+		x: 0, y: 0,
+		tileX: window.cursorWorldPos ? window.cursorWorldPos.x : 0,
+		tileY: window.cursorWorldPos ? window.cursorWorldPos.y : 0,
+		options
+	});
+	menu.width = Math.max(menu.width, a.description.length * 9 + 20, reason ? reason.length * 9 + 20 : 0);
+
+	const menuHeight = menu.options.length * menu.itemHeight + menu.padding * 2;
+	menu.x = anchorX - 8 - menu.width + tileSize / 2;
+	menu.y = anchorY + tileSize / 2 - menuHeight;
+
+	WindowSystem.openContextMenu(menu);
+}
 
 function updateViewportSize() {
 	let newWidth = parseInt(document.getElementById('viewport-width').value);

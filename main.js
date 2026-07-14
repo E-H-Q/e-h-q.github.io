@@ -21,13 +21,14 @@ var viewportHeight = Math.floor((window.innerWidth * 0.5) / tileSize);
 // Fire damage configuration
 var fireDamage = 5;
 
-// Peek mode variables
-var isPeekMode = false;
+// Special mode state: null | 'peek' | 'dashAttack' | 'fullAuto'
+var specialMode = null;
+var specialModeEntity = null;
+// Peek internals
 var peekStep = 0;
 var peekStartX = 0;
 var peekStartY = 0;
 var savedPlayerRange = 0;
-var peekEntity = null; // which player-controlled entity is peeking
 
 // Edit mode tile selection
 var selectedEditTiles = []; // array of {x, y} for shift+click selected tiles in edit mode
@@ -35,6 +36,8 @@ var selectedEditTiles = []; // array of {x, y} for shift+click selected tiles in
 // Inventory drag/drop + hover state
 window.inventoryDrag = { startSlot: -1, startMouse: null, isDragging: false, item: null, overSlot: -1, mouse: null };
 window.inventoryHoverSlot = -1;
+window.abilityHoverSlot = -1;
+window.abilityDrag = { key: null, startMouse: null, isDragging: false, mouse: null };
 window.suppressNextClick = false;
 
 // Colors for extra player-controlled entities
@@ -56,7 +59,40 @@ var entityTraits = {
 	active: 	{ name: "Active", 	  description: "Countdown has been activated"},
 	fire:       { name: "On Fire",    description: "Takes " + fireDamage + " fire damage each turn" },
 	immolate:   { name: "Immolate",   description: "Attacks spread fire tiles" },
-	lifesteal:  { name: "Life Steal", description: "Heals for damage dealt by attacks" }
+	lifesteal:  { name: "Life Steal", description: "Heals for damage dealt by attacks" },
+	dashAttack: { name: "Dash Attack", description: "(Ability) Melee weapons only" },
+	fullAuto:   { name: "Full Auto",   description: "(Ability) Burst fire weapons only" }
+};
+
+// Ability definitions. canUse returns null if usable, otherwise the unmet requirement.
+var abilityTypes = {
+	dashAttack: {
+		name: "Dash Attack",
+		description: "Dash through enemies, attacking each",
+		color: "#20B2AA",
+		canUse: function(entity) {
+			if (currentEntityTurnsRemaining < 2) return "Requires 2 action points";
+			const w = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
+			if (!w || w.aimStyle !== "melee") return "Must equip melee weapon";
+			return null;
+		}
+	},
+	fullAuto: {
+		name: "Full Auto",
+		description: "Shoot all remaining ammo",
+		color: "#FF8C00",
+		canUse: function(entity) {
+			if (currentEntityTurnsRemaining < 2) return "Requires 2 action points";
+			const weapon = entity.equipment?.weapon;
+
+			const w = weapon ? itemTypes[weapon.itemType] : null;
+			if (!w || !w.burst) return "Must equip a burst fire weapon";
+			const ammo = weapon.currentAmmo !== undefined ? weapon.currentAmmo : w.maxAmmo;
+			if (w.maxAmmo == Infinity || w.aimStyle == "melee") return "Incompatible weapon"
+			//if (ammo < w.maxAmmo) return "Requires full ammo";
+			return null;
+		}
+	}
 };
 
 // Console override for logging
@@ -414,9 +450,9 @@ var calc = {
 	distance: (x1, x2, y1, y2) => Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)),
 
 	move: function(entity) {
-		// Peek mode only applies to the entity that activated it
-		const specialMode = (isPlayerControlled(entity) && isPeekMode && peekStep === 1 && entity === peekEntity) ? 'peek' : null;
-		EntitySystem.displayMovement(entity, specialMode);
+		// Peek movement display only applies to the entity that activated it
+		const mode = (specialMode === 'peek' && peekStep === 1 && entity === specialModeEntity) ? 'peek' : null;
+		EntitySystem.displayMovement(entity, mode);
 	},
 
 	los: function(look) {

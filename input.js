@@ -134,6 +134,10 @@ function grabItemsFromTile(x, y) {
 	return true;
 }
 
+function resetAbilityDrag() {
+	window.abilityDrag = { key: null, startMouse: null, isDragging: false, mouse: null };
+}
+
 function resetInventoryDrag() {
 	window.inventoryDrag = { startSlot: -1, startMouse: null, isDragging: false, item: null, overSlot: -1, mouse: null };
 }
@@ -231,6 +235,10 @@ function applyPathTileEffects(entity, destX, destY) {
 	validGrid[entity.x][entity.y] = 1;
 	const moveGraph = new Graph(validGrid, {diagonal: true});
 	const movePath = astar.search(moveGraph, moveGraph.grid[entity.x][entity.y], moveGraph.grid[destX][destY]);
+	applyTileEffects(entity, movePath);
+}
+
+function applyTileEffects(entity, movePath) {
 	for (const step of movePath) {
 		const onFire  = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'fire');
 		const onWater = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water');
@@ -244,6 +252,60 @@ function applyPathTileEffects(entity, destX, destY) {
 			console.log(entity.name + " got wet!");
 		}
 	}
+}
+
+function canDashTo(entity, x, y) {
+	return calc.distance(entity.x, x, entity.y, y) <= entity.range && !helper.tileBlocked(x, y);
+}
+
+// A* path for Dash Attack: walls block, entities are passable.
+function computeDashPath(entity, destX, destY) {
+	const grid = createAndFillTwoDArray({rows: size, columns: size, defaultValue: 1});
+	walls.forEach(w => {
+		if (w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open)) grid[w.x][w.y] = 0;
+	});
+	const g = new Graph(grid, {diagonal: true});
+	return astar.search(g, g.grid[entity.x][entity.y], g.grid[destX][destY]);
+}
+
+function handleAbilityClick(key) {
+	if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) return;
+	const entity = getActivePlayerEntity();
+	if (currentEntityIndex < 0 || entities[currentEntityIndex] !== entity) return;
+	if (!key) return;
+	if (specialMode) {
+		if (key === specialMode) exitSpecialMode();
+		return;
+	}
+	if (adjacentSelect || window.throwingGrenadeIndex !== undefined) return;
+	if (abilityTypes[key].canUse(entity)) return;
+	useSpecialMode(entity, key);
+}
+
+function executeDashAttack(entity, destX, destY) {
+	const path = computeDashPath(entity, destX, destY);
+	if (!path || path.length === 0) return;
+	specialMode = null;
+	specialModeEntity = null;
+	isAiming = false;
+	let prevX = entity.x, prevY = entity.y;
+	for (const step of path) {
+		const target = allEnemies.find(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y);
+		if (target) {
+			entity.x = prevX;
+			entity.y = prevY;
+			EntitySystem.attack(entity, step.x, step.y);
+		}
+		prevX = step.x;
+		prevY = step.y;
+	}
+	entity.x = destX;
+	entity.y = destY;
+	applyTileEffects(entity, path);
+	turns.checkStandingTileEffects(entity);
+	currentEntityTurnsRemaining -= 2;
+	action.value = "move";
+	update();
 }
 
 // Returns true when keystrokes should be left to the browser (the user is
@@ -272,6 +334,7 @@ var input = {
         // Hands off if the user is typing in a text input — let the browser handle it.
         if (isTypingInTextField()) return;
         if (EntitySystem._explosionPending) return;
+        if (turns._playerTurnEndPending) return;
 
         if (typeof WindowSystem !== 'undefined') {
             if (activeContextMenu || WindowSystem.isOpen()) {
@@ -391,8 +454,8 @@ var input = {
                 update();
             } else if (adjacentSelect) {
                 exitAdjacentSelect();
-            } else if (isPeekMode) {
-                exitPeekMode();
+            } else if (specialMode) {
+                exitSpecialMode();
             } else if (edit.checked) {
                 selectedEditTiles = [];
                 edit.checked = false;
@@ -419,14 +482,9 @@ var input = {
             if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex])) {
                 const activeEnt = getActivePlayerEntity();
                 if (reloadWeapon(activeEnt)) {
-                    exitPeekMode();
+                    exitSpecialMode();
                     turns.checkStandingTileEffects(activeEnt);
                     currentEntityTurnsRemaining--;
-                    if (currentEntityTurnsRemaining <= 0) {
-                        currentEntityIndex++;
-                        if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-                        currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
-                    }
                     update();
                 }
             }
@@ -518,8 +576,8 @@ var input = {
         }
 
         if (event.keyCode === 190) {
-            if (isPeekMode) {
-                exitPeekMode();
+            if (specialMode === 'peek') {
+                exitSpecialMode();
                 return;
             } else if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]) && currentEntityTurnsRemaining > 0) {
                 if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) return;
@@ -540,7 +598,9 @@ var input = {
                 if (event.keyCode === 48) slotIndex = 9;
                 const activeEnt = getActivePlayerEntity();
                 const inv = getInventory(activeEnt);
-                if (slotIndex >= 0 && slotIndex < INVENTORY_COLS && inv[slotIndex]) {
+                if (activeEnt.abilityHotbar && activeEnt.abilityHotbar[slotIndex]) {
+                    handleAbilityClick(activeEnt.abilityHotbar[slotIndex]);
+                } else if (slotIndex >= 0 && slotIndex < INVENTORY_COLS && inv[slotIndex]) {
                     useItem(activeEnt, slotIndex);
                 }
             }
@@ -555,7 +615,8 @@ var input = {
                 update();
                 return;
             }
-            if (isPeekMode && peekStep === 2) return;
+            if (specialMode === 'peek' && peekStep === 2) return;
+            if (specialMode === 'dashAttack' || specialMode === 'fullAuto') return;
             action.value = (action.value === "move") ? "attack" : "move";
             document.activeElement.blur();
             window.targetIndex = 0;
@@ -577,9 +638,20 @@ var input = {
         if (event.keyCode === 80) {
             activatePeekMode();
         }
+
+        if (event.keyCode === 65) {
+            if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]) &&
+                !specialMode &&
+                !adjacentSelect && window.throwingGrenadeIndex === undefined) {
+                WindowSystem.openAbilitiesWindow(getActivePlayerEntity());
+            }
+            return;
+        }
     },
 
     mouse: function(event) {
+        if (turns._playerTurnEndPending) return;
+
         const rect = c.getBoundingClientRect();
         const canvasX = event.clientX - rect.left;
         const canvasY = event.clientY - rect.top;
@@ -599,6 +671,8 @@ var input = {
         // Inventory hover & drag tracking — runs every move regardless of mode
         const invSlot = getInventorySlotAt(canvasX, canvasY);
         if (window.inventoryHoverSlot !== invSlot) window.inventoryHoverSlot = invSlot;
+        const abSlot = getAbilitySlotAt(canvasX, canvasY);
+        window.abilityHoverSlot = (abSlot >= 0 && abilityAtBarSlot(getActivePlayerEntity(), abSlot)) ? abSlot : -1;
         if (window.inventoryDrag.startSlot >= 0) {
             window.inventoryDrag.mouse = { x: canvasX, y: canvasY };
             if (!window.inventoryDrag.isDragging) {
@@ -607,6 +681,17 @@ var input = {
                 if (dx*dx + dy*dy > 16) window.inventoryDrag.isDragging = true;
             }
             window.inventoryDrag.overSlot = invSlot;
+            update();
+            return;
+        }
+
+        if (window.abilityDrag.key) {
+            window.abilityDrag.mouse = { x: canvasX, y: canvasY };
+            if (!window.abilityDrag.isDragging) {
+                const dx = canvasX - window.abilityDrag.startMouse.x;
+                const dy = canvasY - window.abilityDrag.startMouse.y;
+                if (dx*dx + dy*dy > 16) window.abilityDrag.isDragging = true;
+            }
             update();
             return;
         }
@@ -677,6 +762,7 @@ var input = {
 
     click: function() {
         if (EntitySystem._explosionPending) return;
+        if (turns._playerTurnEndPending) return;
 
         // Mousedown started over the inventory — that click was already handled in mouseup
         if (window.suppressNextClick) {
@@ -731,14 +817,21 @@ var input = {
 
         const activeEnt = getActivePlayerEntity();
 
+        if (specialMode === 'dashAttack' && specialModeEntity === activeEnt) {
+            if (canDashTo(activeEnt, click_pos.x, click_pos.y)) {
+                executeDashAttack(activeEnt, click_pos.x, click_pos.y);
+            }
+            return;
+        }
+
         switch (action.value) {
             case "move":
                 const validClick = valid.find(v => v.x === click_pos.x && v.y === click_pos.y);
                 if (validClick) {
-                    if (isPeekMode && peekStep === 1) {
-                        peekEntity.x = click_pos.x;
-                        peekEntity.y = click_pos.y;
-                        peekEntity.range = savedPlayerRange;
+                    if (specialMode === 'peek' && peekStep === 1) {
+                        specialModeEntity.x = click_pos.x;
+                        specialModeEntity.y = click_pos.y;
+                        specialModeEntity.range = savedPlayerRange;
 
                         peekStep = 2;
                         action.value = "attack";
@@ -760,19 +853,7 @@ var input = {
                         turns.checkStandingTileEffects(activeEnt);
                         currentEntityTurnsRemaining--;
 
-                        if (isPeekMode) {
-                            if (peekStep === 2) {
-                                peekEntity.x = peekStartX;
-                                peekEntity.y = peekStartY;
-                            }
-                            isPeekMode = false;
-                            peekStep = 1;
-                            peekEntity = null;
-                            action.disabled = false;
-                            console.log("Exited peek mode.");
-                        }
-
-                        action.value = "move";
+                        if (specialMode !== 'peek') action.value = "move";
                         update();
                     }
                     return;
@@ -808,20 +889,26 @@ var input = {
 
                 if (!hasTargets) return;
 
-                if (isPeekMode && peekStep === 2) {
-                    if (EntitySystem.attack(peekEntity, click_pos.x, click_pos.y)) {
-                        turns.checkStandingTileEffects(peekEntity);
+                if (specialMode === 'fullAuto') {
+                    specialMode = null;
+                    specialModeEntity = null;
+                    const weapon = activeEnt.equipment?.weapon;
+                    const maxShots = itemTypes[weapon.itemType].maxAmmo;
+                    for (let i = 0; i < maxShots && weapon.currentAmmo > 0; i++) {
+                        if (!EntitySystem.attack(activeEnt, click_pos.x, click_pos.y)) break;
+                    }
+                    turns.checkStandingTileEffects(activeEnt);
+                    currentEntityTurnsRemaining -= 2;
+                    action.value = "move";
+                    update();
+                    return;
+                }
+
+                if (specialMode === 'peek' && peekStep === 2) {
+                    if (EntitySystem.attack(specialModeEntity, click_pos.x, click_pos.y)) {
+                        turns.checkStandingTileEffects(specialModeEntity);
                         currentEntityTurnsRemaining--;
                     }
-                    peekEntity.x = peekStartX;
-                    peekEntity.y = peekStartY;
-
-                    isPeekMode = false;
-                    peekStep = 1;
-                    peekEntity = null;
-                    action.disabled = false;
-                    action.value = "move";
-                    console.log("Exited peek mode.");
                     update();
                 } else {
                     if (EntitySystem.attack(activeEnt, click_pos.x, click_pos.y)) {
@@ -846,15 +933,38 @@ var input = {
 
     right_click: function(event) {
         event.preventDefault();
+        if (turns._playerTurnEndPending) return;
 
         // Inventory right-click → context menu (Examine / Use|Equip / Drop)
         const rect = c.getBoundingClientRect();
         const canvasX = event.clientX - rect.left;
         const canvasY = event.clientY - rect.top;
         const invSlot = getInventorySlotAt(canvasX, canvasY);
-        if (invSlot >= 0 && typeof showInventoryContextMenu === 'function') {
-            showInventoryContextMenu(invSlot, event);
-            return;
+        if (invSlot >= 0) {
+            const rcEnt = getActivePlayerEntity();
+            if (!getInventory(rcEnt)[invSlot] && rcEnt.abilityHotbar && rcEnt.abilityHotbar[invSlot]) {
+                const io = getInventoryOrigin();
+                showAbilityContextMenu(rcEnt.abilityHotbar[invSlot],
+                    io.x + (invSlot % INVENTORY_COLS) * tileSize, io.y);
+                return;
+            }
+            if (typeof showInventoryContextMenu === 'function') {
+                showInventoryContextMenu(invSlot, event);
+                return;
+            }
+        }
+
+        // Ability bar right-click → context menu (Use + requirement)
+        const abSlot = getAbilitySlotAt(canvasX, canvasY);
+        if (abSlot >= 0) {
+            const key = abilityAtBarSlot(getActivePlayerEntity(), abSlot);
+            if (key) {
+                const o = getAbilityBarOrigin();
+                showAbilityContextMenu(key,
+                    o.x + (abSlot % ABILITY_BAR_COLS) * tileSize,
+                    o.y + ((abSlot / ABILITY_BAR_COLS) | 0) * tileSize);
+                return;
+            }
         }
 
         if (!window.cursorWorldPos) return;
@@ -1144,6 +1254,7 @@ var input = {
 
     mousedown: function(event) {
         if (EntitySystem._explosionPending) return;
+        if (turns._playerTurnEndPending) return;
         if (event.button !== 0) return;
 
         // If a context menu is open, let WindowSystem own the click — don't capture
@@ -1168,9 +1279,29 @@ var input = {
                 window.inventoryDrag.isDragging = false;
                 window.inventoryDrag.overSlot = invSlot;
                 window.inventoryDrag.item = inv[invSlot];
+            } else if (activeEnt.abilityHotbar && activeEnt.abilityHotbar[invSlot]) {
+                window.abilityDrag.key = activeEnt.abilityHotbar[invSlot];
+                window.abilityDrag.startMouse = { x: canvasX, y: canvasY };
+                window.abilityDrag.mouse = { x: canvasX, y: canvasY };
+                window.abilityDrag.isDragging = false;
             }
             isMouseDown = false; // don't trigger edit-mode drag paint
             return;
+        }
+
+        // ABILITY BAR mousedown — starts a drag (or click candidate), suppress the map click.
+        const abSlot = getAbilitySlotAt(canvasX, canvasY);
+        if (abSlot >= 0) {
+            const key = abilityAtBarSlot(getActivePlayerEntity(), abSlot);
+            if (key) {
+                window.suppressNextClick = true;
+                isMouseDown = false;
+                window.abilityDrag.key = key;
+                window.abilityDrag.startMouse = { x: canvasX, y: canvasY };
+                window.abilityDrag.mouse = { x: canvasX, y: canvasY };
+                window.abilityDrag.isDragging = false;
+                return;
+            }
         }
 
         isMouseDown = true;
@@ -1227,6 +1358,35 @@ var input = {
                 useItem(activeEnt, drag.startSlot);
             } else {
                 resetInventoryDrag();
+            }
+        }
+
+        if (window.abilityDrag.key) {
+            const ad = window.abilityDrag;
+            const activeEnt = getActivePlayerEntity();
+            if (ad.isDragging) {
+                syncAbilityBar(activeEnt);
+                const hb = activeEnt.abilityHotbar;
+                const bs = activeEnt.abilityBarSlots;
+                const t = getInventorySlotAt(ad.mouse.x, ad.mouse.y);
+                const b = getAbilitySlotAt(ad.mouse.x, ad.mouse.y);
+                let fromBar = -1;
+                for (const s in bs) if (bs[s] === ad.key) { fromBar = +s; delete bs[s]; }
+                for (const s in hb) if (hb[s] === ad.key) delete hb[s];
+                if (t >= 0 && t < INVENTORY_COLS && !getInventory(activeEnt)[t] && !hb[t]) {
+                    hb[t] = ad.key;
+                } else if (b >= 0) {
+                    const occupant = bs[b];
+                    if (occupant && fromBar >= 0) bs[fromBar] = occupant;
+                    bs[b] = ad.key;
+                }
+                syncAbilityBar(activeEnt);
+                resetAbilityDrag();
+                update();
+            } else {
+                const key = ad.key;
+                resetAbilityDrag();
+                handleAbilityClick(key);
             }
         }
     }

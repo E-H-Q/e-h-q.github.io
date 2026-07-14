@@ -104,73 +104,100 @@ var turns = {
 
         if (currentEntityTurnsRemaining <= 0) { // ONLY RUNS WHEN NON-PLAYER ENTITIES ARE ALSO PRESENT!? NEEDS TO TRIGGER AFTER *ALL* ENTITY TURNS!!!
             const previousEntity = entities[currentEntityIndex];
+            const hasEnemies = allEnemies.some(e => e.hp > 0 && (e.seenX !== 0 || e.seenY !== 0));
+            const isLastPlayer = previousEntity && isPlayerControlled(previousEntity) && !previousEntity.following && currentEntityIndex === allPlayers.length - 1;
+            const needsDelay = isLastPlayer && hasEnemies && !this._playerTurnEndReady;
 
-            // Process inventory grenades only when an entity's ALL turns are consumed
-            if (previousEntity && typeof processInventoryGrenades !== 'undefined') {
-                processInventoryGrenades(previousEntity);
-            }
-
-            // Apply fire/water effects from the tile the entity is currently standing on
-            if (previousEntity) {
-                this.checkStandingTileEffects(previousEntity);
-            }
-
-            // Apply fire damage at end of turn
-            if (previousEntity) {
-                helper.applyStatusEffects(previousEntity);
-            }
-
-            const playerCamera = {
-                x: player.x - Math.round(viewportWidth / 2) + 1,
-                y: player.y - Math.round(viewportHeight / 2) + 1
-            };
-
-            // Only remove fire tiles after player-controlled entity turns
-            if (previousEntity && isPlayerControlled(previousEntity)) {
-                const buffer = 5;
-                const prevInActiveRange = (
-                    previousEntity.x >= playerCamera.x - buffer &&
-                    previousEntity.x <= playerCamera.x + viewportWidth + buffer &&
-                    previousEntity.y >= playerCamera.y - buffer &&
-                    previousEntity.y <= playerCamera.y + viewportHeight + buffer
-                );
-                if (prevInActiveRange) {
-                    helper.removeRandomFireTiles();
+            if (needsDelay) {
+                if (!this._playerTurnEndPending) {
+                    this._playerTurnEndPending = true;
+                    setTimeout(() => {
+                        this._playerTurnEndPending = false;
+                        this._playerTurnEndReady = true;
+                        update();
+                    }, parseInt(document.getElementById('turn-delay').value) || 0);
                 }
-            }
+            } else {
+                this._playerTurnEndReady = false;
 
-            // Advance to next entity
-            do {
-                currentEntityIndex++;
-                if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+                if (specialMode === 'peek' && specialModeEntity === previousEntity) {
+                    specialModeEntity.x = peekStartX;
+                    specialModeEntity.y = peekStartY;
+                    specialMode = null;
+                    specialModeEntity = null;
+                    peekStep = 1;
+                    action.disabled = false;
+                    action.value = "move";
+                    console.log("Exited peek mode.");
+                }
+
+                // Process inventory grenades only when an entity's ALL turns are consumed
+                if (previousEntity && typeof processInventoryGrenades !== 'undefined') {
+                    processInventoryGrenades(previousEntity);
+                }
+
+                // Apply fire/water effects from the tile the entity is currently standing on
+                if (previousEntity) {
+                    this.checkStandingTileEffects(previousEntity);
+                }
+
+                // Apply fire damage at end of turn
+                if (previousEntity) {
+                    helper.applyStatusEffects(previousEntity);
+                }
+
+                const playerCamera = {
+                    x: player.x - Math.round(viewportWidth / 2) + 1,
+                    y: player.y - Math.round(viewportHeight / 2) + 1
+                };
+
+                // Only remove fire tiles after player-controlled entity turns
+                if (previousEntity && isPlayerControlled(previousEntity)) {
+                    const buffer = 5;
+                    const prevInActiveRange = (
+                        previousEntity.x >= playerCamera.x - buffer &&
+                        previousEntity.x <= playerCamera.x + viewportWidth + buffer &&
+                        previousEntity.y >= playerCamera.y - buffer &&
+                        previousEntity.y <= playerCamera.y + viewportHeight + buffer
+                    );
+                    if (prevInActiveRange) {
+                        helper.removeRandomFireTiles();
+                    }
+                }
+
+                // Advance to next entity
+                do {
+                    currentEntityIndex++;
+                    if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+
+                    const currentEntity = entities[currentEntityIndex];
+                    if (this.shouldProcessEntity(currentEntity)) break;
+                } while (currentEntityIndex !== 0);
+
+                if (!entities[currentEntityIndex]) currentEntityIndex = 0;
+                currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+                if (entities[currentEntityIndex]) entities[currentEntityIndex]._droppedGrenadeThisRound = false;
 
                 const currentEntity = entities[currentEntityIndex];
-                if (this.shouldProcessEntity(currentEntity)) break;
-            } while (currentEntityIndex !== 0);
+                camera = {
+                    x: currentEntity.x - Math.round(viewportWidth / 2) + 1,
+                    y: currentEntity.y - Math.round(viewportHeight / 2) + 1
+                };
 
-            if (!entities[currentEntityIndex]) currentEntityIndex = 0;
-            currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
-            if (entities[currentEntityIndex]) entities[currentEntityIndex]._droppedGrenadeThisRound = false;
+                if (isPlayerControlled(currentEntity) && keyboardMode && cursorVisible) {
+                    window.cursorWorldPos = {x: currentEntity.x, y: currentEntity.y};
+                }
 
-            const currentEntity = entities[currentEntityIndex];
-            camera = {
-                x: currentEntity.x - Math.round(viewportWidth / 2) + 1,
-                y: currentEntity.y - Math.round(viewportHeight / 2) + 1
-            };
-
-            if (isPlayerControlled(currentEntity) && keyboardMode && cursorVisible) {
-                window.cursorWorldPos = {x: currentEntity.x, y: currentEntity.y};
-            }
-
-            if (!enemyChainDepth) {
-                canvas.init();
-                canvas.clear();
-                canvas.grid();
-                canvas.walls();
-                canvas.items();
-                canvas.player();
-                canvas.enemy();
-                canvas.inventory();
+                if (!enemyChainDepth) {
+                    canvas.init();
+                    canvas.clear();
+                    canvas.grid();
+                    canvas.walls();
+                    canvas.items();
+                    canvas.player();
+                    canvas.enemy();
+                    canvas.inventory();
+                }
             }
         }
 
@@ -266,7 +293,7 @@ var turns = {
         if (isPlayerControlled(currentEntity) && action.value === "move") {
             calc.move(currentEntity);
 
-            if (window.cursorWorldPos) {
+            if (window.cursorWorldPos && currentEntityTurnsRemaining > 0) {
                 const endX = window.cursorWorldPos.x;
                 const endY = window.cursorWorldPos.y;
                 const isValid = valid.find(v => v.x === endX && v.y === endY);
@@ -290,7 +317,7 @@ var turns = {
 
         if (isPlayerControlled(currentEntity) && action.value === "attack") {
             canvas.attackRangeDim(currentEntity);
-            if (window.throwingGrenadeIndex == undefined) {
+            if (window.throwingGrenadeIndex == undefined && specialMode !== 'dashAttack') {
                 const cursorX = window.cursorWorldPos.x;
                 const cursorY = window.cursorWorldPos.y;
                 const targetingTiles = calculateEntityTargeting(currentEntity, cursorX, cursorY);
