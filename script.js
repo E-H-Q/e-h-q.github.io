@@ -175,7 +175,7 @@ function updatePeekButton() {
 	}
 }
 
-// General activation for all special modes: 'peek', 'dashAttack', 'fullAuto'.
+// General activation for all special modes: 'peek', 'dashAttack', 'magDump'.
 function useSpecialMode(entity, mode) {
 	if (specialMode) return;
 	if (mode === 'peek') {
@@ -190,9 +190,9 @@ function useSpecialMode(entity, mode) {
 	} else if (mode === 'dashAttack') {
 		action.value = "attack";
 		console.log("Dash Attack: select a destination.");
-	} else if (mode === 'fullAuto') {
+	} else if (mode === 'magDump') {
 		action.value = "attack";
-		console.log("Full Auto: select a target.");
+		console.log("Mag Dump: select a target.");
 	} else {
 		return;
 	}
@@ -460,10 +460,9 @@ function update() {
 
 	canvas.selectedEditTiles();
 
-	if (specialMode === 'dashAttack' && window.cursorWorldPos &&
-		canDashTo(specialModeEntity, window.cursorWorldPos.x, window.cursorWorldPos.y)) {
+	if (specialMode === 'dashAttack' && window.cursorWorldPos) {
 		const dashPath = computeDashPath(specialModeEntity, window.cursorWorldPos.x, window.cursorWorldPos.y);
-		if (dashPath && dashPath.length > 0) {
+		if (dashPath) {
 			canvas.path(dashPath, specialModeEntity.x, specialModeEntity.y, specialModeEntity);
 			dashPath.forEach(step => {
 				if (allEnemies.some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y)) {

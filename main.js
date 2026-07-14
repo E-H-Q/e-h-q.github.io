@@ -21,7 +21,7 @@ var viewportHeight = Math.floor((window.innerWidth * 0.5) / tileSize);
 // Fire damage configuration
 var fireDamage = 5;
 
-// Special mode state: null | 'peek' | 'dashAttack' | 'fullAuto'
+// Special mode state: null | 'peek' | 'dashAttack' | 'magDump'
 var specialMode = null;
 var specialModeEntity = null;
 // Peek internals
@@ -61,7 +61,7 @@ var entityTraits = {
 	immolate:   { name: "Immolate",   description: "Attacks spread fire tiles" },
 	lifesteal:  { name: "Life Steal", description: "Heals for damage dealt by attacks" },
 	dashAttack: { name: "Dash Attack", description: "(Ability) Melee weapons only" },
-	fullAuto:   { name: "Full Auto",   description: "(Ability) Burst fire weapons only" }
+	magDump:   { name: "Mag Dump",   description: "(Ability) Burst fire weapons only" }
 };
 
 // Ability definitions. canUse returns null if usable, otherwise the unmet requirement.
@@ -77,8 +77,8 @@ var abilityTypes = {
 			return null;
 		}
 	},
-	fullAuto: {
-		name: "Full Auto",
+	magDump: {
+		name: "Mag Dump",
 		description: "Shoot all remaining ammo",
 		color: "#FF8C00",
 		canUse: function(entity) {

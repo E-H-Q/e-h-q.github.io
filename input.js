@@ -254,18 +254,17 @@ function applyTileEffects(entity, movePath) {
 	}
 }
 
-function canDashTo(entity, x, y) {
-	return calc.distance(entity.x, x, entity.y, y) <= entity.range && !helper.tileBlocked(x, y);
-}
-
-// A* path for Dash Attack: walls block, entities are passable.
+// Valid Dash Attack path or null. Walls block, entities are passable; the walked
+// path itself must fit within movement range so corners can't be cheesed.
 function computeDashPath(entity, destX, destY) {
+	if (calc.distance(entity.x, destX, entity.y, destY) > entity.range || helper.tileBlocked(destX, destY)) return null;
 	const grid = createAndFillTwoDArray({rows: size, columns: size, defaultValue: 1});
 	walls.forEach(w => {
 		if (w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open)) grid[w.x][w.y] = 0;
 	});
 	const g = new Graph(grid, {diagonal: true});
-	return astar.search(g, g.grid[entity.x][entity.y], g.grid[destX][destY]);
+	const path = astar.search(g, g.grid[entity.x][entity.y], g.grid[destX][destY]);
+	return (path.length > 0 && path.length <= entity.range) ? path : null;
 }
 
 function handleAbilityClick(key) {
@@ -284,7 +283,7 @@ function handleAbilityClick(key) {
 
 function executeDashAttack(entity, destX, destY) {
 	const path = computeDashPath(entity, destX, destY);
-	if (!path || path.length === 0) return;
+	if (!path) return;
 	specialMode = null;
 	specialModeEntity = null;
 	isAiming = false;
@@ -616,7 +615,7 @@ var input = {
                 return;
             }
             if (specialMode === 'peek' && peekStep === 2) return;
-            if (specialMode === 'dashAttack' || specialMode === 'fullAuto') return;
+            if (specialMode === 'dashAttack' || specialMode === 'magDump') return;
             action.value = (action.value === "move") ? "attack" : "move";
             document.activeElement.blur();
             window.targetIndex = 0;
@@ -818,9 +817,7 @@ var input = {
         const activeEnt = getActivePlayerEntity();
 
         if (specialMode === 'dashAttack' && specialModeEntity === activeEnt) {
-            if (canDashTo(activeEnt, click_pos.x, click_pos.y)) {
-                executeDashAttack(activeEnt, click_pos.x, click_pos.y);
-            }
+            executeDashAttack(activeEnt, click_pos.x, click_pos.y);
             return;
         }
 
@@ -889,7 +886,7 @@ var input = {
 
                 if (!hasTargets) return;
 
-                if (specialMode === 'fullAuto') {
+                if (specialMode === 'magDump') {
                     specialMode = null;
                     specialModeEntity = null;
                     const weapon = activeEnt.equipment?.weapon;

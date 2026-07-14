@@ -134,13 +134,17 @@ function abilityAtBarSlot(entity, slot) {
 const ABILITY_SPRITE_SIZE = 32;
 const ABILITY_SPRITE_MAP = {
 	dashAttack: 0,
-	fullAuto:   1
+	magDump:   1
 };
 
 function drawAbilitySprite(key, sx, sy, usable) {
 	const img = document.getElementById("abilities");
 	const idx = ABILITY_SPRITE_MAP[key];
-	if (!img || !img.complete || !img.naturalWidth || idx === undefined) return;
+	if (!img || !img.complete || !img.naturalWidth || idx === undefined) {
+		ctx.fillStyle = "#FF00FF";
+		ctx.fillRect(sx, sy, tileSize, tileSize);
+		return;
+	}
 	if (!usable) ctx.globalAlpha = 0.4;
 	ctx.drawImage(img, idx * ABILITY_SPRITE_SIZE, 0, ABILITY_SPRITE_SIZE, ABILITY_SPRITE_SIZE, sx, sy, tileSize, tileSize);
 	ctx.globalAlpha = 1.0;
