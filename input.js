@@ -264,7 +264,8 @@ function computeDashPath(entity, destX, destY) {
 	});
 	const g = new Graph(grid, {diagonal: true});
 	const path = astar.search(g, g.grid[entity.x][entity.y], g.grid[destX][destY]);
-	return (path.length > 0 && path.length <= entity.range) ? path : null;
+	//return (path.length > 0 && path.length <= entity.range) ? path : null;
+	return (path.length > 0 && path.length <= entity.range + 1) ? path : null; // entity range + 1
 }
 
 function handleAbilityClick(key) {
@@ -615,7 +616,7 @@ var input = {
                 return;
             }
             if (specialMode === 'peek' && peekStep === 2) return;
-            if (specialMode === 'dashAttack' || specialMode === 'magDump') return;
+            if (specialMode && specialMode !== 'peek') return;
             action.value = (action.value === "move") ? "attack" : "move";
             document.activeElement.blur();
             window.targetIndex = 0;
@@ -885,6 +886,24 @@ var input = {
 
 
                 if (!hasTargets) return;
+
+                if (specialMode === 'charm') {
+                    specialMode = null;
+                    specialModeEntity = null;
+                    const target = getTargetedEntities(activeEnt, click_pos.x, click_pos.y)
+                        .find(e => e !== activeEnt && !helper.isGrenadeEntity(e) &&
+                            isPlayerControlled(e) !== isPlayerControlled(activeEnt));
+                    const hpBefore = target ? target.hp : 0;
+                    if (EntitySystem.attack(activeEnt, click_pos.x, click_pos.y) &&
+                        target && target.hp < hpBefore && target.hp > 0) {
+                        charmEntity(target, activeEnt);
+                    }
+                    turns.checkStandingTileEffects(activeEnt);
+                    currentEntityTurnsRemaining -= 1; // Only use 1 turn action.
+                    action.value = "move";
+                    update();
+                    return;
+                }
 
                 if (specialMode === 'magDump') {
                     specialMode = null;

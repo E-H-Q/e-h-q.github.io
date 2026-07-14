@@ -21,6 +21,9 @@ var viewportHeight = Math.floor((window.innerWidth * 0.5) / tileSize);
 // Fire damage configuration
 var fireDamage = 5;
 
+// Charm duration in turns
+var charmDuration = 3;
+
 // Special mode state: null | 'peek' | 'dashAttack' | 'magDump'
 var specialMode = null;
 var specialModeEntity = null;
@@ -57,19 +60,88 @@ var entityTraits = {
 	player:     { name: "Player",     description: "Player-controlled entity" },
 	explode: 	{ name: "Explode",	  description: "Explodes on death/countdown"},
 	active: 	{ name: "Active", 	  description: "Countdown has been activated"},
-	fire:       { name: "On Fire",    description: "Takes " + fireDamage + " fire damage each turn" },
+	fire:       { name: "On Fire",    description: "(Status) " + fireDamage + "DMG per turn" },
+	charmed:   { name: "Charmed",    description: "(Status) Swaps allegiance" },
 	immolate:   { name: "Immolate",   description: "Attacks spread fire tiles" },
 	lifesteal:  { name: "Life Steal", description: "Heals for damage dealt by attacks" },
 	dashAttack: { name: "Dash Attack", description: "(Ability) Melee weapons only" },
-	magDump:   { name: "Mag Dump",   description: "(Ability) Burst fire weapons only" }
+	magDump:   { name: "Mag Dump",   description: "(Ability) Burst fire weapons only" },
+	charm:     { name: "Charm",      description: "(Ability) Direct aim weapons only" }
 };
+
+function moveEntityList(from, to, e) {
+	const i = from.indexOf(e);
+	if (i >= 0) from.splice(i, 1);
+	if (!to.includes(e)) to.push(e);
+}
+
+// Charm: target joins the charmer's side until it snaps out (1 in 3 each turn).
+// Charmed players adopt the charmer's behavior trait. Originals are snapshot in
+// _precharm and restored exactly on uncharm.
+// Charmer is optional: without one (e.g. trait toggled in the traits window) the
+// target flips to the opposite side and keeps its own behavior trait, or 'default'.
+function charmEntity(target, charmer) {
+	if (target._precharm) return;
+	if (charmer && isPlayerControlled(target) === isPlayerControlled(charmer)) return;
+	target._precharm = { traits: target.traits.filter(t => t !== 'charmed'), playerColor: target.playerColor };
+	entities.forEach(e => { if (e.following === target) e.following = null; });
+	target.following = null;
+	const joinPlayers = charmer ? isPlayerControlled(charmer) : !isPlayerControlled(target);
+	if (joinPlayers) {
+		if (!helper.hasTrait(target, 'player')) target.traits.push('player');
+		if (!helper.hasTrait(target, 'charmed')) target.traits.push('charmed');
+		target.playerColor = "rgba(255, 105, 180, 0.5)";
+		moveEntityList(allEnemies, allPlayers, target);
+	} else {
+		const src = charmer || target;
+		const behavior = (src.traits || []).find(t => t === 'default' || t === 'aggressive' || t === 'defensive') || 'default';
+		target.traits = target.traits.filter(t => t !== 'player' && t !== 'charmed' && t !== behavior);
+		target.traits.push(behavior, 'charmed');
+		if (target.seenX === undefined) { target.seenX = 0; target.seenY = 0; }
+		if (target.maxHp === undefined) target.maxHp = target.hp;
+		if (target.lastAttacker === undefined) target.lastAttacker = null;
+		delete target.playerColor;
+		moveEntityList(allPlayers, allEnemies, target);
+	}
+	target.charmRounds = charmDuration;
+	const idx = entities.indexOf(target);
+	if (idx >= 0 && idx < currentEntityIndex) currentEntityIndex--;
+	console.log(target.name + " is Charmed!");
+}
+
+// Keeps charm state consistent with the 'charmed' trait, however it was toggled.
+function syncCharm(entity) {
+	const has = helper.hasTrait(entity, 'charmed');
+	if (has && !entity._precharm) charmEntity(entity);
+	else if (!has && entity._precharm) uncharmEntity(entity);
+}
+
+function uncharmEntity(target) {
+	if (!target._precharm) return;
+	target.traits = target._precharm.traits.slice();
+	if (target._precharm.playerColor !== undefined) target.playerColor = target._precharm.playerColor;
+	else delete target.playerColor;
+	delete target._precharm;
+	delete target.charmRounds;
+	if (isPlayerControlled(target)) moveEntityList(allEnemies, allPlayers, target);
+	else moveEntityList(allPlayers, allEnemies, target);
+	const idx = entities.indexOf(target);
+	if (idx >= 0 && idx < currentEntityIndex) currentEntityIndex--;
+	entities.forEach(e => {
+		if (e.following === target) {
+			console.log(e.name + " stopped following " + target.name + ".");
+            e.following = null;
+		}
+	});
+	target.following = null;
+	console.log(target.name + " is no longer Charmed!");
+}
 
 // Ability definitions. canUse returns null if usable, otherwise the unmet requirement.
 var abilityTypes = {
 	dashAttack: {
 		name: "Dash Attack",
-		description: "Dash through enemies, attacking each",
-		color: "#20B2AA",
+		description: "Slash through enemies. Costs 2AP",
 		canUse: function(entity) {
 			if (currentEntityTurnsRemaining < 2) return "Requires 2 action points";
 			const w = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
@@ -79,8 +151,7 @@ var abilityTypes = {
 	},
 	magDump: {
 		name: "Mag Dump",
-		description: "Shoot all remaining ammo",
-		color: "#FF8C00",
+		description: "Shoot all remaining ammo in weapon. Costs 2AP",
 		canUse: function(entity) {
 			if (currentEntityTurnsRemaining < 2) return "Requires 2 action points";
 			const weapon = entity.equipment?.weapon;
@@ -90,6 +161,15 @@ var abilityTypes = {
 			const ammo = weapon.currentAmmo !== undefined ? weapon.currentAmmo : w.maxAmmo;
 			if (w.maxAmmo == Infinity || w.aimStyle == "melee") return "Incompatible weapon"
 			//if (ammo < w.maxAmmo) return "Requires full ammo";
+			return null;
+		}
+	},
+	charm: {
+		name: "Charm",
+		description: "Charm an enemy on hit. Lasts " + charmDuration + " turns. Costs 1AP",
+		canUse: function(entity) {
+			const w = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
+			if (!w || w.aimStyle !== "direct") return "Requires a Direct aim weapon";
 			return null;
 		}
 	}
@@ -420,6 +500,11 @@ var helper = {
 				entity.hp -= fireDamage;
 				console.log(entity.name + " takes " + fireDamage + " fire damage!");
 			}
+		}
+
+		if (helper.hasTrait(entity, "charmed")) {
+			entity.charmRounds = (entity.charmRounds || charmDuration) - 1;
+			if (entity.charmRounds <= 0) uncharmEntity(entity);
 		}
 
 		if (entity.hp <= 0) {

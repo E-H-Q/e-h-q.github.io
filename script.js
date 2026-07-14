@@ -187,12 +187,9 @@ function useSpecialMode(entity, mode) {
 		entity.range = Math.floor(entity.range / 2);
 		action.value = "move";
 		action.disabled = false;
-	} else if (mode === 'dashAttack') {
+	} else if (abilityTypes[mode]) {
 		action.value = "attack";
-		console.log("Dash Attack: select a destination.");
-	} else if (mode === 'magDump') {
-		action.value = "attack";
-		console.log("Mag Dump: select a target.");
+		console.log(abilityTypes[mode].name + ": select a target.");
 	} else {
 		return;
 	}
@@ -396,6 +393,8 @@ function update() {
 
 	const nonGrenadeEnemies = allEnemies.filter(e => !helper.hasTrait(e, 'explode') && e.hp >= 1);
 	const grenades = allEnemies.filter(e => helper.hasTrait(e, 'explode') && e.hp >= 1);
+
+	[...allPlayers, ...allEnemies].forEach(syncCharm);
 
 	entities = [
 		...allPlayers,

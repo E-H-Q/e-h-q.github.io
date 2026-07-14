@@ -16,6 +16,7 @@ const SPRITE_CROSSHAIR = 9;
 const SPRITE_FOLLOWER = 10;
 const SPRITE_FIRE_STATUS = 11;
 const SPRITE_LOCKED = 12;
+const SPRITE_CHARM_STATUS = 13;
 
 const TILE_SIZE        = 32;
 const TILE_WALL        = 0;
@@ -134,8 +135,15 @@ function abilityAtBarSlot(entity, slot) {
 const ABILITY_SPRITE_SIZE = 32;
 const ABILITY_SPRITE_MAP = {
 	dashAttack: 0,
-	magDump:   1
+	magDump:    1,
+	charm:      2
 };
+
+// Sprites follow original allegiance: charmed entities keep their pre-charm sprite.
+function entitySpriteId(e) {
+	const wasPlayer = e._precharm ? e._precharm.traits.includes('player') : isPlayerControlled(e);
+	return wasPlayer ? "pep" : "enemy";
+}
 
 function drawAbilitySprite(key, sx, sy, usable) {
 	const img = document.getElementById("abilities");
@@ -428,7 +436,7 @@ var canvas = {
 
 		if (entity) {
 			const last = path[path.length - 1];
-			const pepImg = document.getElementById(isPlayerControlled(entity) ? "pep" : "enemy");
+			const pepImg = document.getElementById(entitySpriteId(entity));
 			if (pepImg && pepImg.complete) {
 				ctx.globalAlpha = 0.4;
 				ctx.drawImage(pepImg, (last.x - camera.x) * tileSize, (last.y - camera.y) * tileSize, tileSize, tileSize);
@@ -444,6 +452,12 @@ var canvas = {
 		// Draw fire status if entity has fire trait
 		if (helper.hasTrait(entity, 'fire')) {
 			ctx.drawImage(movesImg, SPRITE_FIRE_STATUS * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+				screenX, screenY, tileSize, tileSize);
+		}
+
+		// Draw charm status if entity is charmed
+		if (helper.hasTrait(entity, 'charmed')) {
+			ctx.drawImage(movesImg, SPRITE_CHARM_STATUS * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
 				screenX, screenY, tileSize, tileSize);
 		}
 
@@ -555,7 +569,7 @@ var canvas = {
 		allPlayers.forEach(e => {
 			if (e.hp >= 1) {
 				const color = isPlayerControlled(e) ? (e.playerColor || "rgba(0, 0, 255, 0.5)") : "rgba(125, 125, 0, 0.5)";
-				const sprite = isPlayerControlled(e) ? "pep" : "enemy";
+				const sprite = entitySpriteId(e);
 				canvas.drawEntity(e, color, sprite);
 			}
 		});
@@ -629,7 +643,7 @@ var canvas = {
 			} else { // not grenade
 				if (entity.hp >= 1) { // player controlled entities always get "pep" player sprite, this will need to change down the line.
 					const color = isPlayerControlled(entity) ? (entity.playerColor || "rgba(0, 0, 255, 0.5)") : "rgba(125, 125, 0, 0.5)";
-					const sprite = isPlayerControlled(entity) ? "pep" : "enemy";
+					const sprite = entitySpriteId(entity);
 					canvas.drawEntity(entity, color, sprite);
 				}
 			}
