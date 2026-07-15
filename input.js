@@ -14,6 +14,93 @@ var lastCameraUpdateCursorY = null;
 // Adjacent select mode: { mode: 'grab' | 'door' }
 var adjacentSelect = null;
 
+// Keyboard grid-select mode: cursor locked to a UI grid. { grid, slot }
+var uiGridSelect = null;
+
+var UI_GRIDS = {
+	ability: {
+		cols: () => ABILITY_BAR_COLS,
+		rows: () => ABILITY_BAR_ROWS,
+		origin: () => getAbilityBarOrigin(),
+		hover: s => { window.abilityHoverSlot = abilityAtBarSlot(getActivePlayerEntity(), s) ? s : -1; },
+		clearHover: () => { window.abilityHoverSlot = -1; },
+		activate: s => {
+			const key = abilityAtBarSlot(getActivePlayerEntity(), s);
+			if (!key) return false;
+			closeUIGridSelect();
+			handleAbilityClick(key);
+			return true;
+		},
+		contextMenu: s => {
+			const key = abilityAtBarSlot(getActivePlayerEntity(), s);
+			if (!key) return false;
+			const o = getAbilityBarOrigin();
+			closeUIGridSelect();
+			showAbilityContextMenu(key, o.x + (s % ABILITY_BAR_COLS) * tileSize,
+				o.y + ((s / ABILITY_BAR_COLS) | 0) * tileSize);
+			return true;
+		}
+	},
+	inventory: {
+		cols: () => INVENTORY_COLS,
+		rows: () => INVENTORY_ROWS,
+		origin: () => getInventoryOrigin(),
+		hover: s => { window.inventoryHoverSlot = s; },
+		clearHover: () => { window.inventoryHoverSlot = -1; },
+		activate: s => {
+			const ent = getActivePlayerEntity();
+			if (getInventory(ent)[s]) { closeUIGridSelect(); useItem(ent, s); return true; }
+			if (ent.abilityHotbar && ent.abilityHotbar[s]) { closeUIGridSelect(); handleAbilityClick(ent.abilityHotbar[s]); return true; }
+			return false;
+		},
+		contextMenu: s => {
+			const ent = getActivePlayerEntity();
+			if (getInventory(ent)[s]) {
+				closeUIGridSelect();
+				showInventoryContextMenu(s, null);
+				return true;
+			}
+			if (ent.abilityHotbar && ent.abilityHotbar[s]) {
+				const o = getInventoryOrigin();
+				closeUIGridSelect();
+				showAbilityContextMenu(ent.abilityHotbar[s], o.x + (s % INVENTORY_COLS) * tileSize, o.y);
+				return true;
+			}
+			return false;
+		}
+	}
+};
+
+function openUIGridSelect(grid, startSlot) {
+	if (inventoryHidden) return;
+	if (uiGridSelect && uiGridSelect.grid === grid) { closeUIGridSelect(); return; }
+	const wasVisible = uiGridSelect ? uiGridSelect.cursorWasVisible : cursorVisible;
+	if (uiGridSelect) UI_GRIDS[uiGridSelect.grid].clearHover();
+	uiGridSelect = { grid: grid, slot: startSlot || 0, cursorWasVisible: wasVisible };
+	keyboardMode = true;
+	cursorVisible = false;
+	UI_GRIDS[grid].hover(uiGridSelect.slot);
+	update();
+}
+
+function closeUIGridSelect() {
+	if (!uiGridSelect) return;
+	cursorVisible = uiGridSelect.cursorWasVisible || cursorVisible;
+	UI_GRIDS[uiGridSelect.grid].clearHover();
+	uiGridSelect = null;
+	update();
+}
+
+function moveUIGridSelect(dx, dy) {
+	const g = UI_GRIDS[uiGridSelect.grid];
+	const cols = g.cols(), rows = g.rows();
+	const col = (uiGridSelect.slot % cols + dx + cols) % cols;
+	const row = (((uiGridSelect.slot / cols) | 0) + dy + rows) % rows;
+	uiGridSelect.slot = row * cols + col;
+	g.hover(uiGridSelect.slot);
+	update();
+}
+
 function getDoorBlocker(x, y) {
 	return entities.find(e => e.hp > 0 && e.x === x && e.y === y && !helper.isGrenadeEntity(e));
 }
@@ -343,6 +430,28 @@ var input = {
             }
         }
 
+        if (uiGridSelect && !(event.keyCode >= 48 && event.keyCode <= 57)) {
+            if (event.type !== 'keydown') return;
+            if ([37, 38, 39, 40].includes(event.keyCode)) {
+                event.preventDefault();
+                const d = {37: [-1, 0], 38: [0, -1], 39: [1, 0], 40: [0, 1]}[event.keyCode];
+                moveUIGridSelect(d[0], d[1]);
+            } else if (event.keyCode === 13) {
+                event.preventDefault();
+                UI_GRIDS[uiGridSelect.grid].activate(uiGridSelect.slot);
+            } else if (event.keyCode === 191) {
+                event.preventDefault();
+                UI_GRIDS[uiGridSelect.grid].contextMenu(uiGridSelect.slot);
+            } else if (event.keyCode === 27) {
+                closeUIGridSelect();
+            } else if (event.keyCode === 65) {
+                openUIGridSelect('ability');
+            } else if (event.keyCode === 73 && !event.shiftKey) {
+                openUIGridSelect('inventory', INVENTORY_COLS);
+            }
+            return;
+        }
+
         if (currentEntityIndex >= 0 && entities[currentEntityIndex] && !isPlayerControlled(entities[currentEntityIndex]) && allPlayers.length > 0) return;
 
         // SPACE KEY - Toggle aim mode
@@ -475,6 +584,15 @@ var input = {
         if (event.shiftKey && event.keyCode === 73) { // Shift+I toggles the inventory display
             inventoryHidden = !inventoryHidden;
             update();
+            return;
+        }
+
+        if (event.keyCode === 73) {
+            if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]) &&
+                !specialMode &&
+                !adjacentSelect && window.throwingGrenadeIndex === undefined) {
+                openUIGridSelect('inventory', INVENTORY_COLS);
+            }
             return;
         }
 
@@ -643,7 +761,8 @@ var input = {
             if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]) &&
                 !specialMode &&
                 !adjacentSelect && window.throwingGrenadeIndex === undefined) {
-                WindowSystem.openAbilitiesWindow(getActivePlayerEntity());
+                if (event.shiftKey) WindowSystem.openAbilitiesWindow(getActivePlayerEntity());
+                else openUIGridSelect('ability');
             }
             return;
         }
@@ -951,6 +1070,7 @@ var input = {
         event.preventDefault();
         if (turns._playerTurnEndPending) return;
         if (typeof WindowSystem !== 'undefined' && (activeContextMenu || WindowSystem.isOpen())) return;
+        if (uiGridSelect) { closeUIGridSelect(); return; }
 
         // Inventory right-click → context menu (Examine / Use|Equip / Drop)
         const rect = c.getBoundingClientRect();
@@ -1277,6 +1397,12 @@ var input = {
         // If a window or context menu is open, let WindowSystem own the click — don't capture
         // it as an inventory interaction even if it happens to land over inventory.
         if (typeof WindowSystem !== 'undefined' && (activeContextMenu || WindowSystem.isOpen())) return;
+
+        if (uiGridSelect) {
+            closeUIGridSelect();
+            window.suppressNextClick = true;
+            return;
+        }
 
         const rect = c.getBoundingClientRect();
         const canvasX = event.clientX - rect.left;

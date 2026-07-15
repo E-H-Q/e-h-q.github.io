@@ -555,7 +555,7 @@ var canvas = {
 	cursor: () => {
 		if (!cursorVisible || !window.cursorWorldPos) return;
 		// Hide the world cursor while mousing over the inventory panel or an ability tile
-		if (window.inventoryHoverSlot >= 0 || window.abilityHoverSlot >= 0) return;
+		if (!keyboardMode && (window.inventoryHoverSlot >= 0 || window.abilityHoverSlot >= 0)) return;
 		const screenX = (window.cursorWorldPos.x - camera.x) * tileSize;
 		const screenY = (window.cursorWorldPos.y - camera.y) * tileSize;
 		if (screenX >= 0 && screenX < c.width && screenY >= 0 && screenY < c.height) {
@@ -810,7 +810,7 @@ var canvas = {
 			ctx.font = "13px monospace";
 			ctx.textAlign = "left";
 			ctx.fillText(abilityTypes[entity.abilityHotbar[hover]].name, origin.x + 4, origin.y - 6);
-		} else if (window.abilityHoverSlot >= 0) {
+		} else if (window.abilityHoverSlot >= 0 && abilityAtBarSlot(entity, window.abilityHoverSlot)) {
 			const key = abilityAtBarSlot(entity, window.abilityHoverSlot);
 			ctx.fillStyle = "#FFFFFF";
 			ctx.font = "13px monospace";
@@ -859,6 +859,16 @@ var canvas = {
 		const ad = window.abilityDrag;
 		const o = getAbilityBarOrigin();
 
+		const gridSel = typeof uiGridSelect !== 'undefined' ? uiGridSelect : null;
+		if (gridSel && gridSel.grid === 'ability') {
+			ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+			ctx.lineWidth = 1;
+			for (let i = 0; i < ABILITY_BAR_COLS * ABILITY_BAR_ROWS; i++) {
+				ctx.strokeRect(o.x + (i % ABILITY_BAR_COLS) * tileSize + 0.5,
+					o.y + ((i / ABILITY_BAR_COLS) | 0) * tileSize + 0.5, tileSize - 1, tileSize - 1);
+			}
+		}
+
 		syncAbilityBar(entity);
 		const bs = entity.abilityBarSlots;
 		for (const s in bs) {
@@ -881,6 +891,16 @@ var canvas = {
 					o.y + ((b / ABILITY_BAR_COLS) | 0) * tileSize, tileSize, tileSize);
 			}
 			canvas.abilityTile(ad.key, entity, ad.mouse.x - tileSize / 2, ad.mouse.y - tileSize / 2, myTurn);
+		}
+
+		if (gridSel) {
+			const g = UI_GRIDS[gridSel.grid];
+			const go = g.origin();
+			const cols = g.cols();
+			ctx.strokeStyle = "rgba(255, 255, 0, 1)";
+			ctx.lineWidth = 2;
+			ctx.strokeRect(go.x + (gridSel.slot % cols) * tileSize + 1,
+				go.y + ((gridSel.slot / cols) | 0) * tileSize + 1, tileSize - 2, tileSize - 2);
 		}
 	},
 
