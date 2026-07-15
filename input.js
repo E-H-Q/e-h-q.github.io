@@ -186,6 +186,23 @@ function activateGrabMode() {
 	update();
 }
 
+// Valid donor recipient: living, non-grenade, same side as the donor.
+function canDonateTo(donor, e) {
+	return e !== donor && e.hp > 0 && !helper.isGrenadeEntity(e) &&
+		isPlayerControlled(e) === isPlayerControlled(donor);
+}
+
+function donateHP(donor, x, y) {
+	const target = entities.find(e => canDonateTo(donor, e) && e.x === x && e.y === y);
+	if (!target || donor.hp <= donorAmount) return false;
+	donor.hp -= donorAmount;
+	target.hp += donorAmount;
+	console.log(donor.name + " gave " + donorAmount + " HP to " + target.name + "!");
+	turns.checkStandingTileEffects(donor);
+	currentEntityTurnsRemaining--;
+	return true;
+}
+
 function activateDoorMode(useKey = false) {
 	if (currentEntityIndex < 0 || !isPlayerControlled(entities[currentEntityIndex])) return;
 	const activeEnt = getActivePlayerEntity();
@@ -632,10 +649,11 @@ var input = {
 
             if (action.value === "attack") {
                 const range = getEntityAttackRange(activeEnt);
+                const donorMode = specialMode === 'donor';
                 const visibleEnemies = entities.filter(e =>
-                    !isPlayerControlled(e) &&
-                    e.hp > 0 &&
-                    (e.seenX !== 0 || e.seenY !== 0) &&
+                    e !== activeEnt &&
+                    e.hp > 0 && !helper.isGrenadeEntity(e) &&
+                    (donorMode ? canDonateTo(activeEnt, e) : (!isPlayerControlled(e) && (e.seenX !== 0 || e.seenY !== 0))) &&
                     EntitySystem.hasLOS(activeEnt, e.x, e.y, true) &&
                     e.x >= camera.x && e.x < camera.x + viewportWidth &&
                     e.y >= camera.y && e.y < camera.y + viewportHeight &&
@@ -976,7 +994,7 @@ var input = {
                     return;
                 }
 
-                if (!hasAmmo(activeEnt)) {
+                if (specialMode !== 'donor' && !hasAmmo(activeEnt)) {
                     console.log("Out of ammo! Press R to reload.");
                     return;
                 }
@@ -990,6 +1008,16 @@ var input = {
 
 
                 if (dist > effectiveRange || !hasLOS) return;
+
+                if (specialMode === 'donor') {
+                    if (donateHP(activeEnt, click_pos.x, click_pos.y)) {
+                        specialMode = null;
+                        specialModeEntity = null;
+                        action.value = "move";
+                        update();
+                    }
+                    return;
+                }
 
                 const targetingTiles = calculateEntityTargeting(activeEnt, click_pos.x, click_pos.y);
                 const canDestroy = canEntityDestroyWalls(activeEnt);

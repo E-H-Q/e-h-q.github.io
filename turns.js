@@ -293,7 +293,7 @@ var turns = {
         if (isPlayerControlled(currentEntity) && action.value === "move") {
             calc.move(currentEntity);
 
-            if (window.cursorWorldPos && currentEntityTurnsRemaining > 0) {
+            if (window.cursorWorldPos && currentEntityTurnsRemaining > 0 && !adjacentSelect) {
                 const endX = window.cursorWorldPos.x;
                 const endY = window.cursorWorldPos.y;
                 const isValid = valid.find(v => v.x === endX && v.y === endY);

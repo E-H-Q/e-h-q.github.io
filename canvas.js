@@ -136,7 +136,8 @@ const ABILITY_SPRITE_SIZE = 32;
 const ABILITY_SPRITE_MAP = {
 	dashAttack: 0,
 	magDump:    1,
-	charm:      2
+	charm:      2,
+	donor:      3
 };
 
 // Sprites follow original allegiance: charmed entities keep their pre-charm sprite.
@@ -399,10 +400,7 @@ var canvas = {
 					entities.some(e => e.hp > 0 && e.x === point.x && e.y === point.y) ||
 					walls.some(w => w.x === point.x && w.y === point.y && w.type !== 'water' && w.type !== 'fire' && !w.open)
 				);
-				if (isCursor || hasTarget) {
-					ctx.drawImage(movesImg, SPRITE_CROSSHAIR * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-						(point.x - camera.x) * tileSize, (point.y - camera.y) * tileSize, tileSize, tileSize);
-				}
+				if (isCursor || hasTarget) canvas.crosshair(point.x, point.y);
 			});
 		}
 	},
@@ -658,7 +656,7 @@ var canvas = {
 	},
 
 	attackRangeDim: (entity) => {
-		const range = (specialMode === 'dashAttack' && entity === specialModeEntity) ? entity.range : getEntityAttackRange(entity);
+		const range = getEntityAttackRange(entity);
 		ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
 		for (let i = 0; i < viewportWidth; i++) {
 			for (let j = 0; j < viewportHeight; j++) {

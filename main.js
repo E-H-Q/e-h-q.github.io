@@ -24,6 +24,9 @@ var fireDamage = 5;
 // Charm duration in turns
 var charmDuration = 3;
 
+// HP transferred by the Donor ability
+var donorAmount = 5;
+
 // Special mode state: null | 'peek' | 'dashAttack' | 'magDump'
 var specialMode = null;
 var specialModeEntity = null;
@@ -66,7 +69,8 @@ var entityTraits = {
 	lifesteal:  { name: "Life Steal", description: "Heals for damage dealt by attacks" },
 	dashAttack: { name: "Dash Attack", description: "(Ability) Melee weapons only" },
 	magDump:   { name: "Mag Dump",   description: "(Ability) Burst fire weapons only" },
-	charm:     { name: "Charm",      description: "(Ability) Direct aim weapons only" }
+	charm:     { name: "Charm",      description: "(Ability) Direct aim weapons only" },
+	donor:     { name: "Donor",      description: "(Ability) No weapon required" }
 };
 
 function moveEntityList(from, to, e) {
@@ -161,6 +165,16 @@ var abilityTypes = {
 			const ammo = weapon.currentAmmo !== undefined ? weapon.currentAmmo : w.maxAmmo;
 			if (w.maxAmmo == Infinity || w.aimStyle == "melee") return "Incompatible weapon"
 			//if (ammo < w.maxAmmo) return "Requires full ammo";
+			return null;
+		}
+	},
+	donor: {
+		name: "Donor",
+		description: "Give " + donorAmount + "HP to an adjacent entity. Costs 1AP",
+		canUse: function(entity) {
+			if (entity.hp <= donorAmount) return "Requires more than " + donorAmount + " HP";
+			if (!entities.some(e => canDonateTo(entity, e) && calc.distance(entity.x, e.x, entity.y, e.y) === 1))
+				return "Requires an adjacent ally";
 			return null;
 		}
 	},

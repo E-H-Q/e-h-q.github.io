@@ -181,6 +181,10 @@ function canEntityImmolate(entity) {
 }
 
 function getEntityAttackRange(entity) {
+	if (entity === specialModeEntity) {
+		if (specialMode === 'donor') return 1;
+		if (specialMode === 'dashAttack') return entity.range;
+	}
 	const weaponDef = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
 	return weaponDef?.aimStyle === "melee" ? 1 : entity.attack_range;
 }
