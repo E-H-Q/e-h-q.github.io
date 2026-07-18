@@ -89,7 +89,7 @@ var turns = {
 
     check: function() {
         if (EntitySystem._explosionPending) return; // explosion animation in progress
-        if (allPlayers.length === 0) {
+        if (allPlayers.length === 0 && !allEnemies.some(e => e.hp > 0 && e._precharm?.traits.includes('player'))) {
             if (!hasDied) {
                 const music = new Audio('sound.wav');
                 music.play();
@@ -250,6 +250,7 @@ var turns = {
 
         if (!isPlayerControlled(currentEntity) && currentEntityTurnsRemaining > 0) {
             const target = this.pickTarget(currentEntity);
+            if (!target) { this._chainStep(() => this.enemyTurn(currentEntity)); return; }
             const dist = calc.distance(currentEntity.x, target.x, currentEntity.y, target.y);
             const effectiveRange = getEntityAttackRange(currentEntity);
             const canSeeTarget = EntitySystem.hasLOS(currentEntity, target.x, target.y, false);
@@ -563,7 +564,7 @@ var turns = {
 
     pickTarget: function(entity) {
         const playerEntities = entities.filter(e => isPlayerControlled(e) && e.hp > 0);
-        if (playerEntities.length === 0) return player;
+        if (playerEntities.length === 0) return null;
 
         const closest = playerEntities.reduce((best, e) =>
             calc.distance(entity.x, e.x, entity.y, e.y) < calc.distance(entity.x, best.x, entity.y, best.y) ? e : best
@@ -582,6 +583,7 @@ var turns = {
 
         if (target === undefined || typeof target !== 'object' || target === null || typeof target.x !== 'number') {
             target = this.pickTarget(entity);
+            if (!target) { currentEntityTurnsRemaining--; return; }
             dist = calc.distance(entity.x, target.x, entity.y, target.y);
             canSeeTarget = EntitySystem.hasLOS(entity, target.x, target.y, false);
             effectiveRange = getEntityAttackRange(entity);
