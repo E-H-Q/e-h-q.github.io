@@ -24,6 +24,9 @@ var fireDamage = 5;
 // Charm duration in turns
 var charmDuration = 3;
 
+// Enemies only use Charm at or below this HP
+var charmHpThreshold = 10
+
 // HP transferred by the Donor ability
 var donorAmount = 5;
 
@@ -145,19 +148,43 @@ function uncharmEntity(target) {
 var abilityTypes = {
 	dashAttack: {
 		name: "Dash Attack",
-		description: "Slash through enemies. Costs 2AP",
+		type: "offensive",
+		ap: 2,
+		description: "Slash through enemies.",
 		canUse: function(entity) {
-			if (currentEntityTurnsRemaining < 2) return "Requires 2 action points";
+			if (currentEntityTurnsRemaining < this.ap) return "Requires " + this.ap + " action points";
 			const w = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
 			if (!w || w.aimStyle !== "melee") return "Must equip melee weapon";
 			return null;
+		},
+		validate: function(entity, x, y) { return !!computeDashPath(entity, x, y); },
+		execute: function(entity, x, y) {
+			isAiming = false;
+			const path = computeDashPath(entity, x, y);
+			let prevX = entity.x, prevY = entity.y;
+			for (const step of path) {
+				const target = entities.find(e => e.hp > 0 && !helper.isGrenadeEntity(e) &&
+					isPlayerControlled(e) !== isPlayerControlled(entity) && e.x === step.x && e.y === step.y);
+				if (target) {
+					entity.x = prevX;
+					entity.y = prevY;
+					EntitySystem.attack(entity, step.x, step.y);
+				}
+				prevX = step.x;
+				prevY = step.y;
+			}
+			entity.x = x;
+			entity.y = y;
+			applyTileEffects(entity, path);
 		}
 	},
 	magDump: {
 		name: "Mag Dump",
-		description: "Shoot all remaining ammo in weapon. Costs 2AP",
+		type: "offensive",
+		ap: 2,
+		description: "Shoot all remaining ammo in weapon.",
 		canUse: function(entity) {
-			if (currentEntityTurnsRemaining < 2) return "Requires 2 action points";
+			if (currentEntityTurnsRemaining < this.ap) return "Requires " + this.ap + " action points";
 			const weapon = entity.equipment?.weapon;
 
 			const w = weapon ? itemTypes[weapon.itemType] : null;
@@ -166,28 +193,78 @@ var abilityTypes = {
 			if (w.maxAmmo == Infinity || w.aimStyle == "melee") return "Incompatible weapon"
 			//if (ammo < w.maxAmmo) return "Requires full ammo";
 			return null;
+		},
+		execute: function(entity, x, y) {
+			const weapon = entity.equipment.weapon;
+			const maxShots = itemTypes[weapon.itemType].maxAmmo;
+			for (let i = 0; i < maxShots && weapon.currentAmmo > 0; i++) {
+				if (!EntitySystem.attack(entity, x, y)) break;
+			}
 		}
 	},
 	donor: {
 		name: "Donor",
-		description: "Give " + donorAmount + "HP to an adjacent entity. Costs 1AP",
+		type: "defensive",
+		ap: 1,
+		description: "Give " + donorAmount + "HP to an adjacent entity.",
 		canUse: function(entity) {
 			if (entity.hp <= donorAmount) return "Requires more than " + donorAmount + " HP";
 			if (!entities.some(e => canDonateTo(entity, e) && calc.distance(entity.x, e.x, entity.y, e.y) === 1))
 				return "Requires an adjacent ally";
 			return null;
+		},
+		validate: function(entity, x, y) {
+			return entity.hp > donorAmount && entities.some(e => canDonateTo(entity, e) && e.x === x && e.y === y);
+		},
+		execute: function(entity, x, y) {
+			const target = entities.find(e => canDonateTo(entity, e) && e.x === x && e.y === y);
+			entity.hp -= donorAmount;
+			target.hp += donorAmount;
+			console.log(entity.name + " gave " + donorAmount + " HP to " + target.name + "!");
 		}
 	},
 	charm: {
 		name: "Charm",
-		description: "Charm an enemy on hit. Lasts " + charmDuration + " turns. Costs 1AP",
+		type: "default",
+		ap: 1,
+		description: "Charm an enemy on hit. Lasts " + charmDuration + " turns.",
 		canUse: function(entity) {
 			const w = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
 			if (!w || w.aimStyle !== "direct") return "Requires a Direct aim weapon";
 			return null;
+		},
+		execute: function(entity, x, y) {
+			const target = getTargetedEntities(entity, x, y)
+				.find(e => e !== entity && !helper.isGrenadeEntity(e) &&
+					isPlayerControlled(e) !== isPlayerControlled(entity));
+			const hpBefore = target ? target.hp : 0;
+			if (EntitySystem.attack(entity, x, y) && target && target.hp < hpBefore && target.hp > 0) {
+				charmEntity(target, entity);
+			}
 		}
 	}
 };
+
+for (const k in abilityTypes) abilityTypes[k].description += " Costs " + abilityTypes[k].ap + "AP";
+
+// Deducts an ability's AP cost from the acting entity's remaining actions.
+function spendAP(key) {
+	currentEntityTurnsRemaining -= abilityTypes[key].ap;
+}
+
+// Single entry point for using an ability at a target tile. Returns false (at no cost) when invalid.
+function executeAbility(key, entity, x, y) {
+	const a = abilityTypes[key];
+	if (a.validate && !a.validate(entity, x, y)) return false;
+	specialMode = null;
+	specialModeEntity = null;
+	a.execute(entity, x, y);
+	turns.checkStandingTileEffects(entity);
+	spendAP(key);
+	if (isPlayerControlled(entity)) action.value = "move";
+	update();
+	return true;
+}
 
 // Console override for logging
 (function() {

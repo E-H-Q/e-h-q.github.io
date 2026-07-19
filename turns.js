@@ -280,13 +280,19 @@ var turns = {
                 if (!this._enemyActionPending) {
                     this._enemyActionPending = true;
                     setTimeout(() => {
-                        this._enemyActionPending = false;
-                        this.enemyTurn(currentEntity, target, canSeeTarget, dist, effectiveRange);
+                        try { this.enemyTurn(currentEntity, target, canSeeTarget, dist, effectiveRange); }
+                        finally { this._enemyActionPending = false; }
                         update();
                     }, parseInt(document.getElementById('turn-delay').value) || 0);
                 }
             } else {
-                this._chainStep(() => this.enemyTurn(currentEntity, target, canSeeTarget, dist, effectiveRange));
+                if (!this._enemyActionPending) {
+                    this._enemyActionPending = true;
+                    this._chainStep(() => {
+                        try { this.enemyTurn(currentEntity, target, canSeeTarget, dist, effectiveRange); }
+                        finally { this._enemyActionPending = false; }
+                    });
+                }
             }
             return;
         }
@@ -578,6 +584,67 @@ var turns = {
         return closest;
     },
 
+    tryUseAbility: function(entity, keys, target, canSeeTarget, dist) {
+        const behavior = helper.hasTrait(entity, 'aggressive') ? 'offensive' :
+                         helper.hasTrait(entity, 'defensive') ? 'defensive' : null;
+        if (!behavior) return false;
+        for (const key of keys) {
+            const def = abilityTypes[key];
+            if (!def || def.type !== behavior || !helper.hasTrait(entity, key)) continue;
+            if (key !== 'donor' && def.canUse(entity)) continue;
+
+            if (key === 'dashAttack' && dist === 1) {
+                const dx = target.x + (target.x - entity.x), dy = target.y + (target.y - entity.y);
+                if (dx >= 0 && dx < size && dy >= 0 && dy < size &&
+                    !helper.tileBlocked(dx, dy) && computeDashPath(entity, dx, dy)) {
+                    useSpecialMode(entity, key);
+                    executeAbility(key, entity, dx, dy);
+                    return true;
+                }
+            }
+
+            if (key === 'magDump' && canSeeTarget && hasAmmo(entity) &&
+                dist <= getEntityAttackRange(entity)) {
+                useSpecialMode(entity, key);
+                executeAbility(key, entity, target.x, target.y);
+                return true;
+            }
+
+            if (key === 'donor' && entity.hp > donorAmount) {
+                const allies = entities.filter(e => canDonateTo(entity, e) && e.hp < e.maxHp && e.hp <= entity.hp)
+                    .sort((a, b) => a.hp - b.hp);
+                for (const ally of allies) {
+                    if (calc.distance(entity.x, ally.x, entity.y, ally.y) === 1) {
+                        useSpecialMode(entity, key);
+                        executeAbility(key, entity, ally.x, ally.y);
+                        return true;
+                    }
+                    if (EntitySystem.calculateMovement(entity)
+                        .some(m => calc.distance(m.x, ally.x, m.y, ally.y) === 1)) {
+                        this.enemyMoveToward(entity, ally.x, ally.y, [], true);
+                        return true;
+                    }
+                }
+            }
+
+            if (key === 'charm' && entity.hp <= charmHpThreshold && hasAmmo(entity)) {
+                const range = getEntityAttackRange(entity);
+                const victim = entities.filter(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) &&
+                        isPlayerControlled(e) !== isPlayerControlled(entity) &&
+                        calc.distance(entity.x, e.x, entity.y, e.y) <= range &&
+                        EntitySystem.hasLOS(entity, e.x, e.y, false))
+                    .sort((a, b) => calc.distance(entity.x, a.x, entity.y, a.y) -
+                                    calc.distance(entity.x, b.x, entity.y, b.y))[0];
+                if (victim) {
+                    useSpecialMode(entity, key);
+                    executeAbility(key, entity, victim.x, victim.y);
+                    return true;
+                }
+            }
+        }
+        return false;
+    },
+
     enemyTurn: function(entity, target, canSeeTarget, dist, effectiveRange) {
         if (entity.hp < 1) { currentEntityTurnsRemaining = 0; return; }
 
@@ -588,6 +655,9 @@ var turns = {
             canSeeTarget = EntitySystem.hasLOS(entity, target.x, target.y, false);
             effectiveRange = getEntityAttackRange(entity);
         }
+
+        if ((canSeeTarget || entity.seenX !== 0 || entity.seenY !== 0) &&
+            this.tryUseAbility(entity, ['donor'], target, canSeeTarget, dist)) return;
 
         if (helper.hasTrait(entity, 'defensive') && entity.lastAttacker && entity.hp < entity.maxHp) {
             calc.move(entity);
@@ -616,6 +686,10 @@ var turns = {
                 }
             }
 
+            //if (!entities.some(e => canDonateTo(entity, e) && EntitySystem.hasLOS(entity, e.x, e.y, false)) &&
+            if (!entities.some(e => EntitySystem.hasLOS(entity, e.x, e.y, false)) &&
+                this.tryUseAbility(entity, ['charm'], target, canSeeTarget, dist)) return;
+
             // Cover search: entity.range * 2 radius, hard geometry only (doors forced open), outside all blast zones
             const searchRadius = entity.range * 2;
             const closedDoors  = walls.filter(w => w.type === 'door' && !w.open);
@@ -633,26 +707,25 @@ var turns = {
             }
             closedDoors.forEach(d => { d.open = false; });
 
+            // (!cover || !EntitySystem.calculateMovement(entity).some(m => m.x === cover.x && m.y === cover.y)) {
+            if (entity.hp > charmHpThreshold && allPlayers.length > 0) {
+                if (this.tryUseAbility(entity, ['charm'], target, canSeeTarget, dist)) return;
+            }
+
             const canEscape = EntitySystem.canMoveOutsideRadius(entity, entity.x, entity.y, blastRadius);
             const exposed   = EntitySystem.hasLOS(entity, attackerPos.x, attackerPos.y, false);
 
-            if (!cover) {
-                const dx = Math.sign(entity.x - attackerPos.x);
-                const dy = Math.sign(entity.y - attackerPos.y);
-                const dropped = (canEscape && exposed) ? this._defenderDropGrenade(entity) : null;
-                this.enemyMoveToward(entity, Math.max(0, Math.min(size - 1, entity.x + dx * entity.range)), Math.max(0, Math.min(size - 1, entity.y + dy * entity.range)), [], true, dropped);
+            if (cover) {
+                const dropped = (canEscape && exposed && (entity.x !== cover.x || entity.y !== cover.y)) ? this._defenderDropGrenade(entity) : null;
+                this.enemyMoveToward(entity, cover.x, cover.y, [], true, dropped);
+
+                if (entity.x === cover.x && entity.y === cover.y) {
+                    entity.lastAttacker = null;
+                    currentEntityTurnsRemaining--;
+                    console.log(entity.name + " hides...");
+                }
                 return;
             }
-
-            const dropped = (canEscape && exposed && (entity.x !== cover.x || entity.y !== cover.y)) ? this._defenderDropGrenade(entity) : null;
-            this.enemyMoveToward(entity, cover.x, cover.y, [], true, dropped);
-
-            if (entity.x === cover.x && entity.y === cover.y) {
-                entity.lastAttacker = null;
-                currentEntityTurnsRemaining--;
-                console.log(entity.name + " hides...");
-            }
-            return;
         }
 
         if (canSeeTarget) {
@@ -669,6 +742,7 @@ var turns = {
             }
 
             if (helper.hasTrait(entity, 'aggressive')) {
+                if (this.tryUseAbility(entity, ['dashAttack', 'magDump'], target, canSeeTarget, dist)) return;
                 const gDef = itemTypes.grenade;
                 if (dist > gDef.damageRadius && dist <= entity.attack_range + gDef.damageRadius) {
                     if (this.tryThrowGrenade(entity, target.x, target.y)) {

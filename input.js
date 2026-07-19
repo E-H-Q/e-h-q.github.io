@@ -192,17 +192,6 @@ function canDonateTo(donor, e) {
 		isPlayerControlled(e) === isPlayerControlled(donor);
 }
 
-function donateHP(donor, x, y) {
-	const target = entities.find(e => canDonateTo(donor, e) && e.x === x && e.y === y);
-	if (!target || donor.hp <= donorAmount) return false;
-	donor.hp -= donorAmount;
-	target.hp += donorAmount;
-	console.log(donor.name + " gave " + donorAmount + " HP to " + target.name + "!");
-	turns.checkStandingTileEffects(donor);
-	currentEntityTurnsRemaining--;
-	return true;
-}
-
 function activateDoorMode(useKey = false) {
 	if (currentEntityIndex < 0 || !isPlayerControlled(entities[currentEntityIndex])) return;
 	const activeEnt = getActivePlayerEntity();
@@ -384,32 +373,6 @@ function handleAbilityClick(key) {
 	if (adjacentSelect || window.throwingGrenadeIndex !== undefined) return;
 	if (abilityTypes[key].canUse(entity)) return;
 	useSpecialMode(entity, key);
-}
-
-function executeDashAttack(entity, destX, destY) {
-	const path = computeDashPath(entity, destX, destY);
-	if (!path) return;
-	specialMode = null;
-	specialModeEntity = null;
-	isAiming = false;
-	let prevX = entity.x, prevY = entity.y;
-	for (const step of path) {
-		const target = allEnemies.find(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y);
-		if (target) {
-			entity.x = prevX;
-			entity.y = prevY;
-			EntitySystem.attack(entity, step.x, step.y);
-		}
-		prevX = step.x;
-		prevY = step.y;
-	}
-	entity.x = destX;
-	entity.y = destY;
-	applyTileEffects(entity, path);
-	turns.checkStandingTileEffects(entity);
-	currentEntityTurnsRemaining -= 2;
-	action.value = "move";
-	update();
 }
 
 // Returns true when keystrokes should be left to the browser (the user is
@@ -955,7 +918,7 @@ var input = {
         const activeEnt = getActivePlayerEntity();
 
         if (specialMode === 'dashAttack' && specialModeEntity === activeEnt) {
-            executeDashAttack(activeEnt, click_pos.x, click_pos.y);
+            executeAbility('dashAttack', activeEnt, click_pos.x, click_pos.y);
             return;
         }
 
@@ -1010,12 +973,7 @@ var input = {
                 if (dist > effectiveRange || !hasLOS) return;
 
                 if (specialMode === 'donor') {
-                    if (donateHP(activeEnt, click_pos.x, click_pos.y)) {
-                        specialMode = null;
-                        specialModeEntity = null;
-                        action.value = "move";
-                        update();
-                    }
+                    executeAbility('donor', activeEnt, click_pos.x, click_pos.y);
                     return;
                 }
 
@@ -1035,35 +993,12 @@ var input = {
                 if (!hasTargets) return;
 
                 if (specialMode === 'charm') {
-                    specialMode = null;
-                    specialModeEntity = null;
-                    const target = getTargetedEntities(activeEnt, click_pos.x, click_pos.y)
-                        .find(e => e !== activeEnt && !helper.isGrenadeEntity(e) &&
-                            isPlayerControlled(e) !== isPlayerControlled(activeEnt));
-                    const hpBefore = target ? target.hp : 0;
-                    if (EntitySystem.attack(activeEnt, click_pos.x, click_pos.y) &&
-                        target && target.hp < hpBefore && target.hp > 0) {
-                        charmEntity(target, activeEnt);
-                    }
-                    turns.checkStandingTileEffects(activeEnt);
-                    currentEntityTurnsRemaining -= 1; // Only use 1 turn action.
-                    action.value = "move";
-                    update();
+                    executeAbility('charm', activeEnt, click_pos.x, click_pos.y);
                     return;
                 }
 
                 if (specialMode === 'magDump') {
-                    specialMode = null;
-                    specialModeEntity = null;
-                    const weapon = activeEnt.equipment?.weapon;
-                    const maxShots = itemTypes[weapon.itemType].maxAmmo;
-                    for (let i = 0; i < maxShots && weapon.currentAmmo > 0; i++) {
-                        if (!EntitySystem.attack(activeEnt, click_pos.x, click_pos.y)) break;
-                    }
-                    turns.checkStandingTileEffects(activeEnt);
-                    currentEntityTurnsRemaining -= 2;
-                    action.value = "move";
-                    update();
+                    executeAbility('magDump', activeEnt, click_pos.x, click_pos.y);
                     return;
                 }
 

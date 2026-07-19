@@ -188,8 +188,12 @@ function useSpecialMode(entity, mode) {
 		action.value = "move";
 		action.disabled = false;
 	} else if (abilityTypes[mode]) {
-		action.value = "attack";
-		console.log(abilityTypes[mode].name + ": select a target.");
+		if (isPlayerControlled(entity)) {
+			action.value = "attack";
+			console.log(abilityTypes[mode].name + ": select a target.");
+		} else {
+			console.log(entity.name + " uses " + abilityTypes[mode].name + "!");
+		}
 	} else {
 		return;
 	}
