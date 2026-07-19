@@ -586,11 +586,10 @@ var turns = {
 
     tryUseAbility: function(entity, keys, target, canSeeTarget, dist) {
         const behavior = helper.hasTrait(entity, 'aggressive') ? 'offensive' :
-                         helper.hasTrait(entity, 'defensive') ? 'defensive' : null;
-        if (!behavior) return false;
+                         helper.hasTrait(entity, 'defensive') ? 'defensive' : 'default';
         for (const key of keys) {
             const def = abilityTypes[key];
-            if (!def || def.type !== behavior || !helper.hasTrait(entity, key)) continue;
+            if (!def || (def.type !== behavior && def.type !== 'default') || !helper.hasTrait(entity, key)) continue;
             if (key !== 'donor' && def.canUse(entity)) continue;
 
             if (key === 'dashAttack' && dist === 1) {
@@ -628,17 +627,21 @@ var turns = {
             }
 
             if (key === 'charm' && entity.hp <= charmHpThreshold && hasAmmo(entity)) {
-                const range = getEntityAttackRange(entity);
-                const victim = entities.filter(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) &&
-                        isPlayerControlled(e) !== isPlayerControlled(entity) &&
-                        calc.distance(entity.x, e.x, entity.y, e.y) <= range &&
-                        EntitySystem.hasLOS(entity, e.x, e.y, false))
-                    .sort((a, b) => calc.distance(entity.x, a.x, entity.y, a.y) -
-                                    calc.distance(entity.x, b.x, entity.y, b.y))[0];
-                if (victim) {
-                    useSpecialMode(entity, key);
-                    executeAbility(key, entity, victim.x, victim.y);
-                    return true;
+                const seen = entities.filter(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) &&
+                    isPlayerControlled(e) !== isPlayerControlled(entity) &&
+                    EntitySystem.hasLOS(entity, e.x, e.y, false));
+                const seenAllies = entities.filter(e => canDonateTo(entity, e) &&
+                    EntitySystem.hasLOS(entity, e.x, e.y, false));
+                if (seen.length > seenAllies.length) {
+                    const range = getEntityAttackRange(entity);
+                    const victim = seen.filter(e => calc.distance(entity.x, e.x, entity.y, e.y) <= range)
+                        .sort((a, b) => calc.distance(entity.x, a.x, entity.y, a.y) -
+                                        calc.distance(entity.x, b.x, entity.y, b.y))[0];
+                    if (victim) {
+                        useSpecialMode(entity, key);
+                        executeAbility(key, entity, victim.x, victim.y);
+                        return true;
+                    }
                 }
             }
         }
@@ -657,7 +660,7 @@ var turns = {
         }
 
         if ((canSeeTarget || entity.seenX !== 0 || entity.seenY !== 0) &&
-            this.tryUseAbility(entity, ['donor'], target, canSeeTarget, dist)) return;
+            this.tryUseAbility(entity, ['donor', 'charm'], target, canSeeTarget, dist)) return;
 
         if (helper.hasTrait(entity, 'defensive') && entity.lastAttacker && entity.hp < entity.maxHp) {
             calc.move(entity);
@@ -686,9 +689,6 @@ var turns = {
                 }
             }
 
-            //if (!entities.some(e => canDonateTo(entity, e) && EntitySystem.hasLOS(entity, e.x, e.y, false)) &&
-            if (!entities.some(e => EntitySystem.hasLOS(entity, e.x, e.y, false)) &&
-                this.tryUseAbility(entity, ['charm'], target, canSeeTarget, dist)) return;
 
             // Cover search: entity.range * 2 radius, hard geometry only (doors forced open), outside all blast zones
             const searchRadius = entity.range * 2;
@@ -706,11 +706,6 @@ var turns = {
                 }
             }
             closedDoors.forEach(d => { d.open = false; });
-
-            // (!cover || !EntitySystem.calculateMovement(entity).some(m => m.x === cover.x && m.y === cover.y)) {
-            if (entity.hp > charmHpThreshold && allPlayers.length > 0) {
-                if (this.tryUseAbility(entity, ['charm'], target, canSeeTarget, dist)) return;
-            }
 
             const canEscape = EntitySystem.canMoveOutsideRadius(entity, entity.x, entity.y, blastRadius);
             const exposed   = EntitySystem.hasLOS(entity, attackerPos.x, attackerPos.y, false);
