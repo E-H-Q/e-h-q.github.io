@@ -597,7 +597,7 @@ function unequipItem(entity, slot) {
 	const itemDef      = itemTypes[equippedItem.itemType];
 	applyEquipmentEffects(entity, itemDef, false);
 	entity.equipment[slot] = null;
-	console.log(entity.name + " unequipped " + itemDef.name);
+	//console.log(entity.name + " unequipped " + itemDef.name);
 	if (slot === 'weapon' && isPlayerControlled(entity)) exitSpecialMode(false);
 	return true;
 }

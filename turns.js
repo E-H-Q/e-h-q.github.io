@@ -531,6 +531,24 @@ var turns = {
         return grenade;
     },
 
+    decideWeapon: function(entity, dist) {
+        const inv = entity.inventory;
+        if (!inv) return;
+        const equipped = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
+        const wantMelee = dist <= 1;
+        if (equipped && (equipped.aimStyle === 'melee') === wantMelee) return;
+        let anyIdx = -1, loadedIdx = -1;
+        for (let i = 0; i < inv.length; i++) {
+            const def = inv[i] && itemTypes[inv[i].itemType];
+            if (!def || def.type !== 'equipment' || def.slot !== 'weapon' || (def.aimStyle === 'melee') !== wantMelee) continue;
+            if (anyIdx < 0) anyIdx = i;
+            const ammo = inv[i].currentAmmo !== undefined ? inv[i].currentAmmo : def.maxAmmo;
+            if (loadedIdx < 0 && (def.maxAmmo === undefined || ammo > 0)) loadedIdx = i;
+        }
+        const pick = loadedIdx >= 0 ? loadedIdx : anyIdx;
+        if (pick >= 0) equipItem(entity, pick);
+    },
+
     findWeaponWithAmmo: function(entity) {
         if (!entity.inventory) return -1;
         for (let i = 0; i < entity.inventory.length; i++) {
@@ -656,8 +674,10 @@ var turns = {
             if (!target) { currentEntityTurnsRemaining--; return; }
             dist = calc.distance(entity.x, target.x, entity.y, target.y);
             canSeeTarget = EntitySystem.hasLOS(entity, target.x, target.y, false);
-            effectiveRange = getEntityAttackRange(entity);
         }
+
+        this.decideWeapon(entity, dist);
+        effectiveRange = getEntityAttackRange(entity);
 
         if ((canSeeTarget || entity.seenX !== 0 || entity.seenY !== 0) &&
             this.tryUseAbility(entity, ['donor', 'charm'], target, canSeeTarget, dist)) return;
@@ -755,7 +775,7 @@ var turns = {
                             if (typeof equipItem !== 'undefined') {
                                 equipItem(entity, weaponIndex);
                                 currentEntityTurnsRemaining--;
-                                console.log(entity.name + " switched weapons!");
+                                //console.log(entity.name + " switched weapons!");
                                 return;
                             }
                         }
