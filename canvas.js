@@ -455,15 +455,20 @@ var canvas = {
 
 		// Draw charm status if entity is charmed
 		if (helper.hasTrait(entity, 'charmed')) {
-			ctx.drawImage(movesImg, SPRITE_CHARM_STATUS * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-				screenX, screenY, tileSize, tileSize);
+			//ctx.drawImage(movesImg, SPRITE_CHARM_STATUS * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE, screenX, screenY, tileSize, tileSize);
+			for (let i = 0; i < entity.charmRounds; i++) {
+				ctx.drawImage(movesImg, SPRITE_CHARM_STATUS * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+						screenX + (i * 3), screenY, tileSize, tileSize);
+			}
 		}
 
 		// Draw active indicator if this is the current entity
 		const isActive = entities[currentEntityIndex] === entity;
 		if (isActive) {
-			ctx.drawImage(movesImg, SPRITE_ACTIVE * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-				screenX, screenY, tileSize, tileSize);
+			for (let i = 0; i < currentEntityTurnsRemaining; i++) {
+				ctx.drawImage(movesImg, SPRITE_ACTIVE * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+					screenX - (i * 3), screenY, tileSize, tileSize);
+			}
 		}
 
 		// Draw follower indicators
