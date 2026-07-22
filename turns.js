@@ -188,16 +188,8 @@ var turns = {
                     window.cursorWorldPos = {x: currentEntity.x, y: currentEntity.y};
                 }
 
-                if (!enemyChainDepth) {
-                    canvas.init();
-                    canvas.clear();
-                    canvas.grid();
-                    canvas.walls();
-                    canvas.items();
-                    canvas.player();
-                    canvas.enemy();
-                    canvas.inventory();
-                }
+                this._advancedTurn = true;
+                return;
             }
         }
 
@@ -368,8 +360,6 @@ var turns = {
                 }
             }
         }
-
-        if (isPlayerControlled(currentEntity)) this.checkEnemyLOS();
     },
 
     checkStandingTileEffects: function(entity) {

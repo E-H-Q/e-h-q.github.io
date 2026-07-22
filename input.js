@@ -10,6 +10,7 @@ var isZoomedOut = false;
 var inventoryHidden = false;
 var lastCameraUpdateCursorX = null;
 var lastCameraUpdateCursorY = null;
+var lastMouseDraw = null;
 
 // Adjacent select mode: { mode: 'grab' | 'door' }
 var adjacentSelect = null;
@@ -796,6 +797,7 @@ var input = {
             return;
         }
 
+        const forceDraw = keyboardMode || !cursorVisible;
         if (keyboardMode) keyboardMode = false;
 
         const gridX = Math.floor(canvasX / tileSize);
@@ -857,6 +859,14 @@ var input = {
             }
             return;
         }
+        const cw = window.cursorWorldPos;
+        if (!forceDraw && lastMouseDraw &&
+            lastMouseDraw.x === cw.x && lastMouseDraw.y === cw.y &&
+            lastMouseDraw.camX === camera.x && lastMouseDraw.camY === camera.y &&
+            lastMouseDraw.inv === window.inventoryHoverSlot &&
+            lastMouseDraw.ab === window.abilityHoverSlot) return;
+        lastMouseDraw = {x: cw.x, y: cw.y, camX: camera.x, camY: camera.y,
+            inv: window.inventoryHoverSlot, ab: window.abilityHoverSlot};
         update();
     },
 

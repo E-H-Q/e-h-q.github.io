@@ -437,27 +437,33 @@ function update() {
 
 	valid = [];
 	const skipRender = enemyChainDepth > 0 && !EntitySystem._explosionPending;
-	if (!skipRender) {
+	const renderScene = () => {
 		canvas.init();
 		canvas.clear();
 		canvas.grid();
 		canvas.walls();
 		canvas.player();
 		canvas.items();
-
-		if (isPlayerControlled(currentEntity) && typeof turns !== 'undefined' && turns.checkEnemyLOS) {
+		const ce = entities[currentEntityIndex] || player;
+		if (isPlayerControlled(ce) && typeof turns !== 'undefined' && turns.checkEnemyLOS) {
 			turns.checkEnemyLOS();
 		}
-
 		canvas.enemy();
 		canvas.drawOnionskin();
-	}
+	};
+	if (!skipRender) renderScene();
 
 	populate.reset();
 	populate.enemies();
 	populate.player();
 
 	turns.check();
+
+	if (turns._advancedTurn) {
+		turns._advancedTurn = false;
+		if (!skipRender) renderScene();
+		turns.check();
+	}
 
 	if (skipRender) return;
 
