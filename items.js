@@ -380,7 +380,7 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 	const item = inv[inventoryIndex];
 	if (!item) return false;
 	const itemDef = itemTypes[item.itemType];
-	if (!item.isLive || itemDef.effect !== "grenade") return false;
+	//if (!item.isLive || itemDef.effect !== "grenade") return false;
 
 	const dist = calc.distance(entity.x, targetX, entity.y, targetY);
 	if (dist > entity.attack_range) return false;
@@ -400,18 +400,34 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 	if (path.length === 0) return false;
 
 	const landingSpot = path[Math.min(path.length - 1, entity.attack_range)];
-	const grenadeTraits = ['explode', 'active'];
-	if (canEntityImmolate(entity)) grenadeTraits.push('immolate');
+	
+	if (item.isLive && itemDef.effect == "grenade") {
+		const grenadeTraits = ['explode', 'active'];
+		if (canEntityImmolate(entity)) grenadeTraits.push('immolate');
 
-	allEnemies.push({
-		name: "Grenade", hp: 1,
-		x: landingSpot.x, y: landingSpot.y,
-		range: 0, attack_range: 0, turns: 1,
-		turnsRemaining: item.turnsRemaining,
-		inventory: [], traits: grenadeTraits
-	});
+		allEnemies.push({
+			name: "Grenade", hp: 1,
+			x: landingSpot.x, y: landingSpot.y,
+			range: 0, attack_range: 0, turns: 1,
+			turnsRemaining: item.turnsRemaining,
+			inventory: [], traits: grenadeTraits
+		});
+	} else {
+		item.x = landingSpot.x;
+		item.y = landingSpot.y;
+		if (!item.quantity) item.quantity = 1;
+		for (let i = 0; i < item.quantity; i++) {
+			mapItems.push(item);
+		}
+	}
 	inv[inventoryIndex] = null;
-	console.log(entity.name + " threw a grenade to (" + landingSpot.x + ", " + landingSpot.y + ")!");
+	//console.log(entity.name + " threw a grenade to (" + landingSpot.x + ", " + landingSpot.y + ")!");
+	if (item.quantity && item.quantity > 1) {
+		console.log(entity.name + " threw " + item.quantity + " " + itemDef.name + "s!");
+	} else {
+		console.log(entity.name + " threw a " + itemDef.name + "!");
+	}
+	
 	return true;
 }
 
@@ -653,7 +669,7 @@ function useItem(entity, inventoryIndex) {
 					console.log("No inventory space for live grenade!");
 					return false;
 				}
-				console.log(entity.name + " pulled the pin! Use/click to throw!");
+				console.log(entity.name + " pulled the pin! Better throw it!");
 				update();
 				return true;
 			}
