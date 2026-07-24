@@ -171,7 +171,7 @@ var turns = {
                     if (currentEntityIndex >= entities.length) {
                         currentEntityIndex = 0;
                         for (let i = walls.length - 1; i >= 0; i--) {
-                            if (walls[i].type === 'shield' && --walls[i].turnsRemaining <= 0) walls.splice(i, 1);
+                            if (walls[i].type === 'shield' && (!walls[i].owner || walls[i].owner.hp < 1)) walls.splice(i, 1);
                         }
                     }
 
@@ -181,6 +181,9 @@ var turns = {
 
                 if (!entities[currentEntityIndex]) currentEntityIndex = 0;
                 currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+                for (let i = walls.length - 1; i >= 0; i--) {
+                    if (walls[i].type === 'shield' && walls[i].owner === entities[currentEntityIndex] && --walls[i].turnsRemaining <= 0) walls.splice(i, 1);
+                }
                 if (entities[currentEntityIndex]) entities[currentEntityIndex]._droppedGrenadeThisRound = false;
 
                 const currentEntity = entities[currentEntityIndex];
@@ -639,6 +642,22 @@ var turns = {
                 }
             }
 
+            if (key === 'shield' && currentEntityTurnsRemaining === def.ap) {
+                const threat = (entity.lastAttacker && entity.lastAttacker.hp > 0 &&
+                    EntitySystem.hasLOS(entity, entity.lastAttacker.x, entity.lastAttacker.y, false)) ? entity.lastAttacker :
+                    entities.find(e => e.hp > 0 && !helper.isGrenadeEntity(e) &&
+                        isPlayerControlled(e) !== isPlayerControlled(entity) &&
+                        EntitySystem.hasLOS(entity, e.x, e.y, false));
+                if (threat) {
+                    const tile = line({x: entity.x, y: entity.y}, {x: threat.x, y: threat.y})[1];
+                    if (tile && def.validate(entity, tile.x, tile.y)) {
+                        useSpecialMode(entity, key);
+                        executeAbility(key, entity, tile.x, tile.y);
+                        return true;
+                    }
+                }
+            }
+
             if (key === 'charm' && entity.hp <= charmHpThreshold && hasAmmo(entity)) {
                 const seen = entities.filter(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) &&
                     isPlayerControlled(e) !== isPlayerControlled(entity) &&
@@ -737,6 +756,8 @@ var turns = {
                 return;
             }
         }
+
+        if (this.tryUseAbility(entity, ['shield'], target, canSeeTarget, dist)) return;
 
         if (canSeeTarget) {
             entity.seenX = target.x;
