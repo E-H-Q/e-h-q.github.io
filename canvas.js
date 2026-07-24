@@ -137,7 +137,8 @@ const ABILITY_SPRITE_MAP = {
 	dashAttack: 0,
 	magDump:    1,
 	charm:      2,
-	donor:      3
+	donor:      3,
+	shield:     4
 };
 
 // Sprites follow original allegiance: charmed entities keep their pre-charm sprite.
@@ -264,6 +265,14 @@ var canvas = {
 					ctx.drawImage(tilesImg, TILE_FIRE * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
 				} else {
 					ctx.fillStyle = "rgba(255, 100, 0, 0.6)";
+					ctx.fillRect(screenX, screenY, tileSize, tileSize);
+				}
+			} else if (wall.type === 'shield') {
+				const abImg = document.getElementById("abilities");
+				if (abImg && abImg.complete && abImg.naturalWidth) {
+					ctx.drawImage(abImg, ABILITY_SPRITE_MAP.shield * ABILITY_SPRITE_SIZE, 0, ABILITY_SPRITE_SIZE, ABILITY_SPRITE_SIZE, screenX, screenY, tileSize, tileSize);
+				} else {
+					ctx.fillStyle = "rgba(100, 180, 255, 0.7)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
 			} else if (wall.type === 'door') {

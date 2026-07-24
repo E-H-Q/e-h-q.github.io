@@ -10,7 +10,7 @@ const EntitySystem = {
 		if (path.length < calc.distance(entity.x, targetX, entity.y, targetY) + 1) return false;
 		for (let i = 1; i < path.length - 1; i++) {
 			const wall = wallAt(path[i].x, path[i].y);
-			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && !(wall.type === 'door' && wall.open)) return false;
+			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && wall.type !== 'shield' && !(wall.type === 'door' && wall.open)) return false;
 		}
 		return true;
 	},
@@ -123,8 +123,11 @@ const EntitySystem = {
 			return true;
 		}
 
-		const targets      = getTargetedEntities(attacker, targetX, targetY);
-		const enemies      = targets.filter(e => e !== attacker && e.hp > 0);
+		const shieldBetween = e => line({x: attacker.x, y: attacker.y}, {x: e.x, y: e.y})
+			.slice(1, -1).some(p => wallAt(p.x, p.y)?.type === 'shield');
+		const targets   = getTargetedEntities(attacker, targetX, targetY).filter(e => e !== attacker && e.hp > 0);
+		const enemies   = targets.filter(e => !shieldBetween(e));
+		const shielded  = targets.length > enemies.length;
 		let attackedAnyone = false;
 
 		for (let burst = 0; burst < (weaponDef?.burst || 1); burst++) {
@@ -153,7 +156,10 @@ const EntitySystem = {
 			}
 		}
 
-		if (!attackedAnyone) return false;
+		if (!attackedAnyone) {
+			if (!shielded) return false;
+			//console.log("A shield intercepts " + attacker.name + "'s attack!");
+		}
 
 		consumeAmmo(attacker);
 

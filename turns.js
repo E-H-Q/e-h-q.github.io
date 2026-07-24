@@ -168,7 +168,12 @@ var turns = {
                 // Advance to next entity
                 do {
                     currentEntityIndex++;
-                    if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
+                    if (currentEntityIndex >= entities.length) {
+                        currentEntityIndex = 0;
+                        for (let i = walls.length - 1; i >= 0; i--) {
+                            if (walls[i].type === 'shield' && --walls[i].turnsRemaining <= 0) walls.splice(i, 1);
+                        }
+                    }
 
                     const currentEntity = entities[currentEntityIndex];
                     if (this.shouldProcessEntity(currentEntity)) break;
@@ -344,7 +349,7 @@ var turns = {
                             ? itemTypes[currentEntity.equipment.weapon.itemType]?.areaRadius || 2 : 2;
                         const center = (() => {
                             let p = line({x: currentEntity.x, y: currentEntity.y}, {x: cursorX, y: cursorY});
-                            p = clipPathAtWall(p, canEntityDestroyWalls(currentEntity), true, canEntityBreach(currentEntity));
+                            p = clipPathAtWall(p, canEntityDestroyWalls(currentEntity), true, canEntityBreach(currentEntity), true);
                             const range = getEntityAttackRange(currentEntity);
                             p = p.length > range + 1 ? p.slice(1, range + 1) : p.slice(1);
                             return p.length > 0 ? p[p.length - 1] : {x: cursorX, y: cursorY};

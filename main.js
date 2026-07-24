@@ -67,13 +67,14 @@ var entityTraits = {
 	explode: 	{ name: "Explode",	  description: "Explodes on death/countdown"},
 	active: 	{ name: "Active", 	  description: "Countdown has been activated"},
 	fire:       { name: "On Fire",    description: "(Status) " + fireDamage + "DMG per turn" },
-	charmed:   { name: "Charmed",    description: "(Status) Swaps allegiance" },
+	charmed:   { name: "Charmed",     description: "(Status) Swaps allegiance" },
 	immolate:   { name: "Immolate",   description: "Attacks spread fire tiles" },
 	lifesteal:  { name: "Life Steal", description: "Heals for damage dealt by attacks" },
-	dashAttack: { name: "Dash Attack", description: "(Ability) Melee weapons only" },
-	magDump:   { name: "Mag Dump",   description: "(Ability) Burst fire weapons only" },
-	charm:     { name: "Charm",      description: "(Ability) Direct aim weapons only" },
-	donor:     { name: "Donor",      description: "(Ability) No weapon required" }
+	dashAttack: { name: "Dash Attack",description: "(Ability) Dash through enemies" },
+	magDump:   { name: "Mag Dump",    description: "(Ability) Fire remaining ammo" },
+	charm:     { name: "Charm",       description: "(Ability) Charms enemy on hit for " + charmDuration + " turns" },
+	donor:     { name: "Donor",       description: "(Ability) Donate 5HP to adjacent ally" },
+	shield:     { name: "Shield",     description: "(Ability) Temporary cover for 1 round" }
 };
 
 function moveEntityList(from, to, e) {
@@ -221,6 +222,27 @@ var abilityTypes = {
 			entity.hp -= donorAmount;
 			target.hp += donorAmount;
 			console.log(entity.name + " gave " + donorAmount + " HP to " + target.name + "!");
+		}
+	},
+	shield: {
+		name: "Shield",
+		type: "defensive",
+		ap: 1,
+		description: "Temporary shield, destroyed be explosions.",
+		canUse: function(entity) {
+			if (currentEntityTurnsRemaining < this.ap) return "Requires " + this.ap + " action points";
+			return null;
+		},
+		validate: function(entity, x, y) {
+			const w = wallAt(x, y);
+			return (!w || w.type === 'fire') && !entities.some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === x && e.y === y);
+		},
+		execute: function(entity, x, y) {
+			const fi = walls.findIndex(w => w.x === x && w.y === y && w.type === 'fire');
+			if (fi >= 0) walls.splice(fi, 1);
+
+			walls.push({x: x, y: y, type: 'shield', turnsRemaining: 1});
+			console.log(entity.name + " put up their Shield!");
 		}
 	},
 	charm: {

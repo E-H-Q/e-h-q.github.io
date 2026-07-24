@@ -967,7 +967,7 @@ var input = {
                     return;
                 }
 
-                if (specialMode !== 'donor' && !hasAmmo(activeEnt)) {
+                if (specialMode !== 'donor' && specialMode !== 'shield' && !hasAmmo(activeEnt)) {
                     console.log("Out of ammo! Press R to reload.");
                     return;
                 }
@@ -984,6 +984,11 @@ var input = {
 
                 if (specialMode === 'donor') {
                     executeAbility('donor', activeEnt, click_pos.x, click_pos.y);
+                    return;
+                }
+
+                if (specialMode === 'shield') {
+                    executeAbility('shield', activeEnt, click_pos.x, click_pos.y);
                     return;
                 }
 

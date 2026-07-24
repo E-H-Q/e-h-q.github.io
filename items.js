@@ -64,6 +64,7 @@ const equipmentData = {
 	breachingKit: {
 		name: "Breaching Kit", type: "equipment", slot: "accessory",
 		grantsBreaching: true, displayName: "Breaching Kit"
+		//grantsDestroy: true, displayName: "Breaching Kit"
 	},
 	flameBadge: {
 		name: "Flame Badge", type: "equipment", slot: "accessory",
@@ -182,7 +183,7 @@ function canEntityImmolate(entity) {
 
 function getEntityAttackRange(entity) {
 	if (entity === specialModeEntity) {
-		if (specialMode === 'donor') return 1;
+		if (specialMode === 'donor' || specialMode === 'shield') return 1;
 		if (specialMode === 'dashAttack') return entity.range;
 	}
 	const weaponDef = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
@@ -295,7 +296,7 @@ function calculateEntityTargeting(entity, endX, endY) {
 	const range      = getEntityAttackRange(entity);
 
 	let path = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
-	path = clipPathAtWall(path, canDestroy, true, canBreach);
+	path = clipPathAtWall(path, canDestroy, true, canBreach, true);
 	path = path.length > range + 1 ? path.slice(1, range + 1) : path.slice(1);
 
 	if (path.length === 0) {

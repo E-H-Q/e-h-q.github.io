@@ -30,7 +30,7 @@ function line(p0, p1) {
 
 function wallBlocksLOS(wall) {
 	if (!wall) return false;
-	if (wall.type === 'glass' || wall.type === 'water' || wall.type === 'fire') return false;
+	if (wall.type === 'glass' || wall.type === 'water' || wall.type === 'fire' || wall.type === 'shield') return false;
 	if (wall.type === 'door' && wall.open) return false;
 	return true;
 }
@@ -38,7 +38,8 @@ function wallBlocksLOS(wall) {
 // Clips a path to the first blocking wall.
 // canDestroy: ignore all walls. canBreach: pass through 1 adjacent regular wall + 1 tile beyond.
 // stopAtDoor: include the door tile so it can be targeted.
-function clipPathAtWall(path, canDestroy = false, stopAtDoor = false, canBreach = false) {
+// passShield: weapon paths pass through shields; grenades (default) stop at them.
+function clipPathAtWall(path, canDestroy = false, stopAtDoor = false, canBreach = false, passShield = false) {
 	if (canDestroy) return path;
 	if (!path || path.length === 0) return [];
 
@@ -49,6 +50,10 @@ function clipPathAtWall(path, canDestroy = false, stopAtDoor = false, canBreach 
 		const wall = wallAt(path[i].x, path[i].y);
 		if (!wall) continue;
 		if (wall.type === 'water' || wall.type === 'fire') continue;
+		if (wall.type === 'shield') {
+			if (passShield) continue;
+			return path.slice(0, i);
+		}
 		if (wall.type === 'glass') {
 			if (wall.damaged) continue;
 			if (i === path.length - 1) return path;
@@ -84,6 +89,7 @@ function hasBreachingLOS(startX, startY, endX, endY) {
 		if (!wall) continue;
 		if (wall.type === 'water' || wall.type === 'fire') continue;
 		if (wall.type === 'glass') continue;
+		if (wall.type === 'shield') continue;
 		if (wall.type === 'door' && wall.open) continue;
 		if (wallsHit === 0) { wallsHit++; i++; continue; }
 		return false;
@@ -130,7 +136,7 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 			const rayEndY = Math.round(startY + dirY * maxRange + perpY * offset * side);
 
 			let sidePath = line({x: startX, y: startY}, {x: rayEndX, y: rayEndY});
-			sidePath = clipPathAtWall(sidePath);
+			sidePath = clipPathAtWall(sidePath, false, false, false, true);
 
 			if (sidePath.length > 1) {
 				sidePath = sidePath.length > maxRange + 1 ? sidePath.slice(1, maxRange + 1) : sidePath.slice(1);
