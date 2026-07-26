@@ -4,13 +4,13 @@ const EntitySystem = {
 	_explosionQueue: [],
 	_explosionPending: false,
 
-	hasLOS: function(entity, targetX, targetY, usePermissive = false) {
+	hasLOS: function(entity, targetX, targetY, usePermissive = false, ignoreShields = false) {
 		if (usePermissive) return hasPermissiveLOS(entity.x, entity.y, targetX, targetY);
 		const path = line({x: entity.x, y: entity.y}, {x: targetX, y: targetY});
 		if (path.length < calc.distance(entity.x, targetX, entity.y, targetY) + 1) return false;
 		for (let i = 1; i < path.length - 1; i++) {
 			const wall = wallAt(path[i].x, path[i].y);
-			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && wall.type !== 'shield' && !(wall.type === 'door' && wall.open)) return false;
+			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && !(ignoreShields && wall.type === 'shield') && !(wall.type === 'door' && wall.open)) return false;
 		}
 		return true;
 	},
@@ -123,17 +123,13 @@ const EntitySystem = {
 			return true;
 		}
 
-		const shieldBetween = e => line({x: attacker.x, y: attacker.y}, {x: e.x, y: e.y})
-			.slice(1, -1).some(p => wallAt(p.x, p.y)?.type === 'shield');
-		const targets   = getTargetedEntities(attacker, targetX, targetY).filter(e => e !== attacker && e.hp > 0);
-		const enemies   = targets.filter(e => !shieldBetween(e));
-		const shielded  = targets.length > enemies.length;
+		const targets = getTargetedEntities(attacker, targetX, targetY).filter(e => e !== attacker && e.hp > 0);
 		let attackedAnyone = false;
 
 		for (let burst = 0; burst < (weaponDef?.burst || 1); burst++) {
 			if (this.destroyWalls(attacker, targetX, targetY)) attackedAnyone = true;
 
-			for (const enemy of enemies) {
+			for (const enemy of targets) {
 				if (enemy.hp <= 0) continue;
 				if (calc.roll(6) >= 4) {
 					let dmg = Math.max(1, calc.roll(6) + (attacker.damage || 0) - (enemy.armor || 0));
@@ -156,10 +152,7 @@ const EntitySystem = {
 			}
 		}
 
-		if (!attackedAnyone) {
-			if (!shielded) return false;
-			//console.log("A shield intercepts " + attacker.name + "'s attack!");
-		}
+		if (!attackedAnyone) return false;
 
 		consumeAmmo(attacker);
 

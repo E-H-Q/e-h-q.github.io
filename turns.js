@@ -56,7 +56,7 @@ var turns = {
         allEnemies.forEach(enemy => {
             enemy.awareOfPlayer = false;
             if (enemy.hp < 1) return;
-            const vis = playerEntities.filter(p => EntitySystem.hasLOS(enemy, p.x, p.y, false));
+            const vis = playerEntities.filter(p => EntitySystem.hasLOS(enemy, p.x, p.y, false, true));
             if (vis.length) enemy.awareOfPlayer = true;
             this._visibleCache.set(enemy, vis);
         });
@@ -352,7 +352,7 @@ var turns = {
                             ? itemTypes[currentEntity.equipment.weapon.itemType]?.areaRadius || 2 : 2;
                         const center = (() => {
                             let p = line({x: currentEntity.x, y: currentEntity.y}, {x: cursorX, y: cursorY});
-                            p = clipPathAtWall(p, canEntityDestroyWalls(currentEntity), true, canEntityBreach(currentEntity), true);
+                            p = clipPathAtWall(p, canEntityDestroyWalls(currentEntity), canEntityBreach(currentEntity));
                             const range = getEntityAttackRange(currentEntity);
                             p = p.length > range + 1 ? p.slice(1, range + 1) : p.slice(1);
                             return p.length > 0 ? p[p.length - 1] : {x: cursorX, y: cursorY};

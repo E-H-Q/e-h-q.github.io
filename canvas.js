@@ -275,6 +275,7 @@ var canvas = {
 					ctx.fillStyle = "rgba(100, 180, 255, 0.7)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
+				if (wall.damaged && hasSprites) ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
 			} else if (wall.type === 'door') {
 				if (hasSprites) {
 					const doorTile = wall.open ? TILE_DOOR_OPEN : TILE_DOOR_CLOSED;

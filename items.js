@@ -296,7 +296,7 @@ function calculateEntityTargeting(entity, endX, endY) {
 	const range      = getEntityAttackRange(entity);
 
 	let path = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
-	path = clipPathAtWall(path, canDestroy, true, canBreach, true);
+	path = clipPathAtWall(path, canDestroy, canBreach);
 	path = path.length > range + 1 ? path.slice(1, range + 1) : path.slice(1);
 
 	if (path.length === 0) {
