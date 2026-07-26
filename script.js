@@ -395,16 +395,9 @@ function update() {
 
 	if (allPlayers.length > 0) player = allPlayers[0];
 
-	const nonGrenadeEnemies = allEnemies.filter(e => !helper.hasTrait(e, 'explode') && e.hp >= 1);
-	const grenades = allEnemies.filter(e => helper.hasTrait(e, 'explode') && e.hp >= 1);
-
 	[...allPlayers, ...allEnemies].forEach(syncCharm);
 
-	entities = [
-		...allPlayers,
-		...nonGrenadeEnemies,
-		...grenades
-	];
+	rebuildEntities();
 
 	if (currentEntityIndex == undefined) {
 		currentEntityIndex = 0;

@@ -83,6 +83,14 @@ function moveEntityList(from, to, e) {
 	if (!to.includes(e)) to.push(e);
 }
 
+function rebuildEntities() {
+	entities = [
+		...allPlayers,
+		...allEnemies.filter(e => !helper.hasTrait(e, 'explode') && e.hp >= 1),
+		...allEnemies.filter(e => helper.hasTrait(e, 'explode') && e.hp >= 1)
+	];
+}
+
 // Charm: target joins the charmer's side until it snaps out (1 in 3 each turn).
 // Charmed players adopt the charmer's behavior trait. Originals are snapshot in
 // _precharm and restored exactly on uncharm.
@@ -133,8 +141,12 @@ function uncharmEntity(target) {
 	delete target.charmRounds;
 	if (isPlayerControlled(target)) moveEntityList(allEnemies, allPlayers, target);
 	else moveEntityList(allPlayers, allEnemies, target);
+
 	const idx = entities.indexOf(target);
-	if (idx >= 0 && idx < currentEntityIndex) currentEntityIndex--;
+	const leftPlayers = !isPlayerControlled(target);
+	if (leftPlayers && idx >= 0 && idx <= currentEntityIndex) currentEntityIndex--;
+	rebuildEntities();
+
 	entities.forEach(e => {
 		if (e.following === target) {
 			console.log(e.name + " stopped following " + target.name + ".");
