@@ -659,21 +659,20 @@ function useItem(entity, inventoryIndex) {
 			console.log(entity.name + " feels themselves moving faster!");
 			consume();
 		} else if (itemDef.effect === "grenade") {
-			if (item.isLive) {
-				window.throwingGrenadeIndex = inventoryIndex;
-				action.value = "attack";
-				console.log("Select target to throw grenade (range: " + entity.attack_range + ")");
-				update();
-				return true;
-			} else {
-				if (pullGrenadePin(entity, inventoryIndex) < 0) {
+			let liveIdx = inventoryIndex;
+			if (!item.isLive) {
+				liveIdx = pullGrenadePin(entity, inventoryIndex);
+				if (liveIdx < 0) {
 					console.log("No inventory space for live grenade!");
 					return false;
 				}
 				console.log(entity.name + " pulled the pin! Better throw it!");
-				update();
-				return true;
 			}
+			window.throwingGrenadeIndex = liveIdx;
+			action.value = "attack";
+			console.log("Select target to throw grenade (range: " + entity.attack_range + ")");
+			update();
+			return true;
 		} else if (itemDef.effect === "key") {
 			activateDoorMode(true);
 			return true;

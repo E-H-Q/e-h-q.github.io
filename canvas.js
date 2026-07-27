@@ -620,6 +620,36 @@ var canvas = {
 		}
 	},
 
+	// 1px perimeter outline of a live grenade's blast area
+	grenadeOutline: (grenade) => {
+		if (!helper.hasTrait(grenade, 'active')) return;
+		const r = grenade._radius ?? itemTypes.grenade?.damageRadius;
+		if (r === undefined) return;
+
+		const savedArray = array ? new Uint8Array(array) : null;
+		circle(grenade.y, grenade.x, r);
+		const inBlast = (x, y) => x >= 0 && y >= 0 && x < size && y < size && array[x * size + y] === 1;
+
+		ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
+		ctx.lineWidth = 1;
+		ctx.beginPath();
+		for (let wx = Math.max(0, grenade.x - r - 1); wx <= Math.min(size - 1, grenade.x + r + 1); wx++) {
+			for (let wy = Math.max(0, grenade.y - r - 1); wy <= Math.min(size - 1, grenade.y + r + 1); wy++) {
+				if (!inBlast(wx, wy)) continue;
+				const bx = (wx - camera.x) * tileSize, by = (wy - camera.y) * tileSize;
+				if (bx < -tileSize || bx >= c.width || by < -tileSize || by >= c.height) continue;
+				if (!inBlast(wx, wy - 1)) { ctx.moveTo(bx, by + 0.5); ctx.lineTo(bx + tileSize, by + 0.5); }
+				if (!inBlast(wx, wy + 1)) { ctx.moveTo(bx, by + tileSize - 0.5); ctx.lineTo(bx + tileSize, by + tileSize - 0.5); }
+				if (!inBlast(wx - 1, wy)) { ctx.moveTo(bx + 0.5, by); ctx.lineTo(bx + 0.5, by + tileSize); }
+				if (!inBlast(wx + 1, wy)) { ctx.moveTo(bx + tileSize - 0.5, by); ctx.lineTo(bx + tileSize - 0.5, by + tileSize); }
+			}
+		}
+		ctx.stroke();
+
+		if (savedArray) array = savedArray;
+		else array = new Uint8Array(size * size);
+	},
+
 	enemy: () => {
 		const itemsImg = document.getElementById("items");
 		const hasItemSprites = itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0;

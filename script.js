@@ -524,6 +524,10 @@ function update() {
 				}
 			}
 		});
+		valid.forEach(v => {
+			const g = allEnemies.find(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === v.x && e.y === v.y);
+			if (g) canvas.grenadeOutline(g);
+		});
 		canvas.drawAdjacentSelect();
 	} else { // GRENADE THROWING! (also used for the psuedo attack mode when throwing inventory items.)
 		if (isPlayerControlled(currentEntity) && action.value === "attack" && window.cursorWorldPos && window.throwingGrenadeIndex !== undefined) {

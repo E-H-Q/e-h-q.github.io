@@ -475,6 +475,10 @@ var WindowSystem = {
         if (!activeContextMenu) return;
 
         const menu = activeContextMenu;
+
+        const g = allEnemies.find(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === menu.tileX && e.y === menu.tileY);
+        if (g) canvas.grenadeOutline(g);
+
         const height = menu.options.length * menu.itemHeight + menu.padding * 2;
 
         ctx.fillStyle = "#000000";
