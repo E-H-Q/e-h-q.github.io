@@ -162,7 +162,7 @@ var abilityTypes = {
 	dashAttack: {
 		name: "Dash Attack",
 		type: "offensive",
-		ap: 2,
+		ap: 1,
 		description: "Slash through enemies.",
 		canUse: function(entity) {
 			if (currentEntityTurnsRemaining < this.ap) return "Requires " + this.ap + " action points";
@@ -194,7 +194,7 @@ var abilityTypes = {
 	magDump: {
 		name: "Mag Dump",
 		type: "offensive",
-		ap: 2,
+		ap: 1,
 		description: "Shoot all remaining ammo in weapon.",
 		canUse: function(entity) {
 			if (currentEntityTurnsRemaining < this.ap) return "Requires " + this.ap + " action points";

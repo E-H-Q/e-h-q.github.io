@@ -34,7 +34,7 @@ const weaponsData = {
 		effects: [{stat: "damage", value: 3}, {stat: "attack_range", value: 4}], displayName: "+3 Rifle"
 	},
 	shotgun: {
-		name: "Shotgun", type: "equipment", slot: "weapon", aimStyle: "cone", spread: 3, maxAmmo: 2,
+		name: "Shotgun", type: "equipment", slot: "weapon", aimStyle: "cone", burst: 1, spread: 3, maxAmmo: 2,
 		effects: [{stat: "damage", value: 5}], displayName: "+5 Shotgun"
 	},
 	rocketLauncher: {
