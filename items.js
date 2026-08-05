@@ -160,6 +160,9 @@ function normalizeEntityInventory(entity) {
 // === WEAPON / EQUIPMENT LOOKUPS ==========================================
 
 function getWeaponAimStyle(entity) {
+	const key = activeAbility || (entity === specialModeEntity ? specialMode : null);
+	const abilityStyle = key && abilityTypes[key] ? abilityTypes[key].aimStyle : null;
+	if (abilityStyle) return abilityStyle;
 	return entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.aimStyle || "standard" : "standard";
 }
 

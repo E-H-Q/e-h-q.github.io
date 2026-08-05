@@ -33,6 +33,8 @@ var donorAmount = 5;
 // Special mode state: null | 'peek' | 'dashAttack' | 'magDump'
 var specialMode = null;
 var specialModeEntity = null;
+// Ability key currently resolving inside executeAbility (covers enemies, which never set specialMode)
+var activeAbility = null;
 // Peek internals
 var peekStep = 0;
 var peekStartX = 0;
@@ -163,6 +165,7 @@ var abilityTypes = {
 		name: "Dash Attack",
 		type: "offensive",
 		ap: 1,
+		aimStyle: "standard",
 		description: "Slash through enemies.",
 		canUse: function(entity) {
 			if (currentEntityTurnsRemaining < this.ap) return "Requires " + this.ap + " action points";
@@ -219,6 +222,7 @@ var abilityTypes = {
 		name: "Donor",
 		type: "defensive",
 		ap: 1,
+		aimStyle: "standard",
 		description: "Give " + donorAmount + "HP to an adjacent entity.",
 		canUse: function(entity) {
 			if (entity.hp <= donorAmount) return "Requires more than " + donorAmount + " HP";
@@ -240,6 +244,7 @@ var abilityTypes = {
 		name: "Shield",
 		type: "defensive",
 		ap: 1,
+		aimStyle: "standard",
 		description: "Temporary shield, destroyed be explosions.",
 		canUse: function(entity) {
 			if (currentEntityTurnsRemaining < this.ap) return "Requires " + this.ap + " action points";
@@ -292,7 +297,8 @@ function executeAbility(key, entity, x, y) {
 	if (a.validate && !a.validate(entity, x, y)) return false;
 	specialMode = null;
 	specialModeEntity = null;
-	a.execute(entity, x, y);
+	activeAbility = key;
+	try { a.execute(entity, x, y); } finally { activeAbility = null; }
 	turns.checkStandingTileEffects(entity);
 	spendAP(key);
 	if (isPlayerControlled(entity)) action.value = "move";

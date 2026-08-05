@@ -469,18 +469,6 @@ var input = {
             return;
         }
 
-        // C KEY - Center cursor on the active player entity
-        if (event.keyCode === 67 && !isAiming) {
-            if (event.type === 'keydown') {
-                keyboardMode = true;
-                cursorVisible = true;
-                const activeEnt = getActivePlayerEntity();
-                window.cursorWorldPos = {x: activeEnt.x, y: activeEnt.y};
-                update();
-            }
-            return;
-        }
-
         if (event.type !== 'keydown' && event.keyCode !== 32) return;
 
         if ([37, 38, 39, 40].includes(event.keyCode)) {
@@ -602,12 +590,18 @@ var input = {
             return;
         }
 
-        if (event.keyCode === 222) { // Apostrophe - autotargetting
+        if (event.keyCode === 222) { // Apostrophe - autotargetting, Shift centers on active entity
             event.preventDefault();
 
             if (currentEntityIndex < 0 || !isPlayerControlled(entities[currentEntityIndex])) return;
 
             const activeEnt = getActivePlayerEntity();
+
+            if (event.shiftKey) {
+                helper.moveCursorTo(activeEnt.x, activeEnt.y, false);
+                return;
+            }
+
             let targetX = null;
             let targetY = null;
 
@@ -634,18 +628,13 @@ var input = {
                 }
             } 
             else if (action.value === "move") {
-                const visibleItems = mapItems.filter(item =>
-                    hasPermissiveLOS(activeEnt.x, activeEnt.y, item.x, item.y) &&
-                    item.x >= camera.x && item.x < camera.x + viewportWidth &&
-                    item.y >= camera.y && item.y < camera.y + viewportHeight
-                );
                 const visibleFriends = allPlayers.filter(friend =>
                     friend !== activeEnt &&
                     hasPermissiveLOS(activeEnt.x, activeEnt.y, friend.x, friend.y) &&
                     friend.x >= camera.x && friend.x < camera.x + viewportWidth &&
                     friend.y >= camera.y && friend.y < camera.y + viewportHeight
                 );
-                const visibleTargets = [...new Set([...visibleItems, ...visibleFriends])];
+                const visibleTargets = [...new Set([...visibleFriends])];
 
                 if (visibleTargets.length > 0) {
                     if (window.itemTargetIndex === undefined) window.itemTargetIndex = 0;
