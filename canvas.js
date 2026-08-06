@@ -182,7 +182,7 @@ function getAbilitySlotAt(canvasX, canvasY) {
 // Returns a Set of "x,y" strings for every tile occupied by a living entity.
 function getOccupiedTiles() {
 	const occupied = new Set();
-	entities.forEach(e => { if (e.hp > 0 && !helper.isGrenadeEntity(e)) occupied.add(`${e.x},${e.y}`); });
+	entities.forEach(e => { if (e.hp > 0 && !helper.isGrenadeEntity(e)) occupied.add(e.x + ',' + e.y); });
 	return occupied;
 }
 
@@ -216,7 +216,7 @@ var canvas = {
 					ctx.lineTo(screenX, screenY + tileSize);
 					ctx.stroke();
 				} else if (tilesImg && tilesImg.complete && tilesImg.naturalWidth > 0) {
-					if (occupied.has(`${worldX},${worldY}`)) ctx.globalAlpha = 0.5;
+					if (occupied.has(worldX + ',' + worldY)) ctx.globalAlpha = 0.5;
 					ctx.drawImage(tilesImg, TILE_FLOOR * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
 					ctx.globalAlpha = 1.0;
 				}
@@ -329,9 +329,11 @@ var canvas = {
 		// Group items by tile position
 		const tileMap = new Map();
 		mapItems.forEach(item => {
-			const key = `${item.x},${item.y}`;
+			const key = item.x + ',' + item.y;
 			if (!tileMap.has(key)) tileMap.set(key, []);
-			tileMap.get(key).push(item);
+			const stack = tileMap.get(key);
+			if (itemTypes[item.itemType]?.type === "consumable") stack.push(item);
+			else stack.unshift(item);
 		});
 
 		tileMap.forEach((tileItems, key) => {
@@ -360,7 +362,7 @@ var canvas = {
 			// Draw "+" indicator for stacks
 			if (hasStack) {
 				const fontSize = Math.max(8, Math.round(tileSize * 0.35));
-				ctx.font = `bold ${fontSize}px sans-serif`;
+				ctx.font = 'bold ' + fontSize + 'px sans-serif';
 				ctx.textAlign = 'right';
 				ctx.fillStyle = '#000000';
 				ctx.fillText('+', screenX + tileSize - 1, screenY + tileSize - 1);
@@ -384,10 +386,10 @@ var canvas = {
 		}
 	},
 
-	// Highlights all tiles in `path` yellow and draws crosshairs on entities/walls within them.
-	// `directOnly`: if true, only draws crosshairs on the first entity hit, not walls.
-	// `hitTiles`: optional subset of tiles where crosshairs are allowed (e.g. blast area only,
-	//             excluding the travel path). When null, all tiles in `path` are eligible.
+	// Highlights all tiles in 'path' yellow and draws crosshairs on entities/walls within them.
+	// 'directOnly': if true, only draws crosshairs on the first entity hit, not walls.
+	// 'hitTiles': optional subset of tiles where crosshairs are allowed (e.g. blast area only,
+	//             excluding the travel path). When null, all tiles in 'path' are eligible.
 	los: (path, directOnly = false, hitTiles = null) => {
 		if (!path || path.length === 0) return;
 		const movesImg = document.getElementById("moves");
@@ -398,12 +400,12 @@ var canvas = {
 		if (movesImg && movesImg.complete && movesImg.naturalWidth > 0) {
 			// Build a fast lookup for the crosshair-eligible tiles.
 			const crosshairSet = hitTiles
-				? new Set(hitTiles.map(t => `${t.x},${t.y}`))
+				? new Set(hitTiles.map(t => t.x + ',' + t.y))
 				: null;
 
 			path.forEach(point => {
 				// Skip this tile for crosshair purposes if it's outside the hit area.
-				if (crosshairSet && !crosshairSet.has(`${point.x},${point.y}`)) return;
+				if (crosshairSet && !crosshairSet.has(point.x + ',' + point.y)) return;
 
 				const isCursor = window.cursorWorldPos && point.x === window.cursorWorldPos.x && point.y === window.cursorWorldPos.y;
 				const hasTarget = !directOnly && (
@@ -434,7 +436,7 @@ var canvas = {
 				const prevY = i === 0 ? startY : path[i - 1].y;
 				const dx = Math.sign(point.x - prevX);
 				const dy = Math.sign(point.y - prevY);
-				const spriteIndex = DIR_TO_SPRITE[`${dx},${dy}`];
+				const spriteIndex = DIR_TO_SPRITE[dx + ',' + dy];
 				if (spriteIndex !== undefined) {
 					ctx.drawImage(moveImg, spriteIndex * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
 						(point.x - camera.x) * tileSize, (point.y - camera.y) * tileSize, tileSize, tileSize);
