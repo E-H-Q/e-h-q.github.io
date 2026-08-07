@@ -169,7 +169,7 @@ var abilityTypes = {
 		description: "Slash through enemies.",
 		canUse: function(entity) {
 			if (currentEntityTurnsRemaining < this.ap) return "Requires " + this.ap + " action points";
-			const w = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
+			const w = getItemDef(entity.equipment?.weapon);
 			if (!w || w.aimStyle !== "melee") return "Must equip melee weapon";
 			return null;
 		},
@@ -203,7 +203,7 @@ var abilityTypes = {
 			if (currentEntityTurnsRemaining < this.ap) return "Requires " + this.ap + " action points";
 			const weapon = entity.equipment?.weapon;
 
-			const w = weapon ? itemTypes[weapon.itemType] : null;
+			const w = getItemDef(weapon);
 			if (!w || !w.burst) return "Must equip a burst fire weapon";
 			const ammo = weapon.currentAmmo !== undefined ? weapon.currentAmmo : w.maxAmmo;
 			if (w.maxAmmo == Infinity || w.aimStyle == "melee") return "Incompatible weapon"
@@ -212,7 +212,7 @@ var abilityTypes = {
 		},
 		execute: function(entity, x, y) {
 			const weapon = entity.equipment.weapon;
-			const maxShots = itemTypes[weapon.itemType].maxAmmo;
+			const maxShots = getItemDef(weapon).maxAmmo;
 			for (let i = 0; i < maxShots && weapon.currentAmmo > 0; i++) {
 				if (!EntitySystem.attack(entity, x, y)) break;
 			}
@@ -268,7 +268,7 @@ var abilityTypes = {
 		ap: 1,
 		description: "Charm an enemy on hit. Lasts " + charmDuration + " turns.",
 		canUse: function(entity) {
-			const w = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
+			const w = getItemDef(entity.equipment?.weapon);
 			if (!w || w.aimStyle !== "direct") return "Requires a Direct aim weapon";
 			return null;
 		},
@@ -406,7 +406,7 @@ function updatePlayer() {
 	if (target.equipment) {
 		for (let slot in target.equipment) {
 			if (target.equipment[slot]) {
-				const itemDef = itemTypes[target.equipment[slot].itemType];
+				const itemDef = getItemDef(target.equipment[slot]);
 				if (itemDef) applyEquipmentEffects(target, itemDef, false);
 			}
 		}
@@ -423,7 +423,7 @@ function updatePlayer() {
 	if (target.equipment) {
 		for (let slot in target.equipment) {
 			if (target.equipment[slot]) {
-				const itemDef = itemTypes[target.equipment[slot].itemType];
+				const itemDef = getItemDef(target.equipment[slot]);
 				if (itemDef) applyEquipmentEffects(target, itemDef, true);
 			}
 		}

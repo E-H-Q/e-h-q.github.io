@@ -1186,7 +1186,7 @@ var input = {
         else if (clickedItem) {
             const itemsHere = mapItems.filter(m => m.x === window.cursorWorldPos.x && m.y === window.cursorWorldPos.y);
             const distinctTypes = new Set(itemsHere.map(m => m.itemType));
-            displayName = distinctTypes.size === 1 ? itemTypes[clickedItem.itemType].displayName : "Items";
+            displayName = distinctTypes.size === 1 ? getItemLabel(clickedItem) : "Items";
         }
 
         options.push({ text: displayName.toUpperCase() });

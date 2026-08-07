@@ -666,12 +666,11 @@ var WindowSystem = {
             const itemsAtLocation = entity._fromInventory ? [entity] : mapItems.filter(item => item.x === entity.x && item.y === entity.y);
             const grouped = {};
             itemsAtLocation.forEach(item => {
-                grouped[item.itemType] = (grouped[item.itemType] || 0) + 1;
+                const name = getItemLabel(item);
+                grouped[name] = (grouped[name] || 0) + 1;
             });
-            for (const [iType, count] of Object.entries(grouped)) {
-                const iDef = itemTypes[iType];
-                const label = count > 1 ? `${iDef.displayName} (x${count})` : iDef.displayName;
-                win.items.push({ text: "- " + label });
+            for (const [name, count] of Object.entries(grouped)) {
+                win.items.push({ text: "- " + name + (count > 1 ? " (x" + count + ")" : "") });
             }
         } else if (helper.hasTrait(entity, "explode") && entity.turnsRemaining) {
             win.items = [];
@@ -749,11 +748,12 @@ var WindowSystem = {
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 16px monospace";
             ctx.textAlign = "center";
-            const topItemDef = itemTypes[entity.itemType];
+            const topItemDef = getItemDef(entity);
+            const topItemLabel = getItemLabel(entity);
             // Count of this item: inventory stub uses item.quantity, mapItems use the
             // number of stacked items at the tile. Same display in both branches.
             const itemCount = entity._fromInventory ? (entity.quantity || 1) : itemsAtLocation.length;
-            let titleText = distinctTypes.length <= 1 ? topItemDef.displayName : "Multiple Items";
+            let titleText = distinctTypes.length <= 1 ? topItemLabel : "Multiple Items";
             if (distinctTypes.length <= 1 && itemCount > 1) titleText += ` (x${itemCount})`;
             ctx.fillText(titleText, spriteX + spriteSize / 2, spriteY + spriteSize + 20);
             ctx.font = "14px monospace";
@@ -768,10 +768,10 @@ var WindowSystem = {
                 let singleItemDef;
 
                 if (weaponItem) {
-                    singleItemDef = weaponsData[weaponItem.itemType];
+                    singleItemDef = getItemDef(weaponItem);
                     effectsStr = singleItemDef.effects.map(e => `+${e.value} ${e.stat.replace('_', ' ')}`).join(', ');
                 } else if (consumeItem) {
-                    singleItemDef = consumablesData[consumeItem.itemType];
+                    singleItemDef = getItemDef(consumeItem);
                     if (singleItemDef.effect === "grenade") {
                         effectsStr = `Damage: ${singleItemDef.damage}, Radius: ${singleItemDef.damageRadius}, Fuse: ${singleItemDef.fuse} turns`;
                     } else if (singleItemDef.effect === "key") {
@@ -780,7 +780,7 @@ var WindowSystem = {
                         effectsStr = `${singleItemDef.effect}: ${singleItemDef.value}`;
                     }
                 } else if (equipItem_) {
-                    singleItemDef = equipmentData[equipItem_.itemType];
+                    singleItemDef = getItemDef(equipItem_);
                     if (singleItemDef.effects) {
                         effectsStr = singleItemDef.effects.map(e => `+${e.value} ${e.stat.replace('_', ' ')}`).join(', ');
                     }
@@ -835,12 +835,12 @@ var WindowSystem = {
             stats.push({ text: "EQUIPMENT:" });
 
             if (entity.equipment.weapon) {
-                const weaponDef = itemTypes[entity.equipment.weapon.itemType];
+                const weaponDef = getItemDef(entity.equipment.weapon);
                 const currentAmmo = entity.equipment.weapon.currentAmmo !== undefined
                     ? entity.equipment.weapon.currentAmmo
                     : (weaponDef.maxAmmo !== undefined ? weaponDef.maxAmmo : "—");
 
-                let weaponText = `  Weapon: ${weaponDef.displayName}`;
+                let weaponText = "  Weapon: " + getItemLabel(entity.equipment.weapon);
                 if (weaponDef.maxAmmo !== undefined && weaponDef.maxAmmo !== Infinity) {
                     weaponText += ` [${currentAmmo}/${weaponDef.maxAmmo}]`;
                 }
@@ -848,13 +848,11 @@ var WindowSystem = {
             }
 
             if (entity.equipment.armor) {
-                const armorDef = itemTypes[entity.equipment.armor.itemType];
-                stats.push({ text: `  Armor: ${armorDef.displayName}` });
+                stats.push({ text: "  Armor: " + getItemLabel(entity.equipment.armor) });
             }
 
             if (entity.equipment.accessory) {
-                const accDef = itemTypes[entity.equipment.accessory.itemType];
-                stats.push({ text: `  Accessory: ${accDef.displayName}` });
+                stats.push({ text: "  Accessory: " + getItemLabel(entity.equipment.accessory) });
             }
         }
 
@@ -864,8 +862,8 @@ var WindowSystem = {
                 stats.push({ text: "" });
                 stats.push({ text: `INVENTORY (${filledItems.length} items):` });
                 filledItems.forEach(item => {
-                    const itemDef = itemTypes[item.itemType];
-                    let itemText = `  - ${itemDef.displayName}`;
+                    const itemDef = getItemDef(item);
+                    let itemText = "  - " + getItemLabel(item);
                     if (item.quantity > 1) itemText += ` (x${item.quantity})`;
                     if (item.currentAmmo !== undefined && itemDef.maxAmmo !== Infinity) {
                         itemText += ` [${item.currentAmmo}/${itemDef.maxAmmo}]`;

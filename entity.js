@@ -107,7 +107,7 @@ const EntitySystem = {
 			return false;
 		}
 
-		const weaponDef = attacker.equipment?.weapon ? itemTypes[attacker.equipment.weapon.itemType] : null;
+		const weaponDef = getItemDef(attacker.equipment?.weapon);
 
 		// Area weapons use explosion logic directly
 		if (weaponDef?.aimStyle === 'area') {
@@ -173,7 +173,7 @@ const EntitySystem = {
 	},
 
 	destroyWalls: function(attacker, targetX, targetY) {
-		const weaponDef  = attacker.equipment?.weapon    ? itemTypes[attacker.equipment.weapon.itemType]    : null;
+		const weaponDef  = getItemDef(attacker.equipment?.weapon);
 		const canDestroy = canEntityDestroyWalls(attacker);
 		const canBreach  = canEntityBreach(attacker);
 		let destroyedAny = false;
@@ -232,7 +232,7 @@ const EntitySystem = {
 		if (entity.equipment) {
 			for (const slot in entity.equipment) {
 				if (entity.equipment[slot]) {
-					const def = itemTypes[entity.equipment[slot].itemType];
+					const def = getItemDef(entity.equipment[slot]);
 					if (def) applyEquipmentEffects(entity, def, false);
 					entity.equipment[slot] = null;
 				}
@@ -243,13 +243,11 @@ const EntitySystem = {
 		for (let i = 0; i < entity.inventory.length; i++) {
 			const item = entity.inventory[i];
 			if (!item) continue;
-			const itemDef = itemTypes[item.itemType];
+			const itemDef = getItemDef(item);
 			const qty = (itemDef.type === "consumable" && item.quantity > 1) ? item.quantity : 1;
-			for (let j = 0; j < qty; j++) {
-				const dropped = {x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++};
-				if (item.currentAmmo !== undefined) dropped.currentAmmo = item.currentAmmo;
-				mapItems.push(dropped);
-			}
+			item.x = entity.x;
+			item.y = entity.y;
+			for (let j = 0; j < qty; j++) mapItems.push(item);
 			console.log(entity.name + " dropped " + (qty > 1 ? qty + " " : "") + itemDef.name + (qty > 1 ? "s" : ""));
 			entity.inventory[i] = null;
 		}

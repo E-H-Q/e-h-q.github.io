@@ -27,15 +27,15 @@ const consumablesData = {
 const weaponsData = {
 	knife: {
 		name: "Knife", type: "equipment", slot: "weapon", aimStyle: "melee",
-		effects: [{stat: "damage", value: 7}], displayName: "+7 Knife"
+		effects: [{stat: "damage", value: 7}], displayName: "Knife"
 	},
 	rifle: {
 		name: "Rifle", type: "equipment", slot: "weapon", aimStyle: "direct", maxAmmo: 6,
-		effects: [{stat: "damage", value: 3}, {stat: "attack_range", value: 4}], displayName: "+3 Rifle"
+		effects: [{stat: "damage", value: 3}, {stat: "attack_range", value: 4}], displayName: "Rifle"
 	},
 	shotgun: {
 		name: "Shotgun", type: "equipment", slot: "weapon", aimStyle: "cone", burst: 1, spread: 3, maxAmmo: 2,
-		effects: [{stat: "damage", value: 5}], displayName: "+5 Shotgun"
+		effects: [{stat: "damage", value: 5}], displayName: "Shotgun"
 	},
 	rocketLauncher: {
 		name: "Rocket Launcher", type: "equipment", slot: "weapon", aimStyle: "area",
@@ -74,6 +74,22 @@ const equipmentData = {
 
 var itemTypes = {...consumablesData, ...weaponsData, ...equipmentData};
 
+// Resolves an item instance against its type template. Instance values win, so
+// any property can be overridden per-item at runtime.
+function getItemDef(item) {
+	if (!item) return null;
+	const def = itemTypes[item.itemType];
+	return def ? Object.assign({}, def, item) : null;
+}
+
+// Display label: damage bonus prefix + name.
+function getItemLabel(item) {
+	const def = getItemDef(item);
+	if (!def) return "";
+	const dmg = def.effects?.find(e => e.stat === "damage")?.value || 0;
+	return (dmg ? "+" + dmg + " " : "") + def.displayName;
+}
+
 // === SPARSE INVENTORY HELPERS ============================================
 
 // Lazily ensures entity.inventory is a fixed-length sparse array of size maxInventorySlots.
@@ -110,7 +126,7 @@ function findFirstEmptyHotbarSlot(entity) {
 	return -1;
 }
 
-// True if `item` is currently in one of entity.equipment's slots (by identity).
+// True if 'item' is currently in one of entity.equipment's slots (by identity).
 function isItemEquipped(entity, item) {
 	if (!item || !entity.equipment) return false;
 	for (const slot in entity.equipment) {
@@ -138,7 +154,7 @@ function normalizeEntityInventory(entity) {
 	for (const slot in entity.equipment) {
 		const eq = entity.equipment[slot];
 		if (!eq) continue;
-		const eqDef = itemTypes[eq.itemType];
+		const eqDef = getItemDef(eq);
 		if (!eqDef || eqDef.type !== "equipment") {
 			entity.equipment[slot] = null;
 			continue;
@@ -163,12 +179,12 @@ function getWeaponAimStyle(entity) {
 	const key = activeAbility || (entity === specialModeEntity ? specialMode : null);
 	const abilityStyle = key && abilityTypes[key] ? abilityTypes[key].aimStyle : null;
 	if (abilityStyle) return abilityStyle;
-	return entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.aimStyle || "standard" : "standard";
+	return getItemDef(entity.equipment?.weapon)?.aimStyle || "standard";
 }
 
 function canEntityDestroyWalls(entity) {
-	const accessoryDef = entity.equipment?.accessory ? itemTypes[entity.equipment.accessory.itemType] : null;
-	const weaponDef    = entity.equipment?.weapon    ? itemTypes[entity.equipment.weapon.itemType]    : null;
+	const accessoryDef = getItemDef(entity.equipment?.accessory);
+	const weaponDef    = getItemDef(entity.equipment?.weapon);
 	return !!(weaponDef?.canDestroy || accessoryDef?.grantsDestroy);
 }
 
@@ -179,8 +195,8 @@ function canEntityBreach(entity) {
 }
 
 function canEntityImmolate(entity) {
-	const weaponDef    = entity.equipment?.weapon    ? itemTypes[entity.equipment.weapon.itemType]    : null;
-	const accessoryDef = entity.equipment?.accessory ? itemTypes[entity.equipment.accessory.itemType] : null;
+	const weaponDef    = getItemDef(entity.equipment?.weapon);
+	const accessoryDef = getItemDef(entity.equipment?.accessory);
 	return !!(weaponDef?.grantsImmolate || accessoryDef?.grantsImmolate || helper.hasTrait(entity, "immolate"));
 }
 
@@ -189,14 +205,14 @@ function getEntityAttackRange(entity) {
 		if (specialMode === 'donor' || specialMode === 'shield') return 1;
 		if (specialMode === 'dashAttack') return entity.range;
 	}
-	const weaponDef = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
+	const weaponDef = getItemDef(entity.equipment?.weapon);
 	return weaponDef?.aimStyle === "melee" ? 1 : entity.attack_range;
 }
 
 function hasAmmo(entity) {
 	if (!entity.equipment?.weapon) return true;
 	const weapon = entity.equipment.weapon;
-	const weaponDef = itemTypes[weapon.itemType];
+	const weaponDef = getItemDef(weapon);
 	if (!weaponDef.maxAmmo || weaponDef.maxAmmo === Infinity) return true;
 	if (weapon.currentAmmo === undefined) weapon.currentAmmo = weaponDef.maxAmmo;
 	return weapon.currentAmmo > 0;
@@ -205,7 +221,7 @@ function hasAmmo(entity) {
 function consumeAmmo(entity) {
 	if (!entity.equipment?.weapon) return;
 	const weapon = entity.equipment.weapon;
-	const weaponDef = itemTypes[weapon.itemType];
+	const weaponDef = getItemDef(weapon);
 	if (!weaponDef.maxAmmo || weaponDef.maxAmmo === Infinity) return;
 	if (weapon.currentAmmo === undefined) weapon.currentAmmo = weaponDef.maxAmmo;
 	weapon.currentAmmo = Math.max(0, weapon.currentAmmo - 1);
@@ -227,8 +243,7 @@ function pullGrenadePin(entity, slotIdx) {
 	const inv = getInventory(entity);
 	const item = inv[slotIdx];
 	if (!item || item.itemType !== 'grenade' || item.isLive) return -1;
-	const itemDef = itemTypes.grenade;
-	const liveGrenade = {itemType: 'grenade', id: nextItemId++, isLive: true, turnsRemaining: itemDef.fuse, quantity: 1};
+	const liveGrenade = Object.assign({}, item, {id: nextItemId++, isLive: true, turnsRemaining: getItemDef(item).fuse, quantity: 1});
 	if (item.quantity > 1) {
 		let destIdx = findFirstEmptyHotbarSlot(entity);
 		if (destIdx < 0) destIdx = findFirstEmptySlot(entity);
@@ -267,7 +282,7 @@ function getOrActivateGrenade(entity) {
 function reloadWeapon(entity) {
 	if (!entity.equipment?.weapon) return false;
 	const weapon = entity.equipment.weapon;
-	const weaponDef = itemTypes[weapon.itemType];
+	const weaponDef = getItemDef(weapon);
 	if (!weaponDef.maxAmmo || weaponDef.maxAmmo === Infinity) { console.log(entity.name + "'s weapon doesn't need reloading!"); return false; }
 	if (weapon.currentAmmo === undefined) weapon.currentAmmo = weaponDef.maxAmmo;
 	if (weapon.currentAmmo >= weaponDef.maxAmmo) { console.log(entity.name + "'s weapon is already fully loaded!"); return false; }
@@ -315,16 +330,16 @@ function calculateEntityTargeting(entity, endX, endY) {
 	}
 
 	if (aimStyle === "cone") {
-		const spread = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.spread || 3 : 3;
+		const spread = getItemDef(entity.equipment?.weapon)?.spread || 3;
 		return calculateCone(path, entity.x, entity.y, endX, endY, range, spread);
 	}
 
 	if (aimStyle === "area") {
-		const areaRadius = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType]?.areaRadius || 2 : 2;
+		const areaRadius = getItemDef(entity.equipment?.weapon)?.areaRadius || 2;
 		const center     = path[path.length - 1];
 		const areaTiles  = collectAreaTiles(center.x, center.y, areaRadius);
-		const pathSet    = new Set(path.map(p => `${p.x},${p.y}`));
-		return [...path, ...areaTiles.filter(t => !pathSet.has(`${t.x},${t.y}`))];
+		const pathSet    = new Set(path.map(p => '${p.x},${p.y}'));
+		return [...path, ...areaTiles.filter(t => !pathSet.has('${t.x},${t.y}'))];
 	}
 	// direct / pierce / melee / standard all just use the clipped path
 	return path;
@@ -372,8 +387,8 @@ function calculateGrenadeTargeting(entity, endX, endY) {
 
 	const center    = path[path.length - 1];
 	const areaTiles = collectAreaTiles(center.x, center.y, itemDef.damageRadius);
-	const pathSet   = new Set(path.map(p => `${p.x},${p.y}`));
-	return [...path, ...areaTiles.filter(t => !pathSet.has(`${t.x},${t.y}`))];
+	const pathSet   = new Set(path.map(p => '${p.x},${p.y}'));
+	return [...path, ...areaTiles.filter(t => !pathSet.has('${t.x},${t.y}'))];
 }
 
 // === ITEM ACTIONS =======================================================
@@ -383,8 +398,7 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 	if (inventoryIndex < 0 || inventoryIndex >= inv.length) return false;
 	const item = inv[inventoryIndex];
 	if (!item) return false;
-	const itemDef = itemTypes[item.itemType];
-	//if (!item.isLive || itemDef.effect !== "grenade") return false;
+	const itemDef = getItemDef(item);
 
 	const dist = calc.distance(entity.x, targetX, entity.y, targetY);
 	if (dist > entity.attack_range) return false;
@@ -414,6 +428,7 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 			x: landingSpot.x, y: landingSpot.y,
 			range: 0, attack_range: 0, turns: 1,
 			turnsRemaining: item.turnsRemaining,
+			_damage: itemDef.damage, _radius: itemDef.damageRadius,
 			inventory: [], traits: grenadeTraits
 		});
 	} else {
@@ -536,19 +551,18 @@ function pickupItem(entity, x, y) {
 	if (itemsAtLocation.length === 0) return false;
 
 	const mostRecent = itemsAtLocation[itemsAtLocation.length - 1];
-	const itemDef    = itemTypes[mostRecent.itemType];
+	const itemDef    = getItemDef(mostRecent);
 
 	if (itemDef.type === "equipment" && shouldEnemyEquip(entity, itemDef)) {
 		if (!entity.equipment) entity.equipment = {};
 		if (entity.equipment[itemDef.slot]) unequipItem(entity, itemDef.slot);
 		const emptySlot = findFirstEmptySlot(entity);
 		if (emptySlot < 0) return false;
-		const pickedItem = {itemType: mostRecent.itemType, id: nextItemId++};
-		if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
-			pickedItem.currentAmmo = mostRecent.currentAmmo !== undefined ? mostRecent.currentAmmo : itemDef.maxAmmo;
+		if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined && mostRecent.currentAmmo === undefined) {
+			mostRecent.currentAmmo = itemDef.maxAmmo;
 		}
-		inv[emptySlot] = pickedItem;
-		entity.equipment[itemDef.slot] = pickedItem;
+		inv[emptySlot] = mostRecent;
+		entity.equipment[itemDef.slot] = mostRecent;
 		applyEquipmentEffects(entity, itemDef, true);
 		console.log(entity.name + " equipped " + itemDef.name);
 		mapItems.splice(mapItems.indexOf(mostRecent), 1);
@@ -568,7 +582,8 @@ function pickupItem(entity, x, y) {
 		if (!stacked) {
 			const emptySlot = findFirstEmptySlot(entity);
 			if (emptySlot < 0) return false;
-			inv[emptySlot] = {itemType: mostRecent.itemType, id: nextItemId++, quantity: stack.length};
+			mostRecent.quantity = stack.length;
+			inv[emptySlot] = mostRecent;
 		}
 		console.log(entity.name + " picked up " + stack.length + " " + itemDef.name + (stack.length > 1 ? "s" : ""));
 		for (let i = 0; i < stack.length; i++) {
@@ -580,11 +595,10 @@ function pickupItem(entity, x, y) {
 
 	const emptySlot = findFirstEmptySlot(entity);
 	if (emptySlot < 0) return false;
-	const newItem = {itemType: mostRecent.itemType, id: mostRecent.id};
-	if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
-		newItem.currentAmmo = mostRecent.currentAmmo !== undefined ? mostRecent.currentAmmo : itemDef.maxAmmo;
+	if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined && mostRecent.currentAmmo === undefined) {
+		mostRecent.currentAmmo = itemDef.maxAmmo;
 	}
-	inv[emptySlot] = newItem;
+	inv[emptySlot] = mostRecent;
 	console.log(entity.name + " picked up " + itemDef.name);
 	mapItems.splice(mapItems.indexOf(mostRecent), 1);
 	return true;
@@ -595,7 +609,7 @@ function shouldEnemyEquip(entity, itemDef) {
 	const currentItem = entity.equipment[itemDef.slot];
 	if (!currentItem) return true;
 	const newTotal     = itemDef.effects?.reduce((sum, e) => sum + e.value, 0) || 0;
-	const currentTotal = itemTypes[currentItem.itemType].effects?.reduce((sum, e) => sum + e.value, 0) || 0;
+	const currentTotal = getItemDef(currentItem).effects?.reduce((sum, e) => sum + e.value, 0) || 0;
 	return newTotal > currentTotal;
 }
 
@@ -614,7 +628,7 @@ function applyEquipmentEffects(entity, itemDef, equip) {
 function unequipItem(entity, slot) {
 	if (!entity.equipment?.[slot]) return false;
 	const equippedItem = entity.equipment[slot];
-	const itemDef      = itemTypes[equippedItem.itemType];
+	const itemDef      = getItemDef(equippedItem);
 	applyEquipmentEffects(entity, itemDef, false);
 	entity.equipment[slot] = null;
 	//console.log(entity.name + " unequipped " + itemDef.name);
@@ -627,7 +641,7 @@ function equipItem(entity, inventoryIndex) {
 	if (inventoryIndex < 0 || inventoryIndex >= inv.length) return false;
 	const item = inv[inventoryIndex];
 	if (!item) return false;
-	const itemDef = itemTypes[item.itemType];
+	const itemDef = getItemDef(item);
 	if (!itemDef || itemDef.type !== "equipment") return false;
 	if (!entity.equipment) entity.equipment = {};
 	if (entity.equipment[itemDef.slot] === item) return false; // already equipped
@@ -645,7 +659,7 @@ function useItem(entity, inventoryIndex) {
 	if (inventoryIndex < 0 || inventoryIndex >= inv.length) return false;
 	const item = inv[inventoryIndex];
 	if (!item) return false;
-	const itemDef = itemTypes[item.itemType];
+	const itemDef = getItemDef(item);
 	if (!itemDef) return false;
 
 	if (itemDef.type === "consumable") {
@@ -698,7 +712,7 @@ function dropInventoryItemAtSlot(entity, slotIdx) {
 	if (slotIdx < 0 || slotIdx >= inv.length) return false;
 	const item = inv[slotIdx];
 	if (!item) return false;
-	const itemDef = itemTypes[item.itemType];
+	const itemDef = getItemDef(item);
 
 	if (isItemEquipped(entity, item)) unequipItem(entity, itemDef.slot);
 
@@ -708,17 +722,16 @@ function dropInventoryItemAtSlot(entity, slotIdx) {
 			x: entity.x, y: entity.y,
 			range: 0, attack_range: 0, turns: 1,
 			turnsRemaining: item.turnsRemaining,
+			_damage: itemDef.damage, _radius: itemDef.damageRadius,
 			inventory: [], traits: ['explode', 'active']
 		};
 		allEnemies.push(grenadeEntity);
 		console.log(entity.name + " dropped a LIVE grenade with " + item.turnsRemaining + " turns remaining!");
 	} else {
 		const quantity = item.quantity || 1;
-		for (let i = 0; i < quantity; i++) {
-			const dropped = {x: entity.x, y: entity.y, itemType: item.itemType, id: nextItemId++};
-			if (item.currentAmmo !== undefined) dropped.currentAmmo = item.currentAmmo;
-			mapItems.push(dropped);
-		}
+		item.x = entity.x;
+		item.y = entity.y;
+		for (let i = 0; i < quantity; i++) mapItems.push(item);
 		console.log(entity.name + " dropped " + quantity + " " + itemDef.name + (quantity > 1 ? "s" : ""));
 	}
 	inv[slotIdx] = null;
@@ -731,7 +744,7 @@ function processInventoryGrenades(entity) {
 	for (let i = inv.length - 1; i >= 0; i--) {
 		const item = inv[i];
 		if (!item) continue;
-		const itemDef = itemTypes[item.itemType];
+		const itemDef = getItemDef(item);
 		if (!item.isLive || itemDef?.effect !== "grenade") continue;
 
 		item.turnsRemaining--;
@@ -743,6 +756,7 @@ function processInventoryGrenades(entity) {
 				name: "Grenade", hp: 0,
 				x: entity.x, y: entity.y,
 				range: 0, attack_range: 0, turns: 1, turnsRemaining: 0,
+				_damage: itemDef.damage, _radius: itemDef.damageRadius,
 				inventory: [], traits: grenadeTraits
 			};
 			allEnemies.push(grenadeEntity);

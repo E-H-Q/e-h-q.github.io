@@ -834,8 +834,8 @@ var canvas = {
 		const hoveredItem = (hover !== undefined && hover !== null && hover >= 0) ? inv[hover] : null;
 		if (hoveredItem) {
 			const item = hoveredItem;
-			const def = itemTypes[item.itemType];
-			let name = def.displayName;
+			const def = getItemDef(item);
+			let name = getItemLabel(item);
 			if (item.isLive && def.effect === "grenade") {
 				name = "Grenade (LIVE: " + item.turnsRemaining + "/" + def.fuse + ")";
 			} else if (item.quantity > 1) {

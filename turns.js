@@ -349,7 +349,7 @@ var turns = {
                         // Draw crosshairs only on blast-area tiles (not pure travel-path tiles).
                         // Path tiles that happen to fall inside the blast circle also qualify.
                         const areaRadius = currentEntity.equipment?.weapon
-                            ? itemTypes[currentEntity.equipment.weapon.itemType]?.areaRadius || 2 : 2;
+                            ? getItemDef(currentEntity.equipment.weapon)?.areaRadius || 2 : 2;
                         const center = (() => {
                             let p = line({x: currentEntity.x, y: currentEntity.y}, {x: cursorX, y: cursorY});
                             p = clipPathAtWall(p, canEntityDestroyWalls(currentEntity), canEntityBreach(currentEntity));
@@ -532,12 +532,12 @@ var turns = {
     decideWeapon: function(entity, dist) {
         const inv = entity.inventory;
         if (!inv) return;
-        const equipped = entity.equipment?.weapon ? itemTypes[entity.equipment.weapon.itemType] : null;
+        const equipped = getItemDef(entity.equipment?.weapon);
         const wantMelee = dist <= 1;
         if (equipped && (equipped.aimStyle === 'melee') === wantMelee) return;
         let anyIdx = -1, loadedIdx = -1;
         for (let i = 0; i < inv.length; i++) {
-            const def = inv[i] && itemTypes[inv[i].itemType];
+            const def = getItemDef(inv[i]);
             if (!def || def.type !== 'equipment' || def.slot !== 'weapon' || (def.aimStyle === 'melee') !== wantMelee) continue;
             if (anyIdx < 0) anyIdx = i;
             const ammo = inv[i].currentAmmo !== undefined ? inv[i].currentAmmo : def.maxAmmo;
@@ -552,7 +552,7 @@ var turns = {
         for (let i = 0; i < entity.inventory.length; i++) {
             const item = entity.inventory[i];
             if (!item) continue;
-            const itemDef = itemTypes[item.itemType];
+            const itemDef = getItemDef(item);
             if (itemDef && itemDef.type === "equipment" && itemDef.slot === "weapon") {
                 if (itemDef.maxAmmo === undefined) return i;
                 const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
@@ -566,7 +566,7 @@ var turns = {
         if (!entity.inventory) return -1;
         if (entity.equipment?.weapon) {
             const weapon = entity.equipment.weapon;
-            const weaponDef = itemTypes[weapon.itemType];
+            const weaponDef = getItemDef(weapon);
             if (weaponDef.maxAmmo !== undefined) {
                 const currentAmmo = weapon.currentAmmo !== undefined ? weapon.currentAmmo : weaponDef.maxAmmo;
                 if (currentAmmo < weaponDef.maxAmmo) return -2;
@@ -575,7 +575,7 @@ var turns = {
         for (let i = 0; i < entity.inventory.length; i++) {
             const item = entity.inventory[i];
             if (!item) continue;
-            const itemDef = itemTypes[item.itemType];
+            const itemDef = getItemDef(item);
             if (itemDef && itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
                 const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
                 if (currentAmmo < itemDef.maxAmmo) return i;

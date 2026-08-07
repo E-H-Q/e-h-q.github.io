@@ -31,7 +31,7 @@ function populatePlayerFields(target) {
     if (target.equipment) {
         for (let slot in target.equipment) {
             if (target.equipment[slot]) {
-                const itemDef = itemTypes[target.equipment[slot].itemType];
+                const itemDef = getItemDef(target.equipment[slot]);
                 if (itemDef) applyEquipmentEffects(target, itemDef, false);
             }
         }
@@ -45,7 +45,7 @@ function populatePlayerFields(target) {
     if (target.equipment) {
         for (let slot in target.equipment) {
             if (target.equipment[slot]) {
-                const itemDef = itemTypes[target.equipment[slot].itemType];
+                const itemDef = getItemDef(target.equipment[slot]);
                 if (itemDef) applyEquipmentEffects(target, itemDef, true);
             }
         }
@@ -538,7 +538,7 @@ function update() {
 			gPath = gPath.length > currentEntity.attack_range + 1 ? gPath.slice(1, currentEntity.attack_range + 1) : gPath.slice(1);
 			
 			const item = currentEntity.inventory[window.throwingGrenadeIndex];
-			const itemDef = itemTypes[item.itemType];
+			const itemDef = getItemDef(item);
 			if (itemDef.effect === "grenade" && item.isLive) {
 				const grenadeTargeting = calculateGrenadeTargeting(currentEntity, cursorX, cursorY);
 				if (grenadeTargeting.length > 0) {
@@ -636,7 +636,7 @@ if (selection._grenadeEntity) {
 			}
 			return;
 		}
-		const itemDef = itemTypes[selection.itemType];
+		const itemDef = getItemDef(selection.items[0]) || itemTypes[selection.itemType];
 
 		// Remove the picked items from the map up front
 		selection.items.forEach(item => {
@@ -660,7 +660,7 @@ if (selection._grenadeEntity) {
 					console.log("Inventory full! Couldn't pick up " + itemDef.name);
 					selection.items.forEach(item => mapItems.push(item));
 				} else {
-					inv[emptySlot] = { itemType: selection.itemType, id: nextItemId++, quantity: selection.count };
+					inv[emptySlot] = Object.assign(selection.items[0], {quantity: selection.count});
 					console.log("Picked up " + selection.count + " " + itemDef.name + (selection.count > 1 ? "s" : ""));
 				}
 			} else {
@@ -676,11 +676,10 @@ if (selection._grenadeEntity) {
 					break;
 				}
 				const mapItem = selection.items[i];
-				const newItem = {itemType: selection.itemType, id: mapItem.id};
-				if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
-					newItem.currentAmmo = mapItem.currentAmmo !== undefined ? mapItem.currentAmmo : itemDef.maxAmmo;
+				if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined && mapItem.currentAmmo === undefined) {
+					mapItem.currentAmmo = itemDef.maxAmmo;
 				}
-				inv[emptySlot] = newItem;
+				inv[emptySlot] = mapItem;
 				pickedCount++;
 			}
 			if (pickedCount > 0) console.log("Picked up " + pickedCount + " " + itemDef.name + (pickedCount > 1 ? "s" : ""));
@@ -700,11 +699,11 @@ function showItemPickupWindow(x, y) {
 
 	itemsAtLocation.forEach(item => {
 		if (processedItems.has(item.id)) return;
-		const itemDef = itemTypes[item.itemType];
+		const itemDef = getItemDef(item);
 		if (itemDef.type === "consumable") {
 			const sameTypeItems = itemsAtLocation.filter(i => i.itemType === item.itemType && !processedItems.has(i.id));
 			sameTypeItems.forEach(i => processedItems.add(i.id));
-			let displayText = itemDef.displayName;
+			let displayText = getItemLabel(item);
 			if (sameTypeItems.length > 1) displayText = `${displayText} (x${sameTypeItems.length})`;
 			windowItems.push({ text: displayText, itemType: item.itemType, items: sameTypeItems, count: sameTypeItems.length, isStackable: true });
 		} else {
@@ -712,7 +711,7 @@ function showItemPickupWindow(x, y) {
 			const ammoText = (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined && itemDef.maxAmmo !== Infinity)
 				? ` [${item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo}/${itemDef.maxAmmo}]`
 				: '';
-			windowItems.push({ text: itemDef.displayName + ammoText, itemType: item.itemType, items: [item], count: 1, isStackable: false });
+			windowItems.push({ text: getItemLabel(item) + ammoText, itemType: item.itemType, items: [item], count: 1, isStackable: false });
 		}
 	});
 
@@ -755,7 +754,7 @@ function showInventoryContextMenu(slotIdx, event) {
 	const inv = getInventory(activeEnt);
 	const item = inv[slotIdx];
 	if (!item) return;
-	const def = itemTypes[item.itemType];
+	const def = getItemDef(item);
 	if (!def) return;
 	const equipped = isItemEquipped(activeEnt, item);
 
@@ -763,7 +762,7 @@ function showInventoryContextMenu(slotIdx, event) {
 	if (def.type === "equipment") useLabel = equipped ? "(u) Unequip" : "(u) Equip";
 
 	const options = [
-		{ text: def.displayName.toUpperCase() },
+		{ text: getItemLabel(item).toUpperCase() },
 		{
 			text: "(e) Examine",
 			key: "e",

@@ -89,7 +89,7 @@ function load_map() {
                         pp.armor = 0;
                         for (let slot in pp.equipment) {
                             if (pp.equipment[slot]) {
-                                const itemDef = itemTypes[pp.equipment[slot].itemType];
+                                const itemDef = getItemDef(pp.equipment[slot]);
                                 if (itemDef) applyEquipmentEffects(pp, itemDef, true);
                             }
                         }
@@ -111,7 +111,7 @@ function load_map() {
                         p.armor = 0;
                         for (let slot in p.equipment) {
                             if (p.equipment[slot]) {
-                                const itemDef = itemTypes[p.equipment[slot].itemType];
+                                const itemDef = getItemDef(p.equipment[slot]);
                                 if (itemDef) applyEquipmentEffects(p, itemDef, true);
                             }
                         }
