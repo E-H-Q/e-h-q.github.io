@@ -750,6 +750,7 @@ function processInventoryGrenades(entity) {
 		item.turnsRemaining--;
 		if (item.turnsRemaining <= 0) {
 			inv[i] = null;
+			if (window.throwingGrenadeIndex === i) window.throwingGrenadeIndex = undefined;
 			const grenadeTraits = ['explode', 'active'];
 			if (canEntityImmolate(entity)) grenadeTraits.push('immolate');
 			const grenadeEntity = { // Spawns the grenade that is exploding in the inventory

@@ -521,9 +521,9 @@ function update() {
 			gPath = clipPathAtWall(gPath);
 			gPath = gPath.length > currentEntity.attack_range + 1 ? gPath.slice(1, currentEntity.attack_range + 1) : gPath.slice(1);
 			
-			const item = currentEntity.inventory[window.throwingGrenadeIndex];
+			const item = currentEntity.inventory?.[window.throwingGrenadeIndex];
 			const itemDef = getItemDef(item);
-			if (itemDef.effect === "grenade" && item.isLive) {
+			if (item?.isLive && itemDef?.effect === "grenade") {
 				const grenadeTargeting = calculateGrenadeTargeting(currentEntity, cursorX, cursorY);
 				if (grenadeTargeting.length > 0) {
 					// Draw crosshairs only on blast-area tiles. Path tiles that happen to

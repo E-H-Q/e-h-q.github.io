@@ -101,6 +101,7 @@ var turns = {
             return;
         }
         hasDied = false;
+        if (currentEntityIndex >= entities.length) { currentEntityIndex = 0; currentEntityTurnsRemaining = 0; }
 
         if (currentEntityTurnsRemaining <= 0) { // ONLY RUNS WHEN NON-PLAYER ENTITIES ARE ALSO PRESENT!? NEEDS TO TRIGGER AFTER *ALL* ENTITY TURNS!!!
             const previousEntity = entities[currentEntityIndex];
