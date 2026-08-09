@@ -234,7 +234,7 @@ function updateTurnOrder() {
 
 		if (!isPlayerControlled(entity)) {
 			const hasSeenPlayer = (entity.seenX !== 0 || entity.seenY !== 0);
-			if (!hasSeenPlayer) continue;
+			if (!hasSeenPlayer || !turns.shouldProcessEntity(entity)) continue;
 		}
 
 		const isActive = (i === currentEntityIndex);

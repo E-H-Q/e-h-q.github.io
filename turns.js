@@ -64,6 +64,7 @@ var turns = {
 
     shouldProcessEntity: function(entity) {
         if (!entity || entity.hp < 1) return false;
+        if (helper.isGrenadeEntity(entity)) return helper.hasTrait(entity, 'active');
         if (isPlayerControlled(entity)) return true;
         if (entity.awareOfPlayer === true) return true;   // viewport override
 
@@ -105,7 +106,7 @@ var turns = {
 
         if (currentEntityTurnsRemaining <= 0) { // ONLY RUNS WHEN NON-PLAYER ENTITIES ARE ALSO PRESENT!? NEEDS TO TRIGGER AFTER *ALL* ENTITY TURNS!!!
             const previousEntity = entities[currentEntityIndex];
-            const hasEnemies = allEnemies.some(e => e.hp > 0 && (e.seenX !== 0 || e.seenY !== 0));
+            const hasEnemies = allEnemies.some(e => this.shouldProcessEntity(e) && (e.seenX !== 0 || e.seenY !== 0));
             const isLastPlayer = previousEntity && isPlayerControlled(previousEntity) && !previousEntity.following && currentEntityIndex === allPlayers.length - 1;
             const needsDelay = isLastPlayer && hasEnemies && !this._playerTurnEndReady;
 
