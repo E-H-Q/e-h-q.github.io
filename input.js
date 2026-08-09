@@ -327,6 +327,7 @@ function applyPathTileEffects(entity, destX, destY) {
 	const validGrid = createAndFillTwoDArray({rows: size, columns: size, defaultValue: 0});
 	valid.forEach(v => { if (validGrid[v.x]?.[v.y] !== undefined) validGrid[v.x][v.y] = 1; });
 	validGrid[entity.x][entity.y] = 1;
+	allPlayers.forEach(p => { if (p !== entity && p.hp > 0 && validGrid[p.x]?.[p.y] !== undefined) validGrid[p.x][p.y] = 1; });
 	const moveGraph = new Graph(validGrid, {diagonal: true});
 	const movePath = astar.search(moveGraph, moveGraph.grid[entity.x][entity.y], moveGraph.grid[destX][destY]);
 	applyTileEffects(entity, movePath);
