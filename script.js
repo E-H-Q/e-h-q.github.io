@@ -186,7 +186,6 @@ function useSpecialMode(entity, mode) {
 		savedPlayerRange = entity.range;
 		entity.range = Math.floor(entity.range / 2);
 		action.value = "move";
-		action.disabled = true;
 	} else if (abilityTypes[mode]) {
 		if (isPlayerControlled(entity)) {
 			action.value = "attack";
@@ -199,6 +198,7 @@ function useSpecialMode(entity, mode) {
 	}
 	specialMode = mode;
 	specialModeEntity = entity;
+	if (isPlayerControlled(entity)) action.disabled = true;
 	update();
 }
 
@@ -212,13 +212,13 @@ function exitSpecialMode(includePeek = true) {
 	if (specialMode === 'peek') {
 		if (peekStep === 1 && specialModeEntity) specialModeEntity.range = savedPlayerRange;
 		peekStep = 1;
-		action.disabled = false;
 		console.log("Exited peek mode.");
 	} else {
 		console.log("Exited " + abilityTypes[specialMode].name + " mode.");
 	}
 	specialMode = null;
 	specialModeEntity = null;
+	action.disabled = false;
 	action.value = "move";
 	update();
 }
@@ -492,41 +492,25 @@ function update() {
 				if (tileIndex !== undefined) ctx.drawImage(tilesImg, tileIndex * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
 				if (wall.type === 'glass' && wall.damaged) ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
 			}
-			const tileItems = mapItems.filter(item => item.x === v.x && item.y === v.y);
-			const tileGrenade = allEnemies.find(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === v.x && e.y === v.y);
-			if (tileItems.length > 0 || tileGrenade) {
-				const topItem = tileItems.length > 0 ? tileItems[tileItems.length - 1] : null;
-				const spriteKey = topItem ? topItem.itemType : 'grenadeLive';
-				const spriteInfo = typeof ITEM_SPRITE_MAP !== 'undefined' ? ITEM_SPRITE_MAP[spriteKey] : null;
-				if (itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0 && spriteInfo) {
-					ctx.drawImage(itemsImg, spriteInfo.col * 32, spriteInfo.row * 32, 32, 32, sx, sy, tileSize, tileSize);
-				} else if (topItem) {
-					const itemDef = itemTypes[topItem.itemType];
-					const isEquipment = itemDef?.type === "equipment";
-					ctx.fillStyle = isEquipment ? "rgba(255, 165, 0, 0.8)" : "rgba(255, 255, 255, 0.8)";
-					ctx.fillRect(sx, sy, tileSize, tileSize);
-				}
-				if (tileGrenade && helper.hasTrait(tileGrenade, 'active')) {
-					ctx.fillStyle = "#FF0000";
-					ctx.font = "bold " + (tileSize / 2) + "px monospace";
-					ctx.textAlign = "center";
-					ctx.fillText(tileGrenade.turnsRemaining.toString(), sx + tileSize / 2, sy + tileSize * 0.65);
-				}
-				if (tileItems.length > 1) {
-					const fontSize = Math.max(8, Math.round(tileSize * 0.35));
-					ctx.font = `bold ${fontSize}px sans-serif`;
-					ctx.textAlign = 'right';
-					ctx.fillStyle = '#000000';
-					ctx.fillText('+', sx + tileSize - 1, sy + tileSize - 1);
-					ctx.fillStyle = '#FFFFFF';
-					ctx.fillText('+', sx + tileSize - 2, sy + tileSize - 2);
-					ctx.textAlign = 'left';
-				}
-			}
 		});
+		canvas.items();
+		const liveSprite = ITEM_SPRITE_MAP.grenadeLive;
 		valid.forEach(v => {
 			const g = allEnemies.find(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === v.x && e.y === v.y);
-			if (g) canvas.grenadeOutline(g);
+			if (!g) return;
+			const sx = (v.x - camera.x) * tileSize;
+			const sy = (v.y - camera.y) * tileSize;
+			if (itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0 && liveSprite) {
+				ctx.drawImage(itemsImg, liveSprite.col * ITEM_SPRITE_SIZE, liveSprite.row * ITEM_SPRITE_SIZE, ITEM_SPRITE_SIZE, ITEM_SPRITE_SIZE, sx, sy, tileSize, tileSize);
+			}
+			if (helper.hasTrait(g, 'active')) {
+				ctx.fillStyle = "#FF0000";
+				ctx.font = "bold " + (tileSize / 2) + "px monospace";
+				ctx.textAlign = "center";
+				ctx.fillText(g.turnsRemaining.toString(), sx + tileSize / 2, sy + tileSize * 0.65);
+				ctx.textAlign = "left";
+			}
+			canvas.grenadeOutline(g);
 		});
 		canvas.drawAdjacentSelect();
 	} else { // GRENADE THROWING! (also used for the psuedo attack mode when throwing inventory items.)

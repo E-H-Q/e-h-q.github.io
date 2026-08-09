@@ -931,7 +931,6 @@ var input = {
 
                         peekStep = 2;
                         action.value = "attack";
-                        action.disabled = true;
                         currentEntityTurnsRemaining--;
                         update();
                     } else {

@@ -301,7 +301,7 @@ function executeAbility(key, entity, x, y) {
 	try { a.execute(entity, x, y); } finally { activeAbility = null; }
 	turns.checkStandingTileEffects(entity);
 	spendAP(key);
-	if (isPlayerControlled(entity)) action.value = "move";
+	if (isPlayerControlled(entity)) { action.value = "move"; action.disabled = false; }
 	update();
 	return true;
 }
