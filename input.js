@@ -704,8 +704,7 @@ var input = {
                 update();
                 return;
             }
-            if (specialMode === 'peek' && peekStep === 2) return;
-            if (specialMode && specialMode !== 'peek') return;
+            if (specialMode) return;
             action.value = (action.value === "move") ? "attack" : "move";
             document.activeElement.blur();
             window.targetIndex = 0;

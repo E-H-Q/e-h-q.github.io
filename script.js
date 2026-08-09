@@ -186,7 +186,7 @@ function useSpecialMode(entity, mode) {
 		savedPlayerRange = entity.range;
 		entity.range = Math.floor(entity.range / 2);
 		action.value = "move";
-		action.disabled = false;
+		action.disabled = true;
 	} else if (abilityTypes[mode]) {
 		if (isPlayerControlled(entity)) {
 			action.value = "attack";
