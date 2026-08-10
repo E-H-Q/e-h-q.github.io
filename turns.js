@@ -365,6 +365,7 @@ var turns = {
                         blastSet.add(center.x + ',' + center.y);
                         const blastTiles = targetingTiles.filter(t => blastSet.has(t.x + ',' + t.y));
                         canvas.los(targetingTiles, false, blastTiles);
+                        canvas.grenadeOutline({x: center.x, y: center.y, _radius: areaRadius});
                     } else {
                         canvas.los(targetingTiles, false);
                     }

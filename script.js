@@ -508,7 +508,7 @@ function update() {
 				ctx.fillText(g.turnsRemaining.toString(), sx + tileSize / 2, sy + tileSize * 0.65);
 				ctx.textAlign = "left";
 			}
-			canvas.grenadeOutline(g);
+			if (helper.hasTrait(g, 'active')) canvas.grenadeOutline(g);
 		});
 		canvas.drawAdjacentSelect();
 	} else { // GRENADE THROWING! (also used for the psuedo attack mode when throwing inventory items.)
@@ -535,6 +535,7 @@ function update() {
 					blastSet.add(`${blastCenter.x},${blastCenter.y}`);
 					const blastTiles = grenadeTargeting.filter(t => blastSet.has(`${t.x},${t.y}`));
 					canvas.los(grenadeTargeting, false, blastTiles); // full grenade area preview
+					canvas.grenadeOutline({x: blastCenter.x, y: blastCenter.y, _radius: grenadeDef.damageRadius});
 				}
 			} else {
 				canvas.los(gPath, true, null); // just LOS throw path
@@ -783,6 +784,7 @@ function showInventoryContextMenu(slotIdx, event) {
 			danger: true,
 			action: function() {
 				window.throwingGrenadeIndex = slotIdx;
+				window.preThrowAction = action.value;
 				action.value = "attack";
 				console.log("Select where to throw to:");
 				update();

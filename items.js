@@ -338,8 +338,8 @@ function calculateEntityTargeting(entity, endX, endY) {
 		const areaRadius = getItemDef(entity.equipment?.weapon)?.areaRadius || 2;
 		const center     = path[path.length - 1];
 		const areaTiles  = collectAreaTiles(center.x, center.y, areaRadius);
-		const pathSet    = new Set(path.map(p => '${p.x},${p.y}'));
-		return [...path, ...areaTiles.filter(t => !pathSet.has('${t.x},${t.y}'))];
+		const pathSet    = new Set(path.map(p => p.x + ',' + p.y));
+		return [...path, ...areaTiles.filter(t => !pathSet.has(t.x + ',' + t.y))];
 	}
 	// direct / pierce / melee / standard all just use the clipped path
 	return path;
@@ -387,8 +387,8 @@ function calculateGrenadeTargeting(entity, endX, endY) {
 
 	const center    = path[path.length - 1];
 	const areaTiles = collectAreaTiles(center.x, center.y, itemDef.damageRadius);
-	const pathSet   = new Set(path.map(p => '${p.x},${p.y}'));
-	return [...path, ...areaTiles.filter(t => !pathSet.has('${t.x},${t.y}'))];
+	const pathSet   = new Set(path.map(p => p.x + ',' + p.y));
+	return [...path, ...areaTiles.filter(t => !pathSet.has(t.x + ',' + t.y))];
 }
 
 // === ITEM ACTIONS =======================================================
@@ -428,7 +428,7 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 			x: landingSpot.x, y: landingSpot.y,
 			range: 0, attack_range: 0, turns: 1,
 			turnsRemaining: item.turnsRemaining,
-			_damage: itemDef.damage, _radius: itemDef.damageRadius,
+			_damage: itemDef.damage, _radius: itemDef.damageRadius, _canDestroy: itemDef.canDestroy,
 			inventory: [], traits: grenadeTraits
 		});
 	} else {
@@ -686,6 +686,7 @@ function useItem(entity, inventoryIndex) {
 				console.log(entity.name + " pulled the pin! Better throw it!");
 			}
 			window.throwingGrenadeIndex = liveIdx;
+			window.preThrowAction = action.value;
 			action.value = "attack";
 			console.log("Select target to throw grenade (range: " + entity.attack_range + ")");
 			update();
@@ -722,7 +723,7 @@ function dropInventoryItemAtSlot(entity, slotIdx) {
 			x: entity.x, y: entity.y,
 			range: 0, attack_range: 0, turns: 1,
 			turnsRemaining: item.turnsRemaining,
-			_damage: itemDef.damage, _radius: itemDef.damageRadius,
+			_damage: itemDef.damage, _radius: itemDef.damageRadius, _canDestroy: itemDef.canDestroy,
 			inventory: [], traits: ['explode', 'active']
 		};
 		allEnemies.push(grenadeEntity);
@@ -757,7 +758,7 @@ function processInventoryGrenades(entity) {
 				name: "Grenade", hp: 0,
 				x: entity.x, y: entity.y,
 				range: 0, attack_range: 0, turns: 1, turnsRemaining: 0,
-				_damage: itemDef.damage, _radius: itemDef.damageRadius,
+				_damage: itemDef.damage, _radius: itemDef.damageRadius, _canDestroy: itemDef.canDestroy,
 				inventory: [], traits: grenadeTraits
 			};
 			allEnemies.push(grenadeEntity);

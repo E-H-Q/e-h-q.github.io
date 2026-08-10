@@ -529,6 +529,7 @@ var input = {
             }
             if (window.throwingGrenadeIndex !== undefined) {
                 window.throwingGrenadeIndex = undefined;
+                action.value = window.preThrowAction || "move";
                 console.log("Grenade throw cancelled");
                 update();
             } else if (adjacentSelect) {
@@ -949,7 +950,7 @@ var input = {
                         turns.checkStandingTileEffects(activeEnt);
                         currentEntityTurnsRemaining--;
 
-                        if (specialMode !== 'peek') action.value = "move";
+                        action.value = window.preThrowAction || "move";
                         update();
                     }
                     return;

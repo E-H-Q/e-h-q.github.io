@@ -622,9 +622,8 @@ var canvas = {
 		}
 	},
 
-	// 1px perimeter outline of a live grenade's blast area
+	// 1px perimeter outline of a blast area
 	grenadeOutline: (grenade) => {
-		if (!helper.hasTrait(grenade, 'active')) return;
 		const r = grenade._radius ?? itemTypes.grenade?.damageRadius;
 		if (r === undefined) return;
 

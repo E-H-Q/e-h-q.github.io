@@ -117,7 +117,8 @@ const EntitySystem = {
 				x: targetX, y: targetY,
 				traits: canEntityImmolate(attacker) ? ['explode', 'immolate'] : ['explode'],
 				_damage: attacker.damage || 0,
-				_radius: weaponDef.areaRadius
+				_radius: weaponDef.areaRadius,
+				_canDestroy: weaponDef.canDestroy
 			});
 			if (!this._explosionPending) this._processBatchExplosions();
 			return true;
@@ -250,7 +251,7 @@ const EntitySystem = {
 					x: entity.x, y: entity.y,
 					range: 0, attack_range: 0, turns: 1,
 					turnsRemaining: item.turnsRemaining,
-					_damage: itemDef.damage, _radius: itemDef.damageRadius,
+					_damage: itemDef.damage, _radius: itemDef.damageRadius, _canDestroy: itemDef.canDestroy,
 					inventory: [], traits: ['explode', 'active']
 				});
 				console.log(entity.name + " dropped a LIVE grenade with " + item.turnsRemaining + " turns remaining!");
@@ -312,7 +313,7 @@ const EntitySystem = {
 
 		const blastTiles = collectAreaTiles(ex, ey, r);
 
-		if (itemDef.canDestroy) {
+		if (grenade._canDestroy ?? itemDef.canDestroy) {
 			for (const tile of blastTiles) {
 				const wi = walls.findIndex(w => w.x === tile.x && w.y === tile.y && w.type !== 'water' && w.type !== 'fire' && !w.permanent);
 				if (wi >= 0) walls.splice(wi, 1);
