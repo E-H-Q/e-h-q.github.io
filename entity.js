@@ -281,7 +281,7 @@ const EntitySystem = {
 
 		const delay = parseInt(document.getElementById("turn-delay").value) || 0;
 		const firstGrenade = this._explosionQueue[0];
-		camera = {
+		if (!isZoomedOut) camera = {
 			x: firstGrenade.x - Math.round(viewportWidth / 2) + 1,
 			y: firstGrenade.y - Math.round(viewportHeight / 2) + 1
 		};

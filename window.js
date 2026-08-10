@@ -462,6 +462,8 @@ var WindowSystem = {
         if (menu.y + height     > c.height) menu.y = c.height - height;
         if (menu.x < 0) menu.x = 0;
         if (menu.y < 0) menu.y = 0;
+        menu.cellX = Math.floor((mouse_pos.canvasX || 0) / tileSize);
+        menu.cellY = Math.floor((mouse_pos.canvasY || 0) / tileSize);
         activeContextMenu = menu;
         update();
     },
@@ -518,13 +520,10 @@ var WindowSystem = {
         const menu = activeContextMenu;
         const height = menu.options.length * menu.itemHeight + menu.padding * 2;
 
-        const tileScreenX = (menu.tileX - camera.x) * tileSize;
-        const tileScreenY = (menu.tileY - camera.y) * tileSize;
-
         const inMenu = mouseX >= menu.x && mouseX <= menu.x + menu.width &&
                        mouseY >= menu.y && mouseY <= menu.y + height;
-        const inTile = mouseX >= tileScreenX && mouseX <= tileScreenX + tileSize &&
-                       mouseY >= tileScreenY && mouseY <= tileScreenY + tileSize;
+        const inTile = Math.floor(mouseX / tileSize) === menu.cellX &&
+                       Math.floor(mouseY / tileSize) === menu.cellY;
 
         if (!inMenu && !inTile) { this.closeContextMenu(); return true; }
 

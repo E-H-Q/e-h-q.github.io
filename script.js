@@ -408,12 +408,10 @@ function update() {
 	const oldCameraX = camera.x;
 	const oldCameraY = camera.y;
 
-	if (isPlayerControlled(currentEntity)) {
-		updateCamera();
-	} else {
-		if (isAiming) {
+	if (!EntitySystem._explosionPending) {
+		if (isPlayerControlled(currentEntity) || isAiming) {
 			updateCamera();
-		} else if (!EntitySystem._explosionPending) {
+		} else {
 			camera = {
 				x: currentEntity.x - Math.round((viewportWidth / 2)) + 1,
 				y: currentEntity.y - Math.round((viewportHeight / 2)) + 1

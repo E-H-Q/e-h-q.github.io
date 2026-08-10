@@ -189,7 +189,8 @@ var turns = {
                 if (entities[currentEntityIndex]) entities[currentEntityIndex]._droppedGrenadeThisRound = false;
 
                 const currentEntity = entities[currentEntityIndex];
-                camera = {
+                this.checkStandingTileEffects(currentEntity);
+                if (!EntitySystem._explosionPending) camera = {
                     x: currentEntity.x - Math.round(viewportWidth / 2) + 1,
                     y: currentEntity.y - Math.round(viewportHeight / 2) + 1
                 };
