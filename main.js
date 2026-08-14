@@ -669,6 +669,8 @@ var helper = {
 		}
 	},
 
+	entityAt: (x, y) => entities.find(e => e.hp > 0 && e.x === x && e.y === y),
+
 	// Fire/water trait changes for an entity on a tile. Defaults to the tile it stands on.
 	tileEffects: function(entity, x, y) {
 		if (!entity) return null;
@@ -692,7 +694,7 @@ var helper = {
 		const w = wallAt(x, y);
 		if (w && w.type !== 'fire') return;
 		if (!w) walls.push({x: x, y: y, type: 'fire'});
-		helper.tileEffects(entities.find(e => e.hp > 0 && e.x === x && e.y === y), x, y);
+		helper.tileEffects(helper.entityAt(x, y), x, y);
 	},
 
 	removeRandomFireTiles: function() {

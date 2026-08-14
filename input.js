@@ -106,8 +106,9 @@ function getDoorBlocker(x, y) {
 	return entities.find(e => e.hp > 0 && e.x === x && e.y === y && !helper.isGrenadeEntity(e));
 }
 
-function makeWallTile(x, y, tileType) {
-	return tileType === 'doorLocked' ? {x, y, type: 'door', locked: true} : {x, y, type: tileType};
+function placeWallTile(x, y, tileType) {
+	walls.push(tileType === 'doorLocked' ? {x, y, type: 'door', locked: true} : {x, y, type: tileType});
+	helper.tileEffects(helper.entityAt(x, y), x, y);
 }
 
 function consumeKey(entity) {
@@ -831,7 +832,7 @@ var input = {
                 lastTile = {x: click_pos.x, y: click_pos.y};
                 const tileType = document.getElementById('tile-type').value;
                 const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
-                if (dup < 0) walls.push(makeWallTile(click_pos.x, click_pos.y, tileType));
+                if (dup < 0) placeWallTile(click_pos.x, click_pos.y, tileType);
                 else walls.splice(dup, 1);
                 update();
             }
@@ -1435,7 +1436,7 @@ var input = {
             lastTile = {x: click_pos.x, y: click_pos.y};
             const tileType = document.getElementById('tile-type').value;
             const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
-            if (dup < 0) walls.push(makeWallTile(click_pos.x, click_pos.y, tileType));
+            if (dup < 0) placeWallTile(click_pos.x, click_pos.y, tileType);
             else walls.splice(dup, 1);
             update();
         }
