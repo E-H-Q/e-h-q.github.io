@@ -138,7 +138,8 @@ const ABILITY_SPRITE_MAP = {
 	magDump:    1,
 	charm:      2,
 	donor:      3,
-	shield:     4
+	shield:     4,
+	detonate:   5
 };
 
 // Sprites follow original allegiance: charmed entities keep their pre-charm sprite.

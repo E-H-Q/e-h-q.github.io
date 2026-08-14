@@ -917,6 +917,11 @@ var input = {
 
         const activeEnt = getActivePlayerEntity();
 
+        if (specialMode === 'detonate' && specialModeEntity === activeEnt) {
+            executeAbility('detonate', activeEnt, click_pos.x, click_pos.y);
+            return;
+        }
+
         if (specialMode === 'dashAttack' && specialModeEntity === activeEnt) {
             executeAbility('dashAttack', activeEnt, click_pos.x, click_pos.y);
             return;

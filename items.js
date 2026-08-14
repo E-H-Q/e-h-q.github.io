@@ -203,6 +203,7 @@ function canEntityImmolate(entity) {
 function getEntityAttackRange(entity) {
 	if (entity === specialModeEntity) {
 		if (specialMode === 'donor' || specialMode === 'shield') return 1;
+		if (specialMode === 'detonate') return Infinity;
 		if (specialMode === 'dashAttack') return entity.range;
 	}
 	const weaponDef = getItemDef(entity.equipment?.weapon);

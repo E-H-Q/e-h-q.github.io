@@ -459,6 +459,8 @@ function update() {
 	if (skipRender) return;
 
 	canvas.selectedEditTiles();
+	if (specialMode === 'detonate' && specialModeEntity)
+		abilityTypes.detonate.targets(specialModeEntity).forEach(g => canvas.grenadeOutline(g));
 
 	if (specialMode === 'dashAttack' && window.cursorWorldPos) {
 		const dashPath = computeDashPath(specialModeEntity, window.cursorWorldPos.x, window.cursorWorldPos.y);

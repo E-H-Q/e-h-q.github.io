@@ -76,7 +76,8 @@ var entityTraits = {
 	magDump:   { name: "Mag Dump",    description: "(Ability) Fire remaining ammo" },
 	charm:     { name: "Charm",       description: "(Ability) Charms enemy on hit for " + charmDuration + " turns" },
 	donor:     { name: "Donor",       description: "(Ability) Donate 5HP to adjacent ally" },
-	shield:     { name: "Shield",     description: "(Ability) Temporary cover for 1 round" }
+	shield:     { name: "Shield",     description: "(Ability) Temporary cover for 1 round" },
+	detonate:   { name: "Detonate",   description: "(Ability) Set off a grenade in sight" }
 };
 
 function moveEntityList(from, to, e) {
@@ -260,6 +261,31 @@ var abilityTypes = {
 
 			walls.push({x: x, y: y, type: 'shield', turnsRemaining: 1, owner: entity});
 			console.log(entity.name + " put up their Shield!");
+		}
+	},
+	detonate: {
+		name: "Detonate",
+		type: "offensive",
+		ap: 1,
+		aimStyle: "standard",
+		description: "Detonate a grenade in sight.",
+		targets: function(entity) {
+			return allEnemies.filter(e => helper.isGrenadeEntity(e) && e.hp > 0 &&
+				EntitySystem.hasLOS(entity, e.x, e.y, isPlayerControlled(entity)));
+		},
+		canUse: function(entity) {
+			if (!this.targets(entity).length) return "No grenades in sight";
+			return null;
+		},
+		validate: function(entity, x, y) {
+			return this.targets(entity).some(g => g.x === x && g.y === y);
+		},
+		execute: function(entity, x, y) {
+			const grenade = this.targets(entity).find(g => g.x === x && g.y === y);
+			console.log(entity.name + " detonates a grenade!");
+			grenade.turnsRemaining = 0;
+			grenade.hp = 0;
+			EntitySystem.death(grenade);
 		}
 	},
 	charm: {
