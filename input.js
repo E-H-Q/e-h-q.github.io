@@ -334,19 +334,7 @@ function applyPathTileEffects(entity, destX, destY) {
 }
 
 function applyTileEffects(entity, movePath) {
-	for (const step of movePath) {
-		const onFire  = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'fire');
-		const onWater = walls.some(w => w.x === step.x && w.y === step.y && w.type === 'water');
-		if (onFire && !helper.hasTrait(entity, 'fire')) {
-			if (!entity.traits) entity.traits = [];
-			entity.traits.push('fire');
-			console.log(entity.name + " caught fire!");
-		}
-		if (onWater && helper.hasTrait(entity, 'fire')) {
-			entity.traits = entity.traits.filter(t => t !== 'fire');
-			console.log(entity.name + " got wet!");
-		}
-	}
+	for (const step of movePath) helper.tileEffects(entity, step.x, step.y);
 }
 
 // Valid Dash Attack path or null. Walls block, entities are passable; the walked
@@ -572,7 +560,7 @@ var input = {
                 const activeEnt = getActivePlayerEntity();
                 if (reloadWeapon(activeEnt)) {
                     exitSpecialMode();
-                    turns.checkStandingTileEffects(activeEnt);
+                    helper.tileEffects(activeEnt);
                     currentEntityTurnsRemaining--;
                     update();
                 }
@@ -673,7 +661,7 @@ var input = {
             } else if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]) && currentEntityTurnsRemaining > 0) {
                 if (typeof WindowSystem !== 'undefined' && WindowSystem.isOpen()) return;
                 const activeEnt = getActivePlayerEntity();
-                turns.checkStandingTileEffects(activeEnt);
+                helper.tileEffects(activeEnt);
                 currentEntityTurnsRemaining--;
                 console.log(activeEnt.name + " waits...");
                 update();
@@ -952,7 +940,7 @@ var input = {
                     if (throwItem(activeEnt, window.throwingGrenadeIndex, click_pos.x, click_pos.y)) {
                         window.throwingGrenadeIndex = undefined;
 
-                        turns.checkStandingTileEffects(activeEnt);
+                        helper.tileEffects(activeEnt);
                         currentEntityTurnsRemaining--;
 
                         action.value = window.preThrowAction || "move";
@@ -1013,13 +1001,13 @@ var input = {
 
                 if (specialMode === 'peek' && peekStep === 2) {
                     if (EntitySystem.attack(specialModeEntity, click_pos.x, click_pos.y)) {
-                        turns.checkStandingTileEffects(specialModeEntity);
+                        helper.tileEffects(specialModeEntity);
                         currentEntityTurnsRemaining--;
                     }
                     update();
                 } else {
                     if (EntitySystem.attack(activeEnt, click_pos.x, click_pos.y)) {
-                        turns.checkStandingTileEffects(activeEnt);
+                        helper.tileEffects(activeEnt);
                         currentEntityTurnsRemaining--;
                         const newExplosion = EntitySystem._explosionPending || EntitySystem._explosionQueue.length > 0;
                         if (newExplosion) return;

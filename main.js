@@ -325,7 +325,7 @@ function executeAbility(key, entity, x, y) {
 	specialModeEntity = null;
 	activeAbility = key;
 	try { a.execute(entity, x, y); } finally { activeAbility = null; }
-	turns.checkStandingTileEffects(entity);
+	helper.tileEffects(entity);
 	spendAP(key);
 	if (isPlayerControlled(entity)) { action.value = "move"; action.disabled = false; }
 	update();
@@ -667,6 +667,32 @@ var helper = {
 		if (entity.hp <= 0) {
 			EntitySystem.death(entity);
 		}
+	},
+
+	// Fire/water trait changes for an entity on a tile. Defaults to the tile it stands on.
+	tileEffects: function(entity, x, y) {
+		if (!entity) return null;
+		const w = wallAt(x ?? entity.x, y ?? entity.y);
+		if (w?.type === 'fire' && !helper.hasTrait(entity, 'fire')) {
+			if (!entity.traits) entity.traits = [];
+			entity.traits.push('fire');
+			console.log(entity.name + " caught fire!");
+			return 'fire';
+		}
+		if (w?.type === 'water' && helper.hasTrait(entity, 'fire')) {
+			entity.traits = entity.traits.filter(t => t !== 'fire');
+			console.log(entity.name + " got wet!");
+			return 'water';
+		}
+		return null;
+	},
+
+	// Set a tile alight and ignite whoever is standing on it. No-op on non-fire terrain.
+	igniteTile: function(x, y) {
+		const w = wallAt(x, y);
+		if (w && w.type !== 'fire') return;
+		if (!w) walls.push({x: x, y: y, type: 'fire'});
+		helper.tileEffects(entities.find(e => e.hp > 0 && e.x === x && e.y === y), x, y);
 	},
 
 	removeRandomFireTiles: function() {

@@ -139,9 +139,7 @@ var turns = {
                 }
 
                 // Apply fire/water effects from the tile the entity is currently standing on
-                if (previousEntity) {
-                    this.checkStandingTileEffects(previousEntity);
-                }
+                helper.tileEffects(previousEntity);
 
                 // Apply fire damage at end of turn
                 if (previousEntity) {
@@ -189,7 +187,7 @@ var turns = {
                 if (entities[currentEntityIndex]) entities[currentEntityIndex]._droppedGrenadeThisRound = false;
 
                 const currentEntity = entities[currentEntityIndex];
-                this.checkStandingTileEffects(currentEntity);
+                helper.tileEffects(currentEntity);
                 if (!EntitySystem._explosionPending) camera = {
                     x: currentEntity.x - Math.round(viewportWidth / 2) + 1,
                     y: currentEntity.y - Math.round(viewportHeight / 2) + 1
@@ -371,22 +369,6 @@ var turns = {
                     }
                 }
             }
-        }
-    },
-
-    checkStandingTileEffects: function(entity) {
-        if (!entity) return;
-        const w = wallAt(entity.x, entity.y);
-        const standingOnFire  = w?.type === 'fire';
-        const standingOnWater = w?.type === 'water';
-        if (standingOnFire && !helper.hasTrait(entity, 'fire')) {
-            if (!entity.traits) entity.traits = [];
-            entity.traits.push('fire');
-            console.log(entity.name + " caught fire!");
-        }
-        if (standingOnWater && helper.hasTrait(entity, 'fire')) {
-            entity.traits = entity.traits.filter(t => t !== 'fire');
-            console.log(entity.name + " got wet!");
         }
     },
 
@@ -892,17 +874,12 @@ var turns = {
             const newY = entity.y + dy;
             if (newX < 0 || newY < 0 || newX >= size || newY >= size) continue;
             const w = wallAt(newX, newY);
-            const isWall = w && w.type !== 'water' && !(w.type === 'door' && w.open);
+            const isWall = w && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open);
             const isOccupied = entities.some(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === newX && e.y === newY);
             if (!isWall && !isOccupied && entity.range > 0) {
                 entity.x = newX;
                 entity.y = newY;
-
-                if (w?.type === 'fire' && !helper.hasTrait(entity, 'fire')) {
-                    if (!entity.traits) entity.traits = [];
-                    entity.traits.push('fire');
-                    console.log(entity.name + " caught fire!");
-                }
+                helper.tileEffects(entity, newX, newY);
                 break;
             }
         }
@@ -1005,7 +982,7 @@ var turns = {
         let currentX = entity.x;
         let currentY = entity.y;
 
-        // Walk through the path tile by tile and check for fire on every step
+        // Walk the path tile by tile, applying tile effects at every step
         for (let step of path) {
             const w = wallAt(step.x, step.y);
             const stepCost = w?.type === 'water' ? 2 : 1;
@@ -1018,21 +995,7 @@ var turns = {
 
             if (avoidGrenades && blastTileSet.has(step.x + ',' + step.y)) break;
 
-            const fireTiles = w?.type === 'fire';
-            const waterTiles = w?.type === 'water';
-
-            if (fireTiles && !helper.hasTrait(entity, 'fire')) {
-                if (!entity.traits) entity.traits = [];
-                    entity.traits.push('fire');
-                    console.log(entity.name + " caught fire!");
-                    break; // stop checking once they catch fire
-            }
-            if (waterTiles && helper.hasTrait(entity, 'fire')) {
-                if (!entity.traits) entity.traits = [];
-                    entity.traits = entity.traits.filter(t => t !== "fire");
-                    console.log(entity.name + " got wet!");
-                    break; // stop checking once they touch water
-            }
+            helper.tileEffects(entity, step.x, step.y);
 
             currentX = step.x;
             currentY = step.y;

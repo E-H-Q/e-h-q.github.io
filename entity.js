@@ -159,14 +159,7 @@ const EntitySystem = {
 
 		if (canEntityImmolate(attacker)) {
 			for (const tile of calculateEntityTargeting(attacker, targetX, targetY)) {
-				if (calc.roll(2) !== 1) continue;
-				const existing = wallAt(tile.x, tile.y);
-				if (!existing) walls.push({x: tile.x, y: tile.y, type: 'fire'});
-				const ent = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
-				if (ent && !helper.hasTrait(ent, 'fire')) {
-					if (!ent.traits) ent.traits = [];
-					ent.traits.push("fire");
-				}
+				if (calc.roll(2) === 1) helper.igniteTile(tile.x, tile.y);
 			}
 		}
 
@@ -330,10 +323,7 @@ const EntitySystem = {
 
 		if (helper.hasTrait(grenade, 'immolate')) {
 			for (const tile of blastTiles) {
-				if (calc.roll(3) !== 1) continue;
-				const existing = wallAt(tile.x, tile.y);
-				if (existing?.permanent) continue;
-				if (!existing) walls.push({x: tile.x, y: tile.y, type: 'fire'});
+				if (calc.roll(3) === 1) helper.igniteTile(tile.x, tile.y);
 			}
 		}
 	},
