@@ -86,6 +86,16 @@ function moveEntityList(from, to, e) {
 	if (!to.includes(e)) to.push(e);
 }
 
+// Keeps currentEntityIndex anchored when entities die: counts survivors before the
+// cursor; if the active entity itself died, sits one back so the next advance lands
+// on the following survivor.
+function reindexEntityCursor() {
+	if (currentEntityIndex < 0 || currentEntityIndex >= entities.length) return;
+	let alive = 0;
+	for (let i = 0; i < currentEntityIndex; i++) if (entities[i].hp >= 1) alive++;
+	currentEntityIndex = entities[currentEntityIndex].hp >= 1 ? alive : alive - 1;
+}
+
 function rebuildEntities() {
 	entities = [
 		...allPlayers,

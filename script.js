@@ -11,6 +11,7 @@ updateItemDropdown();
 document.getElementById('map-size').value = size;
 document.getElementById("viewport-width").value = viewportWidth;
 document.getElementById("viewport-height").value = viewportHeight;
+document.getElementById("tile-size").value = tileSize;
 
 window.cursorWorldPos = {x: player.x, y: player.y};
 cursorVisible = true;
@@ -252,8 +253,7 @@ function updateTurnOrder() {
 function killEntity(index) {
 	if (index >= 0 && index < entities.length && !isPlayerControlled(entities[index])) {
 		entities[index].hp = 0;
-		if (index < currentEntityIndex) currentEntityIndex--;
-		else if (index === currentEntityIndex) currentEntityTurnsRemaining = 0;
+		if (index === currentEntityIndex) currentEntityTurnsRemaining = 0;
 		update();
 	}
 }
@@ -401,6 +401,7 @@ function renderScene() {
 }
 
 function update() {
+	reindexEntityCursor();
 	allEnemies = allEnemies.filter(enemy => enemy.hp >= 1);
 	allPlayers = allPlayers.filter(p => p.hp >= 1);
 
@@ -847,7 +848,7 @@ function showAbilityContextMenu(key, anchorX, anchorY) {
 function updateViewportSize() {
 	let newWidth = parseInt(document.getElementById('viewport-width').value);
 	let newHeight = parseInt(document.getElementById('viewport-height').value);
-	if (newWidth >= 5 && newWidth <= 50 && newHeight >= 5 && newHeight <= 50) {
+	if (newWidth >= 5 && newWidth <= 100 && newHeight >= 5 && newHeight <= 100) {
 		if (isZoomedOut) { newWidth = newWidth * 2; newHeight = newHeight * 2; }
 		viewportWidth = newWidth;
 		viewportHeight = newHeight;
@@ -855,8 +856,26 @@ function updateViewportSize() {
 		console.log("Viewport size changed to " + newWidth + "x" + newHeight);
 		update();
 	} else {
-		console.log("Invalid viewport size. Must be between 5 and 50.");
+		console.log("Invalid viewport size. Must be between 5 and 100.");
 		document.getElementById('viewport-width').value = isZoomedOut ? viewportWidth / 2 : viewportWidth;
 		document.getElementById('viewport-height').value = isZoomedOut ? viewportHeight / 2 : viewportHeight;
 	}
+}
+
+function applyFullscreen() {
+	const full = document.getElementById('fullscreen').checked;
+	document.getElementById('viewport-width').value = Math.floor((full ? window.innerWidth : window.innerWidth * 0.7) / tileSize);
+	document.getElementById('viewport-height').value = Math.floor((full ? window.innerHeight : window.innerWidth * 0.5) / tileSize);
+	updateViewportSize();
+}
+
+function updateTileSize() {
+	const newSize = parseInt(document.getElementById('tile-size').value);
+	if (!newSize || newSize < 4 || newSize > 128) {
+		document.getElementById('tile-size').value = isZoomedOut ? tileSize * 2 : tileSize;
+		return;
+	}
+	tileSize = isZoomedOut ? newSize / 2 : newSize;
+	if (document.getElementById('fullscreen').checked) applyFullscreen();
+	else { canvas.init(); update(); }
 }
