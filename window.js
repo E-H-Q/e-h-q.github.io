@@ -705,9 +705,7 @@ var WindowSystem = {
             if (helper.hasTrait(entity, 'explode') && entity.turnsRemaining) {
                 this._drawItemSprite('grenadeLive', spriteX, spriteY, spriteSize);
             } else {
-                const imgId = isPlayerControlled(entity) ? "pep" : "enemy";
-                const img = document.getElementById(imgId);
-                if (img && img.complete) ctx.drawImage(img, spriteX, spriteY, spriteSize, spriteSize);
+                drawEntitySprite(entitySpriteId(entity), spriteX, spriteY, spriteSize);
             }
 
             ctx.fillStyle = "#ffffff";

@@ -384,6 +384,22 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 	update();
 }
 
+function renderScene() {
+	canvas.init();
+	canvas.clear();
+	canvas.grid();
+	canvas.walls();
+	canvas.player();
+	canvas.items();
+	const ce = entities[currentEntityIndex] || player;
+	if (isPlayerControlled(ce) && typeof turns !== 'undefined' && turns.checkEnemyLOS) {
+		turns.checkEnemyLOS();
+	}
+	canvas.enemy();
+	canvas.drawOnionskin();
+	canvas.playAnims();
+}
+
 function update() {
 	allEnemies = allEnemies.filter(enemy => enemy.hp >= 1);
 	allPlayers = allPlayers.filter(p => p.hp >= 1);
@@ -428,20 +444,6 @@ function update() {
 
 	valid = [];
 	const skipRender = enemyChainDepth > 0 && !EntitySystem._explosionPending;
-	const renderScene = () => {
-		canvas.init();
-		canvas.clear();
-		canvas.grid();
-		canvas.walls();
-		canvas.player();
-		canvas.items();
-		const ce = entities[currentEntityIndex] || player;
-		if (isPlayerControlled(ce) && typeof turns !== 'undefined' && turns.checkEnemyLOS) {
-			turns.checkEnemyLOS();
-		}
-		canvas.enemy();
-		canvas.drawOnionskin();
-	};
 	if (!skipRender) renderScene();
 
 	populate.reset();
