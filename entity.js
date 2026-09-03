@@ -262,6 +262,7 @@ const EntitySystem = {
 
 	death: function(entity) {
 		if (entity.hp > 0) return;
+		if (!helper.isGrenadeEntity(entity)) canvas.deathAnim(entity);
 		this.dropAllItems(entity);
 		if (helper.hasTrait(entity, 'explode')) {
 			this._explosionQueue.push(entity);
@@ -289,7 +290,7 @@ const EntitySystem = {
 				exploded.push(grenade);
 				this._resolveExplosion(grenade);
 			}
-			exploded.forEach(g => canvas.grenadeAreas(g));
+			canvas.addAnim(delay, () => exploded.forEach(g => canvas.grenadeAreas(g)));
 			setTimeout(() => { this._explosionPending = false; update(); }, delay);
 		}, delay);
 	},
@@ -303,6 +304,7 @@ const EntitySystem = {
 		const damage = grenade._damage ?? itemDef.damage;
 
 		console.log(grenade.name + " explodes at " + ex + ", " + ey + "!");
+		canvas.explosionAnim(ex, ey);
 
 		const blastTiles = collectAreaTiles(ex, ey, r);
 

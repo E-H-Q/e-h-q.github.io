@@ -82,6 +82,12 @@ var turns = {
         );
     },
 
+    _roundReset: function() {
+        for (let i = walls.length - 1; i >= 0; i--) {
+            if (walls[i].type === 'shield' && (!walls[i].owner || walls[i].owner.hp < 1)) walls.splice(i, 1);
+        }
+    },
+
     _chainStep: function(fn) {
         enemyChainDepth++;
         try { fn(); update(); } finally { enemyChainDepth--; }
@@ -102,7 +108,7 @@ var turns = {
             return;
         }
         hasDied = false;
-        if (currentEntityIndex >= entities.length) { currentEntityIndex = 0; currentEntityTurnsRemaining = 0; }
+        if (currentEntityIndex >= entities.length) { currentEntityIndex = -1; currentEntityTurnsRemaining = 0; this._roundReset(); }
 
         if (currentEntityTurnsRemaining <= 0) { // ONLY RUNS WHEN NON-PLAYER ENTITIES ARE ALSO PRESENT!? NEEDS TO TRIGGER AFTER *ALL* ENTITY TURNS!!!
             const previousEntity = entities[currentEntityIndex];
@@ -170,9 +176,7 @@ var turns = {
                     currentEntityIndex++;
                     if (currentEntityIndex >= entities.length) {
                         currentEntityIndex = 0;
-                        for (let i = walls.length - 1; i >= 0; i--) {
-                            if (walls[i].type === 'shield' && (!walls[i].owner || walls[i].owner.hp < 1)) walls.splice(i, 1);
-                        }
+                        this._roundReset();
                     }
 
                     const currentEntity = entities[currentEntityIndex];
@@ -215,7 +219,6 @@ var turns = {
                     if (currentEntity.turnsRemaining <= 0) {
                         currentEntity.hp = 0;
                         EntitySystem.death(currentEntity);
-                        if (currentEntityIndex != entities.length) currentEntityIndex--;
                     }
                     currentEntityTurnsRemaining--;
                 };

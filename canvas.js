@@ -142,10 +142,37 @@ const ABILITY_SPRITE_MAP = {
 	detonate:   5
 };
 
+// Entity sprites from entities.png, one 32x32 sprite per index left-to-right.
+const ENTITY_SPRITE_SIZE = 32;
+const ENTITY_SPRITE_MAP = {
+	player: 0,
+	enemy:  1,
+	death:  2
+};
+
 // Sprites follow original allegiance: charmed entities keep their pre-charm sprite.
 function entitySpriteId(e) {
 	const wasPlayer = e._precharm ? e._precharm.traits.includes('player') : isPlayerControlled(e);
-	return wasPlayer ? "pep" : "enemy";
+	return wasPlayer ? "player" : "enemy";
+}
+
+function drawEntitySprite(key, sx, sy, size) {
+	const img = document.getElementById("entities");
+	const idx = ENTITY_SPRITE_MAP[key];
+	if (!img || !img.complete || !img.naturalWidth || idx === undefined) return;
+	ctx.drawImage(img, idx * ENTITY_SPRITE_SIZE, 0, ENTITY_SPRITE_SIZE, ENTITY_SPRITE_SIZE, sx, sy, size, size);
+}
+
+// Generic timed animation queue; each entry re-renders the live scene, then calls draw(t).
+const anims = [];
+
+function stepAnims() {
+	const now = performance.now();
+	for (let i = anims.length - 1; i >= 0; i--) {
+		if (now - anims[i].start >= anims[i].duration) anims.splice(i, 1);
+	}
+	update();
+	if (anims.length) requestAnimationFrame(stepAnims);
 }
 
 function drawAbilitySprite(key, sx, sy, usable) {
@@ -447,12 +474,9 @@ var canvas = {
 
 		if (entity) {
 			const last = path[path.length - 1];
-			const pepImg = document.getElementById(entitySpriteId(entity));
-			if (pepImg && pepImg.complete) {
-				ctx.globalAlpha = 0.4;
-				ctx.drawImage(pepImg, (last.x - camera.x) * tileSize, (last.y - camera.y) * tileSize, tileSize, tileSize);
-				ctx.globalAlpha = 1.0;
-			}
+			ctx.globalAlpha = 0.4;
+			drawEntitySprite(entitySpriteId(entity), (last.x - camera.x) * tileSize, (last.y - camera.y) * tileSize, tileSize);
+			ctx.globalAlpha = 1.0;
 		}
 	},
 
@@ -501,12 +525,11 @@ var canvas = {
 		ctx.fillStyle = color;
 		const screenX = (entity.x - camera.x) * tileSize;
 		const screenY = (entity.y - camera.y) * tileSize;
-		const img = document.getElementById(imgId);
 
 		if (hasActed) ctx.filter = "grayscale(75%)";
 		ctx.fillRect(screenX, screenY, tileSize, tileSize);
 		if (hasActed) ctx.filter = "brightness(75%)";
-		ctx.drawImage(img, screenX, screenY, tileSize, tileSize);
+		drawEntitySprite(imgId, screenX, screenY, tileSize);
 
 		if (!isZoomedOut) {
 			ctx.fillStyle = "rgba(255, 255, 255, 1)";
@@ -520,15 +543,49 @@ var canvas = {
 		canvas.drawEntityStatusSprites(entity, screenX, screenY);
 	},
 
+	// duration in ms, draw(t) called each frame with t going 0 -> 1
+	addAnim: (duration, draw) => {
+		if (!duration) return;
+		const wasEmpty = !anims.length;
+		anims.push({start: performance.now(), duration, draw});
+		if (wasEmpty) requestAnimationFrame(stepAnims);
+	},
+
+	deathAnim: (entity) => {
+		const x = entity.x, y = entity.y;
+		canvas.addAnim(750, t => {
+			ctx.globalAlpha = 1 - t;
+			drawEntitySprite("death", (x - camera.x) * tileSize, (y - camera.y - 2 * t) * tileSize, tileSize);
+			ctx.globalAlpha = 1.0;
+		});
+	},
+
+	explosionAnim: (x, y) => {
+		//const duration = parseInt(document.getElementById("turn-delay").value) || 0;
+		const size = 5 * tileSize; // explode radius of 2 = 5 tiles across. +1 for explode sprite margins.
+		//canvas.addAnim(duration, t => {
+		canvas.addAnim(1000, t => {
+			const img = document.getElementById("explode");
+			if (!img || !img.complete || !img.naturalWidth) return;
+			ctx.globalAlpha = 1 - t;
+			ctx.drawImage(img, (x - camera.x + 0.5) * tileSize - size / 2, (y - camera.y + 0.5) * tileSize - size / 2, size, size);
+			ctx.globalAlpha = 1.0;
+		});
+	},
+
+	playAnims: () => {
+		const now = performance.now();
+		anims.forEach(a => a.draw(Math.min(1, (now - a.start) / a.duration)));
+	},
+
 	drawOnionskin: () => {
 		if (specialMode === 'peek' && peekStep > 0) {
 			const screenX = (peekStartX - camera.x) * tileSize;
 			const screenY = (peekStartY - camera.y) * tileSize;
 			ctx.fillStyle = "rgba(0, 0, 255, 0.2)";
 			ctx.fillRect(screenX, screenY, tileSize, tileSize);
-			const img = document.getElementById("pep");
 			ctx.globalAlpha = 0.3;
-			ctx.drawImage(img, screenX, screenY, tileSize, tileSize);
+			drawEntitySprite("player", screenX, screenY, tileSize);
 			ctx.globalAlpha = 1.0;
 		}
 	},
@@ -602,6 +659,7 @@ var canvas = {
 
 			circle(grenade.y, grenade.x, damageRadius);
 
+			/*
 			ctx.fillStyle = "rgba(255, 0, 0, 0.3)";
 			for (let wx = Math.max(0, grenade.x - damageRadius - 1); wx <= Math.min(size - 1, grenade.x + damageRadius + 1); wx++) {
 				for (let wy = Math.max(0, grenade.y - damageRadius - 1); wy <= Math.min(size - 1, grenade.y + damageRadius + 1); wy++) {
@@ -616,6 +674,7 @@ var canvas = {
 					}
 				}
 			}
+			*/
 
 			// Restore array so the rest of the frame isn't affected
 			if (savedArray) array = savedArray;
@@ -686,7 +745,7 @@ var canvas = {
 					ctx.globalAlpha = 1.0;
 				}
 			} else { // not grenade
-				if (entity.hp >= 1) { // player controlled entities always get "pep" player sprite, this will need to change down the line.
+				if (entity.hp >= 1) { // player controlled entities always get the player sprite, this will need to change down the line.
 					const color = isPlayerControlled(entity) ? (entity.playerColor || "rgba(0, 0, 255, 0.5)") : "rgba(125, 125, 0, 0.5)";
 					const sprite = entitySpriteId(entity);
 					canvas.drawEntity(entity, color, sprite);
