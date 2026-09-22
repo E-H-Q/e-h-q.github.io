@@ -135,6 +135,7 @@ const EntitySystem = {
 				if (calc.roll(6) >= 4) {
 					let dmg = Math.max(1, calc.roll(6) + (attacker.damage || 0) - (enemy.armor || 0));
 					enemy.hp -= dmg;
+					spillBlood(enemy, dmg);
 					if (enemy.lastAttacker !== undefined) enemy.lastAttacker = attacker;
 					if (enemy.seenX !== undefined) { enemy.seenX = attacker.x; enemy.seenY = attacker.y; }
 					console.log(attacker.name + " hits " + enemy.name + " for " + dmg + " DMG!");
@@ -263,6 +264,13 @@ const EntitySystem = {
 	death: function(entity) {
 		if (entity.hp > 0) return;
 		if (!helper.isGrenadeEntity(entity)) canvas.deathAnim(entity);
+		// Players leave a destructible grave tile; entitySpriteId keys off pre-charm allegiance
+		if (entitySpriteId(entity) === "player") {
+			const wi = walls.findIndex(w => w.x === entity.x && w.y === entity.y);
+			if (wi >= 0) walls.splice(wi, 1);
+			walls.push({x: entity.x, y: entity.y, type: 'grave', graveName: entity.name});
+			bloodTiles.delete(entity.x + ',' + entity.y);
+		}
 		this.dropAllItems(entity);
 		if (helper.hasTrait(entity, 'explode')) {
 			this._explosionQueue.push(entity);
@@ -320,6 +328,7 @@ const EntitySystem = {
 			const dmg = Math.max(1, damage - (entity.armor || 0));
 			console.log(entity.name + " takes " + dmg + " explosion damage!");
 			entity.hp -= dmg;
+			spillBlood(entity, dmg);
 			if (entity.hp <= 0) this.death(entity);
 		}
 

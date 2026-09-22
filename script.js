@@ -272,6 +272,7 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 	mapItems = [];
 	allEnemies = [];
 	selectedEditTiles = [];
+	bloodTiles.clear();
 
 	const rooms = [];
 	const maxAttempts = 500;
@@ -389,6 +390,7 @@ function renderScene() {
 	canvas.clear();
 	canvas.grid();
 	canvas.walls();
+	canvas.blood();
 	canvas.player();
 	canvas.items();
 	const ce = entities[currentEntityIndex] || player;
@@ -478,42 +480,11 @@ function update() {
 	}
 
 	if (adjacentSelect && isPlayerControlled(currentEntity)) {
-		valid.forEach(v => {
-			ctx.clearRect((v.x - camera.x) * tileSize, (v.y - camera.y) * tileSize, tileSize, tileSize);
-		});
-		const tilesImg = document.getElementById("tiles");
-		const itemsImg = document.getElementById("items");
-		valid.forEach(v => {
-			const sx = (v.x - camera.x) * tileSize;
-			const sy = (v.y - camera.y) * tileSize;
-			if (tilesImg && tilesImg.complete && tilesImg.naturalWidth > 0) {
-				ctx.drawImage(tilesImg, TILE_FLOOR * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
+		renderScene(); // repaint the scene to wipe the movement overlay, then tint the selectable tiles
+		allEnemies.forEach(g => {
+			if (helper.isGrenadeEntity(g) && helper.hasTrait(g, 'active') && valid.some(v => v.x === g.x && v.y === g.y)) {
+				canvas.grenadeOutline(g);
 			}
-			const wall = walls.find(w => w.x === v.x && w.y === v.y);
-			if (wall && tilesImg && tilesImg.complete) {
-				const tileIndex = { wall: TILE_WALL, glass: TILE_GLASS, water: TILE_WATER, fire: TILE_FIRE }[wall.type];
-				if (tileIndex !== undefined) ctx.drawImage(tilesImg, tileIndex * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
-				if (wall.type === 'glass' && wall.damaged) ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, sx, sy, tileSize, tileSize);
-			}
-		});
-		canvas.items();
-		const liveSprite = ITEM_SPRITE_MAP.grenadeLive;
-		valid.forEach(v => {
-			const g = allEnemies.find(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === v.x && e.y === v.y);
-			if (!g) return;
-			const sx = (v.x - camera.x) * tileSize;
-			const sy = (v.y - camera.y) * tileSize;
-			if (itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0 && liveSprite) {
-				ctx.drawImage(itemsImg, liveSprite.col * ITEM_SPRITE_SIZE, liveSprite.row * ITEM_SPRITE_SIZE, ITEM_SPRITE_SIZE, ITEM_SPRITE_SIZE, sx, sy, tileSize, tileSize);
-			}
-			if (helper.hasTrait(g, 'active')) {
-				ctx.fillStyle = "#FF0000";
-				ctx.font = "bold " + (tileSize / 2) + "px monospace";
-				ctx.textAlign = "center";
-				ctx.fillText(g.turnsRemaining.toString(), sx + tileSize / 2, sy + tileSize * 0.65);
-				ctx.textAlign = "left";
-			}
-			if (helper.hasTrait(g, 'active')) canvas.grenadeOutline(g);
 		});
 		canvas.drawAdjacentSelect();
 	} else { // GRENADE THROWING! (also used for the psuedo attack mode when throwing inventory items.)
@@ -552,6 +523,7 @@ function update() {
 	canvas.inventory();
 	canvas.abilityBar();
 	canvas.window();
+	canvas.editModeText(); // always the top layer
 
 	updateTurnOrder();
 	updatePeekButton();

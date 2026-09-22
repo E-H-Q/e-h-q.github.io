@@ -435,15 +435,6 @@ var turns = {
                         }
                     });
                 }
-            } else {
-                const screenX = (enemy.x - camera.x) * tileSize;
-                const screenY = (enemy.y - camera.y) * tileSize;
-                if (enemy.seenX === 0 && enemy.seenY === 0) {
-                    ctx.fillStyle = "rgba(255, 255, 255, 1)";
-                    ctx.font = 'bold 12px serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText("?", screenX + tileSize * 0.75, screenY + tileSize * 0.25);
-                }
             }
         });
 

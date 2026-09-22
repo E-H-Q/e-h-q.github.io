@@ -102,6 +102,17 @@ function moveUIGridSelect(dx, dy) {
 	update();
 }
 
+// Resyncs the world cursor to a canvas-pixel position, so click handlers never
+// read a stale tile left over from the last mousemove.
+function setCursorFromCanvas(canvasX, canvasY) {
+	const gx = Math.max(0, Math.min(viewportWidth - 1, Math.floor(canvasX / tileSize)));
+	const gy = Math.max(0, Math.min(viewportHeight - 1, Math.floor(canvasY / tileSize)));
+	window.cursorWorldPos = {
+		x: Math.max(0, Math.min(size - 1, camera.x + gx)),
+		y: Math.max(0, Math.min(size - 1, camera.y + gy))
+	};
+}
+
 function getDoorBlocker(x, y) {
 	return entities.find(e => e.hp > 0 && e.x === x && e.y === y && !helper.isGrenadeEntity(e));
 }
@@ -1065,6 +1076,7 @@ var input = {
             }
         }
 
+        setCursorFromCanvas(canvasX, canvasY);
         if (!window.cursorWorldPos) return;
 
         document.getElementById('spawn_x').value = window.cursorWorldPos.x;
@@ -1176,7 +1188,7 @@ var input = {
         let displayName = "Unknown";
 
         if (clickedEntity) displayName = clickedEntity.name || "Entity";
-        else if (clickedWall) displayName = clickedWall.type || "Wall";
+        else if (clickedWall) displayName = clickedWall.graveName || clickedWall.type || "Wall";
         else if (clickedItem) {
             const itemsHere = mapItems.filter(m => m.x === window.cursorWorldPos.x && m.y === window.cursorWorldPos.y);
             const distinctTypes = new Set(itemsHere.map(m => m.itemType));
@@ -1409,6 +1421,7 @@ var input = {
         }
 
         isMouseDown = true;
+        setCursorFromCanvas(canvasX, canvasY);
 
         if (edit.checked && window.cursorWorldPos && !activeContextMenu && !WindowSystem.isOpen()) {
             const click_pos = {

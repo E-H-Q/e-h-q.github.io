@@ -17,6 +17,7 @@ const SPRITE_FOLLOWER = 10;
 const SPRITE_FIRE_STATUS = 11;
 const SPRITE_LOCKED = 12;
 const SPRITE_CHARM_STATUS = 13;
+const SPRITE_UNAWARE = 14;
 
 const TILE_SIZE        = 32;
 const TILE_WALL        = 0;
@@ -142,25 +143,59 @@ const ABILITY_SPRITE_MAP = {
 	detonate:   5
 };
 
-// Entity sprites from entities.png, one 32x32 sprite per index left-to-right.
+// Entity sprites from entities.png, 32x32 sprites on a 3x3 grid.
+// Row 0 = player, Row 1 = enemies (default, defensive, aggressive), Row 2 = death anim, grave
 const ENTITY_SPRITE_SIZE = 32;
 const ENTITY_SPRITE_MAP = {
-	player: 0,
-	enemy:  1,
-	death:  2
+	player:     { row: 0, col: 0 },
+	enemy:      { row: 1, col: 0 },
+	defensive:  { row: 1, col: 1 },
+	aggressive: { row: 1, col: 2 },
+	death:      { row: 2, col: 0 },
+	grave:      { row: 2, col: 1 },
+	blood:      { row: 2, col: 2 }
 };
 
+// Cosmetic blood splatter, "x,y" -> quarter-turn rotation. Session only — cleared on map load / regen.
+var bloodTiles = new Map();
+
+// A tile takes blood if it isn't water or fire and isn't already bloodied.
+function canBleedOn(x, y) {
+	const t = wallAt(x, y)?.type;
+	return t !== 'water' && t !== 'fire' && !bloodTiles.has(x + ',' + y);
+}
+
+function addBlood(x, y) {
+	bloodTiles.set(x + ',' + y, calc.random(4) - 1);
+}
+
+// One splatter under the entity, plus one adjacent per 25% of max HP taken (8 at double HP).
+function spillBlood(entity, dmg) {
+	if (canBleedOn(entity.x, entity.y)) addBlood(entity.x, entity.y);
+	let n = Math.min(8, Math.round(dmg / (entity.maxHp || entity.hp + dmg) * 4));
+	const tiles = helper.getAdjacentTiles(entity.x, entity.y, true).filter(t => canBleedOn(t.x, t.y));
+	while (n-- > 0 && tiles.length) {
+		const t = tiles.splice(calc.random(tiles.length) - 1, 1)[0];
+		addBlood(t.x, t.y);
+	}
+}
+
 // Sprites follow original allegiance: charmed entities keep their pre-charm sprite.
+// Aggressive wins over defensive when an enemy carries both.
 function entitySpriteId(e) {
-	const wasPlayer = e._precharm ? e._precharm.traits.includes('player') : isPlayerControlled(e);
-	return wasPlayer ? "player" : "enemy";
+	const t = (e._precharm ? e._precharm.traits : e.traits) || [];
+	if (t.includes('player')) return "player";
+	if (t.includes('aggressive')) return "aggressive";
+	if (t.includes('defensive')) return "defensive";
+	return "enemy";
 }
 
 function drawEntitySprite(key, sx, sy, size) {
 	const img = document.getElementById("entities");
-	const idx = ENTITY_SPRITE_MAP[key];
-	if (!img || !img.complete || !img.naturalWidth || idx === undefined) return;
-	ctx.drawImage(img, idx * ENTITY_SPRITE_SIZE, 0, ENTITY_SPRITE_SIZE, ENTITY_SPRITE_SIZE, sx, sy, size, size);
+	const sp = ENTITY_SPRITE_MAP[key];
+	if (!img || !img.complete || !img.naturalWidth || !sp) return;
+	ctx.drawImage(img, sp.col * ENTITY_SPRITE_SIZE, sp.row * ENTITY_SPRITE_SIZE,
+		ENTITY_SPRITE_SIZE, ENTITY_SPRITE_SIZE, sx, sy, size, size);
 }
 
 // Generic timed animation queue; each entry re-renders the live scene, then calls draw(t).
@@ -219,6 +254,7 @@ var canvas = {
 		const w = tileSize * viewportWidth, h = tileSize * viewportHeight;
 		if (c.width !== w) c.width = w;
 		if (c.height !== h) c.height = h;
+		ctx.imageSmoothingEnabled = false; // resizing the canvas resets context state
 	},
 
 	clear: () => {
@@ -227,7 +263,6 @@ var canvas = {
 
 	grid: () => {
 		const tilesImg = document.getElementById("tiles");
-		const occupied = getOccupiedTiles();
 		for (let i = 0; i < viewportWidth; i++) {
 			for (let j = 0; j < viewportHeight; j++) {
 				const worldX = camera.x + i;
@@ -244,9 +279,7 @@ var canvas = {
 					ctx.lineTo(screenX, screenY + tileSize);
 					ctx.stroke();
 				} else if (tilesImg && tilesImg.complete && tilesImg.naturalWidth > 0) {
-					if (occupied.has(worldX + ',' + worldY)) ctx.globalAlpha = 0.5;
 					ctx.drawImage(tilesImg, TILE_FLOOR * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
-					ctx.globalAlpha = 1.0;
 				}
 			}
 		}
@@ -276,7 +309,6 @@ var canvas = {
 			if (wall.type === 'glass') {
 				if (hasSprites) {
 					ctx.drawImage(tilesImg, TILE_GLASS * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
-					if (wall.damaged) ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
 				} else {
 					ctx.fillStyle = wall.damaged ? "rgba(0, 100, 255, 0.3)" : "rgba(0, 100, 255, 0.5)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
@@ -295,6 +327,8 @@ var canvas = {
 					ctx.fillStyle = "rgba(255, 100, 0, 0.6)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
+			} else if (wall.type === 'grave') {
+				drawEntitySprite("grave", screenX, screenY, tileSize);
 			} else if (wall.type === 'shield') {
 				const abImg = document.getElementById("abilities");
 				if (abImg && abImg.complete && abImg.naturalWidth) {
@@ -303,16 +337,10 @@ var canvas = {
 					ctx.fillStyle = "rgba(100, 180, 255, 0.7)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
-				if (wall.damaged && hasSprites) ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
 			} else if (wall.type === 'door') {
 				if (hasSprites) {
 					const doorTile = wall.open ? TILE_DOOR_OPEN : TILE_DOOR_CLOSED;
 					ctx.drawImage(tilesImg, doorTile * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
-					if (wall.damaged) {
-						ctx.filter = "invert(1)";
-						ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
-						ctx.filter = "none";
-					}
 					if (wall.locked) {
 						const movesImg = document.getElementById("moves");
 						if (movesImg && movesImg.complete && movesImg.naturalWidth > 0) {
@@ -326,25 +354,33 @@ var canvas = {
 			} else {
 				if (hasSprites) {
 					ctx.drawImage(tilesImg, TILE_WALL * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
-					if (wall.damaged) {
-						ctx.filter = "invert(1)";
-						ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
-						ctx.filter = "none";
-					}
 				} else {
 					ctx.fillStyle = wall.damaged ? "rgba(200, 100, 0, 0.7)" : "rgba(255, 0, 0, 0.5)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
 			}
+
+			// Shared damage overlay: inverted for every tile type except glass
+			if (wall.damaged && hasSprites) {
+				if (wall.type !== 'glass') ctx.filter = "invert(1)";
+				ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+				ctx.filter = "none";
+			}
 		});
-		if (edit.checked) {
+	},
+
+	// Drawn after walls: sits on floor and wall tiles, under entities and items
+	blood: () => {
+		bloodTiles.forEach((rot, key) => {
+			const [x, y] = key.split(',').map(Number);
+			const t = wallAt(x, y)?.type;
+			if (t === 'water' || t === 'fire') return;
 			ctx.save();
-			ctx.font = 'italic bold 16px sans';
-			ctx.fillStyle = "#FF0000";
-			ctx.textAlign = 'left';
-			ctx.fillText("EDIT MODE ON", 5, 16); // RED EDIT MODE TEXT !!!!!!!!!!!!!!
+			ctx.translate((x - camera.x + 0.5) * tileSize, (y - camera.y + 0.5) * tileSize);
+			ctx.rotate(rot * Math.PI / 2);
+			drawEntitySprite("blood", -tileSize / 2, -tileSize / 2, tileSize);
 			ctx.restore();
-		}
+		});
 	},
 
 	items: () => {
@@ -480,43 +516,37 @@ var canvas = {
 		}
 	},
 
-	drawEntityStatusSprites: (entity, screenX, screenY) => {
+	// Overlays that belong on the sprite itself, at any size: unaware marker,
+	// fire and charm. Shared by the map and the examine window.
+	drawEntityStatusSprites: (entity, screenX, screenY, size = tileSize) => {
 		const movesImg = document.getElementById("moves");
 		if (!movesImg || !movesImg.complete || !movesImg.naturalWidth) return;
+		const sprite = (i, ox = 0) => ctx.drawImage(movesImg, i * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+			screenX + ox, screenY, size, size);
 
-		// Draw fire status if entity has fire trait
-		if (helper.hasTrait(entity, 'fire')) {
-			ctx.drawImage(movesImg, SPRITE_FIRE_STATUS * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-				screenX, screenY, tileSize, tileSize);
-		}
-
-		// Draw charm status if entity is charmed
+		if (!isPlayerControlled(entity) && entity.seenX === 0 && entity.seenY === 0) sprite(SPRITE_UNAWARE);
+		if (helper.hasTrait(entity, 'fire')) sprite(SPRITE_FIRE_STATUS);
 		if (helper.hasTrait(entity, 'charmed')) {
-			//ctx.drawImage(movesImg, SPRITE_CHARM_STATUS * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE, screenX, screenY, tileSize, tileSize);
-			for (let i = 0; i < entity.charmRounds; i++) {
-				ctx.drawImage(movesImg, SPRITE_CHARM_STATUS * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-						screenX + (i * 3), screenY, tileSize, tileSize);
-			}
+			for (let i = 0; i < entity.charmRounds; i++) sprite(SPRITE_CHARM_STATUS, i * 3);
 		}
+	},
 
-		// Draw active indicator if this is the current entity
-		const isActive = entities[currentEntityIndex] === entity;
-		if (isActive) {
-			for (let i = 0; i < currentEntityTurnsRemaining; i++) {
-				ctx.drawImage(movesImg, SPRITE_ACTIVE * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-					screenX - (i * 3), screenY, tileSize, tileSize);
-			}
-		}
+	// Turn-order overlays: remaining action points, and markers over this entity's followers.
+	drawTurnIndicators: (entity, screenX, screenY) => {
+		const movesImg = document.getElementById("moves");
+		if (!movesImg || !movesImg.complete || !movesImg.naturalWidth) return;
+		if (entities[currentEntityIndex] !== entity) return;
 
-		// Draw follower indicators
-		if (isActive) {
-			for (var i = 0; i < entities.length; i++) {
-				if (entities[i].following && entities[i].following == entity) {
-					ctx.drawImage(movesImg, SPRITE_FOLLOWER * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-						(entities[i].x - camera.x) * tileSize, (entities[i].y - camera.y) * tileSize, tileSize, tileSize);
-				}
-			}
+		for (let i = 0; i < currentEntityTurnsRemaining; i++) {
+			ctx.drawImage(movesImg, SPRITE_ACTIVE * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+				screenX - (i * 3), screenY, tileSize, tileSize);
 		}
+		entities.forEach(e => {
+			if (e.following === entity) {
+				ctx.drawImage(movesImg, SPRITE_FOLLOWER * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
+					(e.x - camera.x) * tileSize, (e.y - camera.y) * tileSize, tileSize, tileSize);
+			}
+		});
 	},
 
 	drawEntity: (entity, color, imgId) => {
@@ -530,6 +560,7 @@ var canvas = {
 		ctx.fillRect(screenX, screenY, tileSize, tileSize);
 		if (hasActed) ctx.filter = "brightness(75%)";
 		drawEntitySprite(imgId, screenX, screenY, tileSize);
+		canvas.drawEntityStatusSprites(entity, screenX, screenY);
 
 		if (!isZoomedOut) {
 			ctx.fillStyle = "rgba(255, 255, 255, 1)";
@@ -539,8 +570,7 @@ var canvas = {
 		}
 		ctx.filter = 'none';
 
-		// Draw status sprites
-		canvas.drawEntityStatusSprites(entity, screenX, screenY);
+		canvas.drawTurnIndicators(entity, screenX, screenY);
 	},
 
 	// duration in ms, draw(t) called each frame with t going 0 -> 1
@@ -618,7 +648,6 @@ var canvas = {
 		} else if (adjacentSelect.mode === 'door') {
 			const doorTiles = helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
 				.filter(tile => walls.some(w => w.x === tile.x && w.y === tile.y && w.type === 'door'));
-			canvas.walls(); // without this open doors do not get rendered?
 			for (const tile of doorTiles) {
 				ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
 			}
@@ -641,7 +670,7 @@ var canvas = {
 	player: () => {
 		allPlayers.forEach(e => {
 			if (e.hp >= 1) {
-				const color = isPlayerControlled(e) ? (e.playerColor || "rgba(0, 0, 255, 0.5)") : "rgba(125, 125, 0, 0.5)";
+				const color = isPlayerControlled(e) ? (e.playerColor || "rgba(0, 0, 255, 0.5)") : "rgba(0, 0, 0, 0)";
 				const sprite = entitySpriteId(e);
 				canvas.drawEntity(e, color, sprite);
 			}
@@ -746,7 +775,7 @@ var canvas = {
 				}
 			} else { // not grenade
 				if (entity.hp >= 1) { // player controlled entities always get the player sprite, this will need to change down the line.
-					const color = isPlayerControlled(entity) ? (entity.playerColor || "rgba(0, 0, 255, 0.5)") : "rgba(125, 125, 0, 0.5)";
+					const color = isPlayerControlled(entity) ? (entity.playerColor || "rgba(0, 0, 255, 0.5)") : "rgba(0, 0, 0, 0)";
 					const sprite = entitySpriteId(entity);
 					canvas.drawEntity(entity, color, sprite);
 				}
@@ -1006,6 +1035,17 @@ var canvas = {
 			ctx.strokeRect(go.x + (gridSel.slot % cols) * tileSize + 1,
 				go.y + ((gridSel.slot / cols) | 0) * tileSize + 1, tileSize - 2, tileSize - 2);
 		}
+	},
+
+	// Top layer, drawn last in update() so nothing can cover it
+	editModeText: () => {
+		if (!edit.checked) return;
+		ctx.save();
+		ctx.font = 'italic bold 16px sans';
+		ctx.fillStyle = "#FF0000";
+		ctx.textAlign = 'left';
+		ctx.fillText("EDIT MODE ON", 5, 16);
+		ctx.restore();
 	},
 
 	window: () => {

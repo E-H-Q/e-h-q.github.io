@@ -40,6 +40,7 @@ function load_map() {
 
 		size = JSON.parse(lines[0]);
 		resizePtsArray();
+		bloodTiles.clear();
 
         const loaded_walls   = lines[1];
         const loaded_enemies = lines[2];
@@ -127,34 +128,6 @@ function load_map() {
             }
         } else if (!legacy_player) {
             updatePlayer();
-        }
-
-        if (loaded_items) {
-            try {
-                mapItems = JSON.parse(loaded_items);
-                if (mapItems.length > 0) {
-                    const maxId = Math.max(...mapItems.map(item => item.id));
-                    nextItemId = maxId + 1;
-                }
-            } catch (e) {
-                mapItems = [];
-            }
-        } else {
-            mapItems = [];
-        }
-
-        if (loaded_items) {
-            try {
-                mapItems = JSON.parse(loaded_items);
-                if (mapItems.length > 0) {
-                    const maxId = Math.max(...mapItems.map(item => item.id));
-                    nextItemId = maxId + 1;
-                }
-            } catch (e) {
-                mapItems = [];
-            }
-        } else {
-            mapItems = [];
         }
 
 		if (loaded_items) {

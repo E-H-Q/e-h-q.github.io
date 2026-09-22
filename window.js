@@ -706,6 +706,7 @@ var WindowSystem = {
                 this._drawItemSprite('grenadeLive', spriteX, spriteY, spriteSize);
             } else {
                 drawEntitySprite(entitySpriteId(entity), spriteX, spriteY, spriteSize);
+                canvas.drawEntityStatusSprites(entity, spriteX, spriteY, spriteSize);
             }
 
             ctx.fillStyle = "#ffffff";
@@ -717,14 +718,16 @@ var WindowSystem = {
 
         } else if (entity.type) {
             const tilesImg = document.getElementById("tiles");
-            if (tilesImg && tilesImg.complete) {
+            if (entity.type === 'grave') {
+                drawEntitySprite("grave", spriteX, spriteY, spriteSize);
+            } else if (tilesImg && tilesImg.complete) {
                 const tileIndex = { wall: TILE_WALL, glass: TILE_GLASS, water: TILE_WATER, fire: TILE_FIRE, door: TILE_DOOR_CLOSED }[entity.type];
                 if (tileIndex !== undefined) ctx.drawImage(tilesImg, tileIndex * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, spriteX, spriteY, spriteSize, spriteSize);
             }
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 16px monospace";
             ctx.textAlign = "center";
-            ctx.fillText(entity.type, spriteX + spriteSize / 2, spriteY + spriteSize + 20);
+            ctx.fillText(entity.graveName || entity.type, spriteX + spriteSize / 2, spriteY + spriteSize + 20);
             ctx.font = "14px monospace";
             ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
 
