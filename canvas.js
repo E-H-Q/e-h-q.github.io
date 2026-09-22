@@ -374,7 +374,7 @@ var canvas = {
 		bloodTiles.forEach((rot, key) => {
 			const [x, y] = key.split(',').map(Number);
 			const t = wallAt(x, y)?.type;
-			if (t === 'water' || t === 'fire') return;
+			if (t === 'water' || t === 'fire' || t === 'shield') return;
 			ctx.save();
 			ctx.translate((x - camera.x + 0.5) * tileSize, (y - camera.y + 0.5) * tileSize);
 			ctx.rotate(rot * Math.PI / 2);
