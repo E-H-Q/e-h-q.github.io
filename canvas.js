@@ -171,6 +171,7 @@ function addBlood(x, y) {
 
 // One splatter under the entity, plus one adjacent per 25% of max HP taken (8 at double HP).
 function spillBlood(entity, dmg) {
+	if (helper.isGrenadeEntity(entity)) return;
 	if (canBleedOn(entity.x, entity.y)) addBlood(entity.x, entity.y);
 	let n = Math.min(8, Math.round(dmg / (entity.maxHp || entity.hp + dmg) * 4));
 	const tiles = helper.getAdjacentTiles(entity.x, entity.y, true).filter(t => canBleedOn(t.x, t.y));
