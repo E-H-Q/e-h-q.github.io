@@ -115,10 +115,9 @@ const EntitySystem = {
 			this._explosionQueue.push({
 				name: attacker.name,
 				x: targetX, y: targetY,
-				traits: canEntityImmolate(attacker) ? ['explode', 'immolate'] : ['explode'],
+				traits: ['explode', ...['canDestroy', 'immolate'].filter(t => helper.hasTrait(attacker, t))],
 				_damage: attacker.damage || 0,
-				_radius: weaponDef.areaRadius,
-				_canDestroy: weaponDef.canDestroy
+				_radius: weaponDef.areaRadius
 			});
 			if (!this._explosionPending) this._processBatchExplosions();
 			return true;
@@ -158,7 +157,7 @@ const EntitySystem = {
 
 		consumeAmmo(attacker);
 
-		if (canEntityImmolate(attacker)) {
+		if (helper.hasTrait(attacker, 'immolate')) {
 			for (const tile of calculateEntityTargeting(attacker, targetX, targetY)) {
 				if (calc.roll(2) === 1) helper.igniteTile(tile.x, tile.y);
 			}
@@ -168,9 +167,8 @@ const EntitySystem = {
 	},
 
 	destroyWalls: function(attacker, targetX, targetY) {
-		const weaponDef  = getItemDef(attacker.equipment?.weapon);
-		const canDestroy = canEntityDestroyWalls(attacker);
-		const canBreach  = canEntityBreach(attacker);
+		const canDestroy = helper.hasTrait(attacker, 'canDestroy');
+		const canBreach  = helper.hasTrait(attacker, 'canBreach');
 		let destroyedAny = false;
 
 		for (const tile of calculateEntityTargeting(attacker, targetX, targetY)) {
@@ -245,8 +243,8 @@ const EntitySystem = {
 					x: entity.x, y: entity.y,
 					range: 0, attack_range: 0, turns: 1,
 					turnsRemaining: item.turnsRemaining,
-					_damage: itemDef.damage, _radius: itemDef.damageRadius, _canDestroy: itemDef.canDestroy,
-					inventory: [], traits: ['explode', 'active']
+					_damage: itemDef.damage, _radius: itemDef.damageRadius,
+					inventory: [], traits: ['explode', 'active', ...itemDef.traits]
 				});
 				console.log(entity.name + " dropped a LIVE grenade with " + item.turnsRemaining + " turns remaining!");
 				entity.inventory[i] = null;
@@ -304,8 +302,6 @@ const EntitySystem = {
 	},
 
 	_resolveExplosion: function(grenade) {
-		grenade.traits.push("immolate");
-
 		const itemDef = itemTypes.grenade;
 		const { x: ex, y: ey } = grenade;
 		const r      = grenade._radius ?? itemDef.damageRadius;
@@ -316,7 +312,7 @@ const EntitySystem = {
 
 		const blastTiles = collectAreaTiles(ex, ey, r);
 
-		if (grenade._canDestroy ?? itemDef.canDestroy) {
+		if (helper.hasTrait(grenade, 'canDestroy')) {
 			for (const tile of blastTiles) {
 				const wi = walls.findIndex(w => w.x === tile.x && w.y === tile.y && w.type !== 'water' && w.type !== 'fire' && !w.permanent);
 				if (wi >= 0) walls.splice(wi, 1);

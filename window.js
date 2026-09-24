@@ -45,7 +45,6 @@ var WindowSystem = {
             hoveredIndex: 0,
             onConfirm: config.onConfirm || null,
             onCancel: config.onCancel || null,
-            scrollOffset: 0,
             itemHeight: 30,
             headerHeight: 0,
             footerHeight: 40,
@@ -74,7 +73,6 @@ var WindowSystem = {
             hoveredIndex: 0,
             onConfirm: config.onConfirm || null,
             onCancel: config.onCancel || null,
-            scrollOffset: 0,
             itemHeight: 30,
             headerHeight: 0,
             footerHeight: 40,
@@ -129,18 +127,13 @@ var WindowSystem = {
 
     drawSelectionWindow: function(win) {
         const contentY = win.y + win.headerHeight;
-        const contentHeight = win.height - win.headerHeight - win.footerHeight;
-        const maxVisibleItems = Math.floor((contentHeight - win.padding * 2) / win.itemHeight);
 
         ctx.textAlign = "left";
         ctx.font = "14px monospace";
 
-        const startIndex = Math.floor(win.scrollOffset);
-        const endIndex = Math.min(win.items.length, startIndex + maxVisibleItems);
-
-        for (let i = startIndex; i < endIndex; i++) {
+        for (let i = 0; i < win.items.length; i++) {
             const item = win.items[i];
-            const itemY = contentY + win.padding + (i - startIndex) * win.itemHeight;
+            const itemY = contentY + win.padding + i * win.itemHeight;
 
             let bgColor = "#000000";
             if (win.selectedIndices.has(i)) bgColor = "#004400";
@@ -170,20 +163,6 @@ var WindowSystem = {
             ctx.fillStyle = item.disabled ? "#666666" : "#ffffff";
             ctx.font = "14px monospace";
             ctx.fillText("(" + label + ") " + item.text, checkboxX + checkboxSize + 10, itemY + 20);
-        }
-
-        if (win.items.length > maxVisibleItems) {
-            const scrollbarX = win.x + win.width - 15;
-            const scrollbarHeight = contentHeight - 10;
-            const scrollbarY = contentY + 5;
-
-            ctx.fillStyle = "#333333";
-            ctx.fillRect(scrollbarX, scrollbarY, 10, scrollbarHeight);
-
-            const thumbHeight = Math.max(20, (maxVisibleItems / win.items.length) * scrollbarHeight);
-            const thumbY = scrollbarY + (win.scrollOffset / win.items.length) * scrollbarHeight;
-            ctx.fillStyle = "#666666";
-            ctx.fillRect(scrollbarX, thumbY, 10, thumbHeight);
         }
 
         const footerY = win.y + win.height - win.footerHeight;
@@ -252,12 +231,9 @@ var WindowSystem = {
         }
 
         const contentY = win.y + win.headerHeight;
-        const contentHeight = win.height - win.headerHeight - win.footerHeight;
-        const maxVisibleItems = Math.floor((contentHeight - win.padding * 2) / win.itemHeight);
-        const startIndex = Math.floor(win.scrollOffset);
 
-        for (let i = startIndex; i < Math.min(win.items.length, startIndex + maxVisibleItems); i++) {
-            const itemY = contentY + win.padding + (i - startIndex) * win.itemHeight;
+        for (let i = 0; i < win.items.length; i++) {
+            const itemY = contentY + win.padding + i * win.itemHeight;
 
             if (mouseX >= win.x + win.padding &&
                 mouseX <= win.x + win.width - win.padding &&
@@ -278,14 +254,11 @@ var WindowSystem = {
 
         const win = activeWindow;
         const contentY = win.y + win.headerHeight;
-        const contentHeight = win.height - win.headerHeight - win.footerHeight;
-        const maxVisibleItems = Math.floor((contentHeight - win.padding * 2) / win.itemHeight);
-        const startIndex = Math.floor(win.scrollOffset);
 
         win.hoveredIndex = -1;
 
-        for (let i = startIndex; i < Math.min(win.items.length, startIndex + maxVisibleItems); i++) {
-            const itemY = contentY + win.padding + (i - startIndex) * win.itemHeight;
+        for (let i = 0; i < win.items.length; i++) {
+            const itemY = contentY + win.padding + i * win.itemHeight;
 
             if (mouseX >= win.x + win.padding &&
                 mouseX <= win.x + win.width - win.padding &&
@@ -390,7 +363,7 @@ var WindowSystem = {
         const traitKeys = Object.keys(entityTraits);
         const items = traitKeys.map(key => ({ text: entityTraits[key].name + ": " + entityTraits[key].description, key }));
         const preSelected = traitKeys
-            .map((key, i) => (entity.traits && entity.traits.includes(key)) ? i : -1)
+            .map((key, i) => helper.hasTrait(entity, key) ? i : -1)
             .filter(i => i >= 0);
 
         this.openSelectionWindow({
@@ -401,7 +374,8 @@ var WindowSystem = {
             preSelectedIndices: preSelected,
             confirmLabel: "OK",
             onConfirm: function(selectedItems, selectedIndices) {
-                const newTraits = Array.from(selectedIndices).map(i => traitKeys[i]);
+                const newTraits = Array.from(selectedIndices).map(i => traitKeys[i])
+                    .filter(k => (entity.traits || []).includes(k) || !helper.hasTrait(entity, k));
                 entity.traits = newTraits;
                 console.log(entity.name + " traits updated: " + (newTraits.join(", ") || "none"));
                 update();
@@ -797,9 +771,7 @@ var WindowSystem = {
                     if (singleItemDef.areaRadius)   win.items.push({ text: `Radius: ${singleItemDef.areaRadius}` });
                     if (singleItemDef.burst)         win.items.push({ text: `Burst Fire: ${singleItemDef.burst}` });
                     if (weaponItem)                  win.items.push({ text: `Attack type: ${singleItemDef.aimStyle}` });
-                    if (singleItemDef.canDestroy)    win.items.push({ text: "Attacks destroy terrain" });
-                    if (singleItemDef.grantsImmolate) win.items.push({ text: "Attacks spread fire" });
-                    if (singleItemDef.name == "Flame Badge") win.items.push({ danger: true, text: "Wearer is immune to fire damage." });
+                    (singleItemDef.traits || []).forEach(t => win.items.push({ text: "(" + entityTraits[t].name + "): " + entityTraits[t].description }));
                 }
             }
         }
@@ -875,17 +847,16 @@ var WindowSystem = {
             }
         }
 
-        if (entity.traits) {
-            if (entity.traits.length > 0) {
-                stats.push({ text: "" });
-                stats.push({ text: "TRAITS: "});
-                for (var i = 0; i < entity.traits.length; i++) {
-                    const traitDef = entityTraits[entity.traits[i]];
-                    if (traitDef) {
-                        stats.push({ text: "(" + traitDef.name + "): " + traitDef.description });
-                    } else {
-                        stats.push({ text: `Trait: ${entity.traits[i]}` });
-                    }
+        const traitList = [...new Set([...(entity.traits || []), ...Object.values(entity.equipment || {}).flatMap(i => getItemDef(i)?.traits || [])])];
+        if (traitList.length > 0) {
+            stats.push({ text: "" });
+            stats.push({ text: "TRAITS: "});
+            for (var i = 0; i < traitList.length; i++) {
+                const traitDef = entityTraits[traitList[i]];
+                if (traitDef) {
+                    stats.push({ text: "(" + traitDef.name + "): " + traitDef.description });
+                } else {
+                    stats.push({ text: "Trait: " + traitList[i] });
                 }
             }
         }

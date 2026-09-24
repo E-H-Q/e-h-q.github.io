@@ -968,8 +968,9 @@ var input = {
 
                 const effectiveRange = getEntityAttackRange(activeEnt);
                 const dist = calc.distance(activeEnt.x, click_pos.x, activeEnt.y, click_pos.y);
-                const canBreach = canEntityBreach(activeEnt);
-                const hasLOS = canBreach
+                const canBreach = helper.hasTrait(activeEnt, 'canBreach');
+                const canDestroy = helper.hasTrait(activeEnt, 'canDestroy');
+                const hasLOS = canBreach || canDestroy
                     ? hasBreachingLOS(activeEnt.x, activeEnt.y, click_pos.x, click_pos.y)
                     : hasPermissiveLOS(activeEnt.x, activeEnt.y, click_pos.x, click_pos.y);
 
@@ -987,8 +988,6 @@ var input = {
                 }
 
                 const targetingTiles = calculateEntityTargeting(activeEnt, click_pos.x, click_pos.y);
-                const canDestroy = canEntityDestroyWalls(activeEnt);
-
                 const targetsInArea = getTargetedEntities(activeEnt, click_pos.x, click_pos.y);
                 const enemies = targetsInArea.filter(e => e !== activeEnt && e.hp > 0);
                 const hasWalls = (canDestroy || canBreach) && targetingTiles.some(t => {

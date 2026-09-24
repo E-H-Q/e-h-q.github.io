@@ -415,6 +415,7 @@ function update() {
 	if (allPlayers.length > 0) player = allPlayers[0];
 
 	[...allPlayers, ...allEnemies].forEach(syncCharm);
+	[...allPlayers, ...allEnemies].forEach(e => helper.isGrenadeEntity(e) || helper.tileEffects(e));
 
 	rebuildEntities();
 
@@ -498,20 +499,18 @@ function update() {
 			const item = currentEntity.inventory?.[window.throwingGrenadeIndex];
 			const itemDef = getItemDef(item);
 			if (item?.isLive && itemDef?.effect === "grenade") {
-				const grenadeTargeting = calculateGrenadeTargeting(currentEntity, cursorX, cursorY);
+				const grenadeTargeting = calculateGrenadeTargeting(currentEntity, cursorX, cursorY, itemDef);
 				if (grenadeTargeting.length > 0) {
 					// Draw crosshairs only on blast-area tiles. Path tiles that happen to
 					// fall inside the blast circle also qualify.
 					// Re-derive the landing center the same way calculateGrenadeTargeting does.
-					const grenadeDef = itemTypes.grenade;
-
 					const blastCenter = gPath.length > 0 ? gPath[gPath.length - 1] : {x: cursorX, y: cursorY};
-					const blastAreaTiles = collectAreaTiles(blastCenter.x, blastCenter.y, grenadeDef.damageRadius);
+					const blastAreaTiles = collectAreaTiles(blastCenter.x, blastCenter.y, itemDef.damageRadius);
 					const blastSet = new Set(blastAreaTiles.map(t => `${t.x},${t.y}`));
 					blastSet.add(`${blastCenter.x},${blastCenter.y}`);
 					const blastTiles = grenadeTargeting.filter(t => blastSet.has(`${t.x},${t.y}`));
 					canvas.los(grenadeTargeting, false, blastTiles); // full grenade area preview
-					canvas.grenadeOutline({x: blastCenter.x, y: blastCenter.y, _radius: grenadeDef.damageRadius});
+					canvas.grenadeOutline({x: blastCenter.x, y: blastCenter.y, _radius: itemDef.damageRadius});
 				}
 			} else {
 				canvas.los(gPath, true, null); // just LOS throw path

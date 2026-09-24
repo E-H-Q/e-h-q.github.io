@@ -36,9 +36,8 @@ function wallBlocksLOS(wall) {
 }
 
 // Clips a path to the first blocking wall.
-// canDestroy: ignore all walls. canBreach: pass through 1 adjacent regular wall/door + 1 tile beyond.
-function clipPathAtWall(path, canDestroy = false, canBreach = false) {
-	if (canDestroy) return path;
+// canBreach: pass through 1 adjacent regular wall/door + 1 tile beyond.
+function clipPathAtWall(path, canBreach = false) {
 	if (!path || path.length === 0) return [];
 
 	const startX = path[0].x;
@@ -70,7 +69,7 @@ function hasPermissiveLOS(startX, startY, endX, endY) {
 	return true;
 }
 
-// LOS check for breaching kit: clear path OR 1 adjacent regular wall tile + 1 tile beyond it.
+// LOS check for canBreach/canDestroy: clear path OR 1 adjacent regular wall tile + 1 tile beyond it.
 function hasBreachingLOS(startX, startY, endX, endY) {
 	const path = line({x: startX, y: startY}, {x: endX, y: endY});
 	let wallsHit = 0;

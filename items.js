@@ -17,7 +17,7 @@ const consumablesData = {
 	},
 	grenade: {
 		name: "Grenade", type: "consumable", effect: "grenade",
-		damageRadius: 2, damage: 15, canDestroy: true, fuse: 2, displayName: "Grenade"
+		damageRadius: 2, damage: 15, fuse: 2, traits: ['canDestroy', 'immolate'], displayName: "Grenade"
 	},
 	key: {
 		name: "Key", type: "consumable", effect: "key", displayName: "Key"
@@ -39,7 +39,7 @@ const weaponsData = {
 	},
 	rocketLauncher: {
 		name: "Rocket Launcher", type: "equipment", slot: "weapon", aimStyle: "area",
-		areaRadius: 2, canDestroy: true, grantsImmolate: true, maxAmmo: 1,
+		areaRadius: 2, maxAmmo: 1, traits: ['canDestroy', 'immolate'],
 		effects: [{stat: "damage", value: 25}, {stat: "attack_range", value: 3}], displayName: "Rocket Launcher"
 	},
 	machinegun: {
@@ -63,23 +63,24 @@ const equipmentData = {
 	},
 	breachingKit: {
 		name: "Breaching Kit", type: "equipment", slot: "accessory",
-		grantsBreaching: true, displayName: "Breaching Kit"
-		//grantsDestroy: true, displayName: "Breaching Kit"
+		traits: ['canBreach'], displayName: "Breaching Kit"
 	},
 	flameBadge: {
 		name: "Flame Badge", type: "equipment", slot: "accessory",
-		grantsImmolate: true, displayName: "Flame Badge"
+		traits: ['immolate', 'fireDef'], displayName: "Flame Badge"
 	}
 };
 
 var itemTypes = {...consumablesData, ...weaponsData, ...equipmentData};
 
 // Resolves an item instance against its type template. Instance values win, so
-// any property can be overridden per-item at runtime.
+// any property can be overridden per-item at runtime. Traits/effects are copied onto the item on first read.
 function getItemDef(item) {
 	if (!item) return null;
 	const def = itemTypes[item.itemType];
-	return def ? Object.assign({}, def, item) : null;
+	if (!def) return null;
+	for (const k of ['traits', 'effects']) if (def[k] && !item[k]) item[k] = structuredClone(def[k]);
+	return Object.assign({}, def, item);
 }
 
 // Display label: damage bonus prefix + name.
@@ -182,24 +183,6 @@ function getWeaponAimStyle(entity) {
 	return getItemDef(entity.equipment?.weapon)?.aimStyle || "standard";
 }
 
-function canEntityDestroyWalls(entity) {
-	const accessoryDef = getItemDef(entity.equipment?.accessory);
-	const weaponDef    = getItemDef(entity.equipment?.weapon);
-	return !!(weaponDef?.canDestroy || accessoryDef?.grantsDestroy);
-}
-
-function canEntityBreach(entity) {
-	const acc = entity.equipment?.accessory;
-	if (!acc) return false;
-	return acc.itemType === 'breachingKit';
-}
-
-function canEntityImmolate(entity) {
-	const weaponDef    = getItemDef(entity.equipment?.weapon);
-	const accessoryDef = getItemDef(entity.equipment?.accessory);
-	return !!(weaponDef?.grantsImmolate || accessoryDef?.grantsImmolate || helper.hasTrait(entity, "immolate"));
-}
-
 function getEntityAttackRange(entity) {
 	if (entity === specialModeEntity) {
 		if (specialMode === 'donor' || specialMode === 'shield') return 1;
@@ -244,7 +227,7 @@ function pullGrenadePin(entity, slotIdx) {
 	const inv = getInventory(entity);
 	const item = inv[slotIdx];
 	if (!item || item.itemType !== 'grenade' || item.isLive) return -1;
-	const liveGrenade = Object.assign({}, item, {id: nextItemId++, isLive: true, turnsRemaining: getItemDef(item).fuse, quantity: 1});
+	const liveGrenade = Object.assign(structuredClone(item), {id: nextItemId++, isLive: true, turnsRemaining: getItemDef(item).fuse, quantity: 1});
 	if (item.quantity > 1) {
 		let destIdx = findFirstEmptyHotbarSlot(entity);
 		if (destIdx < 0) destIdx = findFirstEmptySlot(entity);
@@ -310,12 +293,12 @@ function collectAreaTiles(centerX, centerY, radius) {
 // Returns the tiles covered by an attack from attacker toward (endX, endY).
 function calculateEntityTargeting(entity, endX, endY) {
 	const aimStyle   = getWeaponAimStyle(entity);
-	const canDestroy = canEntityDestroyWalls(entity);
-	const canBreach  = canEntityBreach(entity);
+	const canDestroy = helper.hasTrait(entity, 'canDestroy');
+	const canBreach  = helper.hasTrait(entity, 'canBreach');
 	const range      = getEntityAttackRange(entity);
 
 	let path = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
-	path = clipPathAtWall(path, canDestroy, canBreach);
+	path = clipPathAtWall(path, canDestroy || canBreach);
 	path = path.length > range + 1 ? path.slice(1, range + 1) : path.slice(1);
 
 	if (path.length === 0) {
@@ -376,8 +359,7 @@ function getTargetedEntities(attacker, endX, endY) {
 	return getEntitiesInTiles(tiles);
 }
 
-function calculateGrenadeTargeting(entity, endX, endY) {
-	const itemDef    = itemTypes.grenade;
+function calculateGrenadeTargeting(entity, endX, endY, itemDef) {
 	const throwRange = entity.attack_range;
 
 	let path = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
@@ -421,16 +403,13 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 	const landingSpot = path[Math.min(path.length - 1, entity.attack_range)];
 	
 	if (item.isLive && itemDef.effect == "grenade") {
-		const grenadeTraits = ['explode', 'active'];
-		if (canEntityImmolate(entity)) grenadeTraits.push('immolate');
-
 		allEnemies.push({
 			name: "Grenade", hp: 1,
 			x: landingSpot.x, y: landingSpot.y,
 			range: 0, attack_range: 0, turns: 1,
 			turnsRemaining: item.turnsRemaining,
-			_damage: itemDef.damage, _radius: itemDef.damageRadius, _canDestroy: itemDef.canDestroy,
-			inventory: [], traits: grenadeTraits
+			_damage: itemDef.damage, _radius: itemDef.damageRadius,
+			inventory: [], traits: ['explode', 'active', ...itemDef.traits]
 		});
 	} else {
 		item.x = landingSpot.x;
@@ -724,8 +703,8 @@ function dropInventoryItemAtSlot(entity, slotIdx) {
 			x: entity.x, y: entity.y,
 			range: 0, attack_range: 0, turns: 1,
 			turnsRemaining: item.turnsRemaining,
-			_damage: itemDef.damage, _radius: itemDef.damageRadius, _canDestroy: itemDef.canDestroy,
-			inventory: [], traits: ['explode', 'active']
+			_damage: itemDef.damage, _radius: itemDef.damageRadius,
+			inventory: [], traits: ['explode', 'active', ...itemDef.traits]
 		};
 		allEnemies.push(grenadeEntity);
 		console.log(entity.name + " dropped a LIVE grenade with " + item.turnsRemaining + " turns remaining!");
@@ -753,14 +732,12 @@ function processInventoryGrenades(entity) {
 		if (item.turnsRemaining <= 0) {
 			inv[i] = null;
 			if (window.throwingGrenadeIndex === i) window.throwingGrenadeIndex = undefined;
-			const grenadeTraits = ['explode', 'active'];
-			if (canEntityImmolate(entity)) grenadeTraits.push('immolate');
 			const grenadeEntity = { // Spawns the grenade that is exploding in the inventory
 				name: "Grenade", hp: 0,
 				x: entity.x, y: entity.y,
 				range: 0, attack_range: 0, turns: 1, turnsRemaining: 0,
-				_damage: itemDef.damage, _radius: itemDef.damageRadius, _canDestroy: itemDef.canDestroy,
-				inventory: [], traits: grenadeTraits
+				_damage: itemDef.damage, _radius: itemDef.damageRadius,
+				inventory: [], traits: ['explode', 'active', ...itemDef.traits]
 			};
 			allEnemies.push(grenadeEntity);
 			EntitySystem.triggerExplosion(grenadeEntity);

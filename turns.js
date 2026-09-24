@@ -334,7 +334,7 @@ var turns = {
                 const targetingTiles = calculateEntityTargeting(currentEntity, cursorX, cursorY);
                 if (targetingTiles.length > 0) {
                     if (getWeaponAimStyle(currentEntity) === 'direct') {
-                        const isBreach = canEntityBreach(currentEntity);
+                        const isBreach = helper.hasTrait(currentEntity, 'canBreach') || helper.hasTrait(currentEntity, 'canDestroy');
                         canvas.los(targetingTiles, !isBreach);
                         const cursorInPath = targetingTiles.some(t => t.x === cursorX && t.y === cursorY);
                         const atCursor = cursorInPath ?
@@ -356,7 +356,7 @@ var turns = {
                             ? getItemDef(currentEntity.equipment.weapon)?.areaRadius || 2 : 2;
                         const center = (() => {
                             let p = line({x: currentEntity.x, y: currentEntity.y}, {x: cursorX, y: cursorY});
-                            p = clipPathAtWall(p, canEntityDestroyWalls(currentEntity), canEntityBreach(currentEntity));
+                            p = clipPathAtWall(p, helper.hasTrait(currentEntity, 'canDestroy') || helper.hasTrait(currentEntity, 'canBreach'));
                             const range = getEntityAttackRange(currentEntity);
                             p = p.length > range + 1 ? p.slice(1, range + 1) : p.slice(1);
                             return p.length > 0 ? p[p.length - 1] : {x: cursorX, y: cursorY};
@@ -495,12 +495,14 @@ var turns = {
         const liveIdx = getOrActivateGrenade(entity);
         if (liveIdx < 0) return null;
         const inv = getInventory(entity);
+        const def = getItemDef(inv[liveIdx]);
         const grenade = {
             name: "Grenade", hp: 1,
             x: entity.x, y: entity.y,
             range: 0, attack_range: 0, turns: 1,
             turnsRemaining: inv[liveIdx].turnsRemaining,
-            inventory: [], traits: ['explode', 'active']
+            _damage: def.damage, _radius: def.damageRadius,
+            inventory: [], traits: ['explode', 'active', ...def.traits]
         };
         allEnemies.push(grenade);
         inv[liveIdx] = null;

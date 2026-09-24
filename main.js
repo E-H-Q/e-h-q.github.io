@@ -72,6 +72,9 @@ var entityTraits = {
 	charmed:   { name: "Charmed",     description: "(Status) Swaps allegiance" },
 	immolate:   { name: "Immolate",   description: "Attacks spread fire tiles" },
 	lifesteal:  { name: "Life Steal", description: "Heals for damage dealt by attacks" },
+	canBreach:  { name: "Breach",     description: "Damage & shoot through 1 wall" },
+	canDestroy: { name: "Destroy",    description: "Destroy & shoot through 1 wall" },
+	fireDef:    { name: "Fire Defense", description: "Immune to fire damage" },
 	dashAttack: { name: "Dash Attack",description: "(Ability) Dash through enemies" },
 	magDump:   { name: "Mag Dump",    description: "(Ability) Fire remaining ammo" },
 	charm:     { name: "Charm",       description: "(Ability) Charms enemy on hit for " + charmDuration + " turns" },
@@ -628,7 +631,8 @@ var helper = {
 
 	hasTrait: (entity, trait) => {
 		if (!entity) return;
-		return entity.traits && entity.traits.includes(trait);
+		return (entity.traits && entity.traits.includes(trait)) ||
+			(!!entity.equipment && Object.values(entity.equipment).some(i => getItemDef(i)?.traits?.includes(trait)));
 	},
 
 	findNearestCover: (entity, fromX, fromY) => {
@@ -661,9 +665,6 @@ var helper = {
 				entity.traits = entity.traits.filter(trait => trait != "fire");
 				console.log(entity.name + " stopped burning.");
 			} else {
-				if (entity.equipment && entity.equipment.accessory && entity.equipment.accessory.itemType == "flameBadge") { // Flame badge wearers take no fire damage
-					return;
-				}
 				entity.hp -= fireDamage;
 				console.log(entity.name + " takes " + fireDamage + " fire damage!");
 			}
@@ -684,6 +685,10 @@ var helper = {
 	// Fire/water trait changes for an entity on a tile. Defaults to the tile it stands on.
 	tileEffects: function(entity, x, y) {
 		if (!entity) return null;
+		if (helper.hasTrait(entity, 'fireDef')) {
+			if (helper.hasTrait(entity, 'fire')) entity.traits = entity.traits.filter(t => t !== 'fire');
+			return null;
+		}
 		const w = wallAt(x ?? entity.x, y ?? entity.y);
 		if (w?.type === 'fire' && !helper.hasTrait(entity, 'fire')) {
 			if (!entity.traits) entity.traits = [];
