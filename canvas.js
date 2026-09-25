@@ -80,68 +80,61 @@ function getInventorySlotAt(canvasX, canvasY) {
 	return row * INVENTORY_COLS + col;
 }
 
-// Ability bar: 2x2 grid of tileSize slots flush left of the inventory.
-const ABILITY_BAR_COLS = 2;
+// Ability bar: 2 rows, fills right-to-left column by column (top, then bottom).
 const ABILITY_BAR_ROWS = 2;
 
-function getEquippedAbilities(entity) {
-	if (!entity) return [];
-	const fromTraits = (entity.traits || []).filter(t => abilityTypes[t]);
-	if (!entity.equippedAbilities) return fromTraits.slice(0, ABILITY_BAR_COLS * ABILITY_BAR_ROWS);
-	return entity.equippedAbilities.filter(k => abilityTypes[k] && fromTraits.includes(k));
+function getEntityAbilities(entity) {
+	return entity ? (entity.traits || []).filter(t => abilityTypes[t]) : [];
 }
 
-// Prunes hotbar assignments whose slot gained an item or whose ability left the loadout.
-function syncAbilityHotbar(entity) {
-	const hb = entity && entity.abilityHotbar;
-	if (!hb) return;
-	const equipped = getEquippedAbilities(entity);
-	const inv = entity.inventory || [];
-	for (const s in hb) {
-		if (inv[s] || !equipped.includes(hb[s])) delete hb[s];
-	}
-}
-
-// Bar placement: entity.abilityBarSlots = {cell(0..3): key}, freely rearrangeable.
-// Prunes invalid entries and auto-places equipped abilities that have no cell and
-// aren't in the hotbar (defaults fill the right column first, top to bottom).
+// entity.abilityOrder: bar order, index = bar slot. New abilities append, removed ones drop out.
+// entity.abilityHotbar: {inventory hotbar slot: key}, copies of bar abilities.
 function syncAbilityBar(entity) {
 	if (!entity) return;
-	if (!entity.abilityHotbar) entity.abilityHotbar = {};
-	syncAbilityHotbar(entity);
-	const bs = entity.abilityBarSlots || (entity.abilityBarSlots = {});
-	const equipped = getEquippedAbilities(entity);
-	const inHotbar = Object.values(entity.abilityHotbar || {});
-	const seen = [];
-	for (const c in bs) {
-		if (!equipped.includes(bs[c]) || inHotbar.includes(bs[c]) || seen.includes(bs[c])) delete bs[c];
-		else seen.push(bs[c]);
-	}
-	for (const key of equipped) {
-		if (seen.includes(key) || inHotbar.includes(key)) continue;
-		for (let i = 0; i < ABILITY_BAR_COLS * ABILITY_BAR_ROWS; i++) {
-			const cell = abilityIndexToCell(i);
-			const slot = cell.row * ABILITY_BAR_COLS + cell.col;
-			if (!bs[slot]) { bs[slot] = key; seen.push(key); break; }
-		}
-	}
+	const all = getEntityAbilities(entity);
+	const order = (entity.abilityOrder || []).filter(k => all.includes(k));
+	all.forEach(k => { if (!order.includes(k)) order.push(k); });
+	entity.abilityOrder = order;
+	const hb = entity.abilityHotbar || (entity.abilityHotbar = {});
+	const inv = entity.inventory || [];
+	for (const s in hb) if (inv[s] || !all.includes(hb[s])) delete hb[s];
 }
 
 function abilityAtBarSlot(entity, slot) {
 	syncAbilityBar(entity);
-	return (entity.abilityBarSlots || {})[slot] || null;
+	return entity.abilityOrder[slot] || null;
 }
 
-// Ability sprites from abilities.png, one 32x32 sprite per index left-to-right.
-const ABILITY_SPRITE_SIZE = 32;
-const ABILITY_SPRITE_MAP = {
-	dashAttack: 0,
-	magDump:    1,
-	charm:      2,
-	donor:      3,
-	shield:     4,
-	detonate:   5
+// Trait sprites from traits.png, 32x32 sprites on a 6x4 grid. Row 3 = abilities.
+const TRAIT_SPRITE_SIZE = 32;
+const TRAIT_GRID_COLS = 6;
+const TRAIT_GRID_ROWS = 4;
+const TRAIT_SPRITE_MAP = {
+	player:     { row: 0, col: 0 },
+	default:    { row: 0, col: 1 },
+	defensive:  { row: 0, col: 2 },
+	aggressive: { row: 0, col: 3 },
+	fire:       { row: 1, col: 0 },
+	charmed:    { row: 1, col: 1 },
+	explode:    { row: 1, col: 2 },
+	active:     { row: 1, col: 3 },
+	fireDef:    { row: 1, col: 4 },
+	immolate:   { row: 2, col: 0 },
+	lifesteal:  { row: 2, col: 1 },
+	canBreach:  { row: 2, col: 2 },
+	canDestroy: { row: 2, col: 3 },
+	dashAttack: { row: 3, col: 0 },
+	magDump:    { row: 3, col: 1 },
+	charm:      { row: 3, col: 2 },
+	donor:      { row: 3, col: 3 },
+	shield:     { row: 3, col: 4 },
+	detonate:   { row: 3, col: 5 }
 };
+
+function traitAtSlot(slot) {
+	return Object.keys(TRAIT_SPRITE_MAP).find(k =>
+		TRAIT_SPRITE_MAP[k].row * TRAIT_GRID_COLS + TRAIT_SPRITE_MAP[k].col === slot) || null;
+}
 
 // Entity sprites from entities.png, 32x32 sprites on a 3x3 grid.
 // Row 0 = player, Row 1 = enemies (default, defensive, aggressive), Row 2 = death anim, grave
@@ -211,36 +204,49 @@ function stepAnims() {
 	if (anims.length) requestAnimationFrame(stepAnims);
 }
 
-function drawAbilitySprite(key, sx, sy, usable) {
-	const img = document.getElementById("abilities");
-	const idx = ABILITY_SPRITE_MAP[key];
-	if (!img || !img.complete || !img.naturalWidth || idx === undefined) {
+function drawTraitSprite(key, sx, sy, active = true, size = tileSize) {
+	const img = document.getElementById("traits");
+	const sp = TRAIT_SPRITE_MAP[key];
+	if (!img || !img.complete || !img.naturalWidth || !sp) {
 		ctx.fillStyle = "#FF00FF";
-		ctx.fillRect(sx, sy, tileSize, tileSize);
+		ctx.fillRect(sx, sy, size, size);
 		return;
 	}
-	if (!usable) ctx.globalAlpha = 0.4;
-	ctx.drawImage(img, idx * ABILITY_SPRITE_SIZE, 0, ABILITY_SPRITE_SIZE, ABILITY_SPRITE_SIZE, sx, sy, tileSize, tileSize);
-	ctx.globalAlpha = 1.0;
+	if (!active) ctx.filter = "grayscale(100%)";
+	ctx.drawImage(img, sp.col * TRAIT_SPRITE_SIZE, sp.row * TRAIT_SPRITE_SIZE,
+		TRAIT_SPRITE_SIZE, TRAIT_SPRITE_SIZE, sx, sy, size, size);
+	ctx.filter = "none";
 }
 
-// Abilities fill the bar right-aligned: right column top-to-bottom, then left.
+// Slot i -> cell; col counts leftward from the inventory.
 function abilityIndexToCell(i) {
-	return { col: ABILITY_BAR_COLS - 1 - ((i / ABILITY_BAR_ROWS) | 0), row: i % ABILITY_BAR_ROWS };
+	return { col: i >> 1, row: i & 1 };
 }
 
-function getAbilityBarOrigin() {
-	const o = getInventoryOrigin();
-	return { x: o.x - ABILITY_BAR_COLS * tileSize, y: o.y };
+function abilityCellToIndex(row, col) {
+	return col * 2 + row;
 }
 
-// Returns the ability slot index (0..3) under a canvas-pixel position, or -1.
+function getAbilityBarCols(entity) {
+	const n = getEntityAbilities(entity).length;
+	let cols = 0;
+	for (let i = 0; i < n; i++) cols = Math.max(cols, abilityIndexToCell(i).col + 1);
+	return cols;
+}
+
+function abilitySlotPos(i) {
+	const o = getInventoryOrigin(), cell = abilityIndexToCell(i);
+	return { x: o.x - (cell.col + 1) * tileSize, y: o.y + cell.row * tileSize };
+}
+
+// Returns the ability slot under a canvas-pixel position, or -1.
 function getAbilitySlotAt(canvasX, canvasY) {
 	if (typeof inventoryHidden !== 'undefined' && inventoryHidden) return -1;
-	const o = getAbilityBarOrigin();
-	if (canvasX < o.x || canvasX >= o.x + ABILITY_BAR_COLS * tileSize) return -1;
-	if (canvasY < o.y || canvasY >= o.y + ABILITY_BAR_ROWS * tileSize) return -1;
-	return Math.floor((canvasY - o.y) / tileSize) * ABILITY_BAR_COLS + Math.floor((canvasX - o.x) / tileSize);
+	const o = getInventoryOrigin();
+	const col = Math.floor((o.x - canvasX) / tileSize);
+	const row = Math.floor((canvasY - o.y) / tileSize);
+	if (canvasX >= o.x || col >= getAbilityBarCols(getActivePlayerEntity()) || row < 0 || row >= ABILITY_BAR_ROWS) return -1;
+	return abilityCellToIndex(row, col);
 }
 
 // Returns a Set of "x,y" strings for every tile occupied by a living entity.
@@ -331,13 +337,7 @@ var canvas = {
 			} else if (wall.type === 'grave') {
 				drawEntitySprite("grave", screenX, screenY, tileSize);
 			} else if (wall.type === 'shield') {
-				const abImg = document.getElementById("abilities");
-				if (abImg && abImg.complete && abImg.naturalWidth) {
-					ctx.drawImage(abImg, ABILITY_SPRITE_MAP.shield * ABILITY_SPRITE_SIZE, 0, ABILITY_SPRITE_SIZE, ABILITY_SPRITE_SIZE, screenX, screenY, tileSize, tileSize);
-				} else {
-					ctx.fillStyle = "rgba(100, 180, 255, 0.7)";
-					ctx.fillRect(screenX, screenY, tileSize, tileSize);
-				}
+				drawTraitSprite("shield", screenX, screenY);
 			} else if (wall.type === 'door') {
 				if (hasSprites) {
 					const doorTile = wall.open ? TILE_DOOR_OPEN : TILE_DOOR_CLOSED;
@@ -384,7 +384,8 @@ var canvas = {
 		});
 	},
 
-	items: () => {
+	// onlyTiles: optional Set of "x,y" keys to limit which tiles are drawn
+	items: (onlyTiles = null) => {
 		if (!mapItems) return;
 
 		const itemsImg = document.getElementById("items");
@@ -402,6 +403,7 @@ var canvas = {
 		});
 
 		tileMap.forEach((tileItems, key) => {
+			if (onlyTiles && !onlyTiles.has(key)) return;
 			const topItem = tileItems[tileItems.length - 1];
 			const screenX = (topItem.x - camera.x) * tileSize;
 			const screenY = (topItem.y - camera.y) * tileSize;
@@ -893,7 +895,7 @@ var canvas = {
 
 					if (isDragSource) ctx.globalAlpha = 1.0;
 				} else if (r === 0 && entity.abilityHotbar && entity.abilityHotbar[i] &&
-					!(window.abilityDrag.isDragging && entity.abilityHotbar[i] === window.abilityDrag.key)) {
+					!(window.abilityDrag.isDragging && window.abilityDrag.fromHotbar === i)) {
 					canvas.abilityTile(entity.abilityHotbar[i], entity, sx, sy,
 						entities[currentEntityIndex] === entity);
 				}
@@ -976,7 +978,7 @@ var canvas = {
 
 	abilityTile: (key, entity, sx, sy, myTurn) => {
 		const usable = myTurn && !abilityTypes[key].canUse(entity);
-		drawAbilitySprite(key, sx, sy, usable);
+		drawTraitSprite(key, sx, sy, usable);
 		if (key === specialMode) {
 			ctx.strokeStyle = "rgba(255, 255, 0, 1)";
 			ctx.lineWidth = 1;
@@ -984,45 +986,45 @@ var canvas = {
 		}
 	},
 
-	// Ability tiles: the 2x2 bar (right-aligned), hotbar-assigned overlays, and the drag ghost.
+	// Ability tiles: the bar, drop-target highlight and the drag ghost.
 	abilityBar: () => {
 		if (typeof inventoryHidden !== 'undefined' && inventoryHidden) return;
 		const entity = getActivePlayerEntity();
 		if (!entity) return;
 		const myTurn = entities[currentEntityIndex] === entity;
 		const ad = window.abilityDrag;
-		const o = getAbilityBarOrigin();
+		syncAbilityBar(entity);
+		const order = entity.abilityOrder;
 
 		const gridSel = typeof uiGridSelect !== 'undefined' ? uiGridSelect : null;
 		if (gridSel && gridSel.grid === 'ability') {
 			ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
 			ctx.lineWidth = 1;
-			for (let i = 0; i < ABILITY_BAR_COLS * ABILITY_BAR_ROWS; i++) {
-				ctx.strokeRect(o.x + (i % ABILITY_BAR_COLS) * tileSize + 0.5,
-					o.y + ((i / ABILITY_BAR_COLS) | 0) * tileSize + 0.5, tileSize - 1, tileSize - 1);
+			const cols = getAbilityBarCols(entity);
+			for (let i = 0; i < cols * ABILITY_BAR_ROWS; i++) {
+				if (abilityIndexToCell(i).col >= cols) continue;
+				const p = abilitySlotPos(i);
+				ctx.strokeRect(p.x + 0.5, p.y + 0.5, tileSize - 1, tileSize - 1);
 			}
 		}
 
-		syncAbilityBar(entity);
-		const bs = entity.abilityBarSlots;
-		for (const s in bs) {
-			if (ad.isDragging && bs[s] === ad.key) continue;
-			canvas.abilityTile(bs[s], entity,
-				o.x + (s % ABILITY_BAR_COLS) * tileSize,
-				o.y + ((s / ABILITY_BAR_COLS) | 0) * tileSize, myTurn);
-		}
+		order.forEach((key, i) => {
+			if (ad.isDragging && ad.fromBar === i) return;
+			const p = abilitySlotPos(i);
+			canvas.abilityTile(key, entity, p.x, p.y, myTurn);
+		});
 
-		const hb = entity.abilityHotbar || {};
-		const io = getInventoryOrigin();
+		const hb = entity.abilityHotbar;
 		if (ad.isDragging && ad.key && ad.mouse) {
 			const t = getInventorySlotAt(ad.mouse.x, ad.mouse.y);
 			const b = getAbilitySlotAt(ad.mouse.x, ad.mouse.y);
 			ctx.fillStyle = "rgba(255, 255, 0, 0.25)";
-			if (t >= 0 && t < INVENTORY_COLS && !entity.inventory[t] && !hb[t]) {
-				ctx.fillRect(io.x + (t % INVENTORY_COLS) * tileSize, io.y, tileSize, tileSize);
-			} else if (b >= 0) {
-				ctx.fillRect(o.x + (b % ABILITY_BAR_COLS) * tileSize,
-					o.y + ((b / ABILITY_BAR_COLS) | 0) * tileSize, tileSize, tileSize);
+			if (t >= 0 && t < INVENTORY_COLS && !entity.inventory[t] && (!hb[t] || t === ad.fromHotbar)) {
+				const io = getInventoryOrigin();
+				ctx.fillRect(io.x + t * tileSize, io.y, tileSize, tileSize);
+			} else if (b >= 0 && b < order.length && ad.fromBar !== null) {
+				const p = abilitySlotPos(b);
+				ctx.fillRect(p.x, p.y, tileSize, tileSize);
 			}
 			canvas.abilityTile(ad.key, entity, ad.mouse.x - tileSize / 2, ad.mouse.y - tileSize / 2, myTurn);
 		}

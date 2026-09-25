@@ -3,6 +3,11 @@
 var activeWindow = null;
 var activeContextMenu = null;
 
+// Window sprites keep their unzoomed size.
+function winTileSize() {
+    return isZoomedOut ? tileSize * 2 : tileSize;
+}
+
 var WindowSystem = {
     getItemLabel: function(index) {
         if (index < 26) return String.fromCharCode(97 + index);
@@ -109,15 +114,18 @@ var WindowSystem = {
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
         ctx.fillRect(0, 0, c.width, c.height);
 
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(win.x, win.y, win.width, win.height);
-
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(win.x, win.y, win.width, win.height);
+        if (!win.isExamineWindow) {
+            ctx.fillStyle = "#000000";
+            ctx.fillRect(win.x, win.y, win.width, win.height);
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(win.x, win.y, win.width, win.height);
+        }
 
         if (win.isExamineWindow) {
             this.drawExamineWindow(win);
+        } else if (win.isTraitsWindow) {
+            this.drawTraitsWindow(win);
         } else {
             this.drawSelectionWindow(win);
         }
@@ -195,12 +203,13 @@ var WindowSystem = {
 
         const win = activeWindow;
 
-        if (win.isExamineWindow) {
+        if (win.isExamineWindow || win.isTraitsWindow) {
             if (mouseX < win.x || mouseX > win.x + win.width ||
                 mouseY < win.y || mouseY > win.y + win.height) {
                 this.close();
                 return true;
             }
+            if (win.isTraitsWindow) this.toggleTrait(win, this.traitSlotAt(win, mouseX, mouseY));
             return true;
         }
 
@@ -253,6 +262,12 @@ var WindowSystem = {
         if (!activeWindow) return false;
 
         const win = activeWindow;
+
+        if (win.traitGrid) {
+            this.setTraitHover(win, this.traitSlotAt(win, mouseX, mouseY));
+            return true;
+        }
+
         const contentY = win.y + win.headerHeight;
 
         win.hoveredIndex = -1;
@@ -287,6 +302,23 @@ var WindowSystem = {
                 return true;
             }
             event.preventDefault();
+            return true;
+        }
+
+        if (win.isTraitsWindow) {
+            event.preventDefault();
+            if (event.type !== 'keydown') return true;
+            const d = {37: [-1, 0], 38: [0, -1], 39: [1, 0], 40: [0, 1]}[event.keyCode];
+            if (d) {
+                const s = win.hoveredIndex;
+                const C = TRAIT_GRID_COLS, R = TRAIT_GRID_ROWS;
+                this.setTraitHover(win, s < 0 ? 0 :
+                    ((((s / C) | 0) + d[1] + R) % R) * C + (s % C + d[0] + C) % C);
+            } else if (event.keyCode === 13) {
+                this.toggleTrait(win, win.hoveredIndex);
+            } else if (event.keyCode === 27) {
+                this.close();
+            }
             return true;
         }
 
@@ -360,27 +392,85 @@ var WindowSystem = {
     },
 
     openTraitsWindow: function(entity) {
-        const traitKeys = Object.keys(entityTraits);
-        const items = traitKeys.map(key => ({ text: entityTraits[key].name + ": " + entityTraits[key].description, key }));
-        const preSelected = traitKeys
-            .map((key, i) => helper.hasTrait(entity, key) ? i : -1)
-            .filter(i => i >= 0);
+        const pad = 10;
+        const win = {
+            isTraitsWindow: true,
+            entity,
+            padding: pad,
+            width: TRAIT_GRID_COLS * winTileSize() + pad * 2,
+            height: TRAIT_GRID_ROWS * winTileSize() + pad * 2,
+            hoveredIndex: -1,
+            tooltip: null
+        };
+        win.x = (c.width - win.width) / 2;
+        win.y = (c.height - win.height) / 2;
+        win.traitGrid = { x: win.x + pad, y: win.y + pad, cols: TRAIT_GRID_COLS, rows: TRAIT_GRID_ROWS, keys: null };
+        this.open(win);
+    },
 
-        this.openSelectionWindow({
-            title: "Edit Traits: " + entity.name,
-            width: 500,
-            height: Math.min(600, 100 + items.length * 35),
-            items,
-            preSelectedIndices: preSelected,
-            confirmLabel: "OK",
-            onConfirm: function(selectedItems, selectedIndices) {
-                const newTraits = Array.from(selectedIndices).map(i => traitKeys[i])
-                    .filter(k => (entity.traits || []).includes(k) || !helper.hasTrait(entity, k));
-                entity.traits = newTraits;
-                console.log(entity.name + " traits updated: " + (newTraits.join(", ") || "none"));
-                update();
-            }
-        });
+    traitSlotAt: function(win, mouseX, mouseY) {
+        const col = Math.floor((mouseX - win.traitGrid.x) / winTileSize());
+        const row = Math.floor((mouseY - win.traitGrid.y) / winTileSize());
+        const g = win.traitGrid;
+        if (col < 0 || row < 0 || col >= g.cols || row >= g.rows) return -1;
+        return row * g.cols + col;
+    },
+
+    traitSlotOrigin: function(win, slot) {
+        return {
+            x: win.traitGrid.x + (slot % win.traitGrid.cols) * winTileSize(),
+            y: win.traitGrid.y + ((slot / win.traitGrid.cols) | 0) * winTileSize()
+        };
+    },
+
+    traitKeyAt: function(win, slot) {
+        return win.traitGrid.keys ? (win.traitGrid.keys[slot] || null) : traitAtSlot(slot);
+    },
+
+    setTraitHover: function(win, slot) {
+        if (win.hoveredIndex === slot) return;
+        win.hoveredIndex = slot;
+        const key = this.traitKeyAt(win, slot);
+        if (key) {
+            const o = this.traitSlotOrigin(win, slot);
+            win.tooltip = this.clampContextMenu(this.anchorContextMenu(this.createContextMenu({
+                options: [
+                    { text: entityTraits[key].name.toUpperCase() },
+                    { text: entityTraits[key].description, noHover: true }
+                ]
+            }), o.x, o.y, winTileSize()));
+        } else {
+            win.tooltip = null;
+        }
+        update();
+    },
+
+    toggleTrait: function(win, slot) {
+        const key = this.traitKeyAt(win, slot);
+        if (!key) return;
+        const entity = win.entity;
+        if (!entity.traits) entity.traits = [];
+        if (entity.traits.includes(key)) entity.traits = entity.traits.filter(t => t !== key);
+        else if (!helper.hasTrait(entity, key)) entity.traits.push(key);
+        else return;
+        console.log(entity.name + " traits updated: " + (entity.traits.join(", ") || "none"));
+        update();
+    },
+
+    drawTraitsWindow: function(win) {
+        for (let slot = 0; slot < win.traitGrid.cols * win.traitGrid.rows; slot++) {
+            const o = this.traitSlotOrigin(win, slot);
+            const key = this.traitKeyAt(win, slot);
+            const has = win.traitGrid.keys ? true : !!helper.hasTrait(win.entity, key);
+            // traits from items, needs marker!
+            if (key) drawTraitSprite(key, o.x, o.y, has, winTileSize());
+            const hovered = slot === win.hoveredIndex;
+            if (!hovered && win.isExamineWindow) continue;
+            ctx.strokeStyle = hovered ? "rgba(255, 255, 0, 1)" : "rgba(255, 255, 255, 1)";
+            ctx.lineWidth = hovered ? 2 : 1;
+            ctx.strokeRect(o.x + 0.5, o.y + 0.5, winTileSize() - 1, winTileSize() - 1);
+        }
+        if (win.tooltip) this.drawContextMenu(win.tooltip);
     },
 
     openAbilitiesWindow: function(entity) {
@@ -428,14 +518,27 @@ var WindowSystem = {
         };
     },
 
-    openContextMenu: function(menu) {
-        // Keep the menu fully visible on the canvas, the way browsers nudge a
-        // right-click menu inward when it would spill past the edge.
+    // Widens the menu to fit its text and places it above-left of the tile at (anchorX, anchorY).
+    anchorContextMenu: function(menu, anchorX, anchorY, size = tileSize) {
+        menu.width = Math.max(menu.width, ...menu.options.map(o => o.text.length * 9 + 20));
+        menu.x = anchorX - 8 - menu.width + size / 2;
+        menu.y = anchorY + size / 2 - (menu.options.length * menu.itemHeight + menu.padding * 2);
+        return menu;
+    },
+
+    // Keep the menu fully visible on the canvas, the way browsers nudge a
+    // right-click menu inward when it would spill past the edge.
+    clampContextMenu: function(menu) {
         const height = menu.options.length * menu.itemHeight + menu.padding * 2;
         if (menu.x + menu.width > c.width)  menu.x = c.width  - menu.width;
         if (menu.y + height     > c.height) menu.y = c.height - height;
         if (menu.x < 0) menu.x = 0;
         if (menu.y < 0) menu.y = 0;
+        return menu;
+    },
+
+    openContextMenu: function(menu) {
+        this.clampContextMenu(menu);
         menu.cellX = Math.floor((mouse_pos.canvasX || 0) / tileSize);
         menu.cellY = Math.floor((mouse_pos.canvasY || 0) / tileSize);
         activeContextMenu = menu;
@@ -447,10 +550,8 @@ var WindowSystem = {
         update();
     },
 
-    drawContextMenu: function() {
-        if (!activeContextMenu) return;
-
-        const menu = activeContextMenu;
+    drawContextMenu: function(menu = activeContextMenu) {
+        if (!menu) return;
 
         const g = allEnemies.find(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === menu.tileX && e.y === menu.tileY);
         if (g && helper.hasTrait(g, 'active')) canvas.grenadeOutline(g);
@@ -591,7 +692,7 @@ var WindowSystem = {
         if (!win.entity) return;
 
         const entity = win.entity;
-        const spriteSize = tileSize * 2;
+        const spriteSize = winTileSize() * 2;
         const LINE_HEIGHT = 20;
         const HEADER_HEIGHT = spriteSize + 80;
         const FOOTER_HEIGHT = 30;
@@ -645,6 +746,57 @@ var WindowSystem = {
             for (const [name, count] of Object.entries(grouped)) {
                 win.items.push({ text: "- " + name + (count > 1 ? " (x" + count + ")" : "") });
             }
+            const distinctTypes = [...new Set(itemsAtLocation.map(i => i.itemType))];
+            if (distinctTypes.length <= 1) {
+                const weaponItem   = itemsAtLocation.find(item => weaponsData[item.itemType]);
+                const equipItem_   = itemsAtLocation.find(item => equipmentData[item.itemType]);
+                const consumeItem  = itemsAtLocation.find(item => consumablesData[item.itemType]);
+
+                let effectsStr = '';
+                let singleItemDef;
+
+                if (weaponItem) {
+                    singleItemDef = getItemDef(weaponItem);
+                    effectsStr = singleItemDef.effects.map(e => `+${e.value} ${e.stat.replace('_', ' ')}`).join(', ');
+                } else if (consumeItem) {
+                    singleItemDef = getItemDef(consumeItem);
+                    if (singleItemDef.effect === "grenade") {
+                        effectsStr = `Damage: ${singleItemDef.damage}, Radius: ${singleItemDef.damageRadius}, Fuse: ${singleItemDef.fuse} turns`;
+                    } else if (singleItemDef.effect === "key") {
+                        effectsStr = "Use to unlock or lock a door, once per key.";
+                    } else {
+                        effectsStr = `${singleItemDef.effect}: ${singleItemDef.value}`;
+                    }
+                } else if (equipItem_) {
+                    singleItemDef = getItemDef(equipItem_);
+                    if (singleItemDef.effects) {
+                        effectsStr = singleItemDef.effects.map(e => `+${e.value} ${e.stat.replace('_', ' ')}`).join(', ');
+                    }
+                }
+
+                if (effectsStr) win.items.push({ text: effectsStr });
+                if (singleItemDef) {
+                    if (singleItemDef.maxAmmo !== undefined && singleItemDef.maxAmmo !== Infinity) {
+                        const droppedAmmo = (weaponItem || equipItem_) ? itemsAtLocation.find(i => i.currentAmmo !== undefined)?.currentAmmo : undefined;
+                        const displayAmmo = droppedAmmo !== undefined ? droppedAmmo : singleItemDef.maxAmmo;
+                        win.items.push({ text: `Ammo: ${displayAmmo}/${singleItemDef.maxAmmo}` });
+                    }
+                    if (singleItemDef.maxAmmo === Infinity) win.items.push({ text: "Infinite ammo, does not reload." });
+                    if (singleItemDef.areaRadius)   win.items.push({ text: `Radius: ${singleItemDef.areaRadius}` });
+                    if (singleItemDef.burst)         win.items.push({ text: `Burst Fire: ${singleItemDef.burst}` });
+                    if (weaponItem)                  win.items.push({ text: `Attack type: ${singleItemDef.aimStyle}` });
+                    if (singleItemDef.traits?.length) {
+                        win.items.push({ text: "" });
+                        win.items.push({ text: "TRAITS: " });
+                        if (!win.traitGrid) {
+                            const keys = Object.keys(TRAIT_SPRITE_MAP).filter(k => singleItemDef.traits.includes(k));
+                            win.traitGrid = { x: 0, y: 0, cols: keys.length, rows: 1, keys };
+                            win.hoveredIndex = -1;
+                            win.tooltip = null;
+                        }
+                    }
+                }
+            }
         } else if (helper.hasTrait(entity, "explode") && entity.turnsRemaining) {
             win.items = [];
             if (helper.hasTrait(entity, 'active')) {
@@ -652,16 +804,12 @@ var WindowSystem = {
             } else {
                 win.items.push({ text: "Countdown inactive." });
             }
-            win.items.push({ text: " " });
-            if (entity.traits) {
-                for (const t of entity.traits) {
-                    const def = entityTraits[t];
-                    if (def) win.items.push({ text: "(" + def.name + "): " + def.description });
-                }
-            }
+            win.items.push({ text: "" });
+            win.items.push({ text: "TRAITS: " });
         }
 
-        win.height = Math.max(win.height, HEADER_HEIGHT + win.items.length * LINE_HEIGHT + FOOTER_HEIGHT);
+        const gridHeight = win.traitGrid ? win.traitGrid.rows * winTileSize() : 0;
+        win.height = HEADER_HEIGHT + win.items.length * LINE_HEIGHT + gridHeight + FOOTER_HEIGHT;
         win.y = (c.height - win.height) / 2;
 
         ctx.fillStyle = "#000000";
@@ -733,47 +881,6 @@ var WindowSystem = {
             ctx.font = "14px monospace";
             ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
 
-            if (distinctTypes.length <= 1) {
-                const weaponItem   = itemsAtLocation.find(item => weaponsData[item.itemType]);
-                const equipItem_   = itemsAtLocation.find(item => equipmentData[item.itemType]);
-                const consumeItem  = itemsAtLocation.find(item => consumablesData[item.itemType]);
-
-                let effectsStr = '';
-                let singleItemDef;
-
-                if (weaponItem) {
-                    singleItemDef = getItemDef(weaponItem);
-                    effectsStr = singleItemDef.effects.map(e => `+${e.value} ${e.stat.replace('_', ' ')}`).join(', ');
-                } else if (consumeItem) {
-                    singleItemDef = getItemDef(consumeItem);
-                    if (singleItemDef.effect === "grenade") {
-                        effectsStr = `Damage: ${singleItemDef.damage}, Radius: ${singleItemDef.damageRadius}, Fuse: ${singleItemDef.fuse} turns`;
-                    } else if (singleItemDef.effect === "key") {
-                        effectsStr = "Use to unlock or lock a door, once per key.";
-                    } else {
-                        effectsStr = `${singleItemDef.effect}: ${singleItemDef.value}`;
-                    }
-                } else if (equipItem_) {
-                    singleItemDef = getItemDef(equipItem_);
-                    if (singleItemDef.effects) {
-                        effectsStr = singleItemDef.effects.map(e => `+${e.value} ${e.stat.replace('_', ' ')}`).join(', ');
-                    }
-                }
-
-                if (effectsStr) win.items.push({ text: effectsStr });
-                if (singleItemDef) {
-                    if (singleItemDef.maxAmmo !== undefined && singleItemDef.maxAmmo !== Infinity) {
-                        const droppedAmmo = (weaponItem || equipItem_) ? itemsAtLocation.find(i => i.currentAmmo !== undefined)?.currentAmmo : undefined;
-                        const displayAmmo = droppedAmmo !== undefined ? droppedAmmo : singleItemDef.maxAmmo;
-                        win.items.push({ text: `Ammo: ${displayAmmo}/${singleItemDef.maxAmmo}` });
-                    }
-                    if (singleItemDef.maxAmmo === Infinity) win.items.push({ text: "Infinite ammo, does not reload." });
-                    if (singleItemDef.areaRadius)   win.items.push({ text: `Radius: ${singleItemDef.areaRadius}` });
-                    if (singleItemDef.burst)         win.items.push({ text: `Burst Fire: ${singleItemDef.burst}` });
-                    if (weaponItem)                  win.items.push({ text: `Attack type: ${singleItemDef.aimStyle}` });
-                    (singleItemDef.traits || []).forEach(t => win.items.push({ text: "(" + entityTraits[t].name + "): " + entityTraits[t].description }));
-                }
-            }
         }
 
         const contentY = win.y + HEADER_HEIGHT;
@@ -790,6 +897,12 @@ var WindowSystem = {
         ctx.font = "12px monospace";
         ctx.textAlign = "center";
         ctx.fillText("Press ESC or click outside to close", win.x + win.width / 2, win.y + win.height - 12);
+
+        if (win.traitGrid) {
+            win.traitGrid.x = win.x + win.padding + 10;
+            win.traitGrid.y = contentY + win.items.length * LINE_HEIGHT;
+            this.drawTraitsWindow(win);
+        }
     },
 
     showExamineWindow: function(entity) {
@@ -847,18 +960,10 @@ var WindowSystem = {
             }
         }
 
-        const traitList = [...new Set([...(entity.traits || []), ...Object.values(entity.equipment || {}).flatMap(i => getItemDef(i)?.traits || [])])];
-        if (traitList.length > 0) {
+        const hasGrid = !!entity.name;
+        if (hasGrid) {
             stats.push({ text: "" });
             stats.push({ text: "TRAITS: "});
-            for (var i = 0; i < traitList.length; i++) {
-                const traitDef = entityTraits[traitList[i]];
-                if (traitDef) {
-                    stats.push({ text: "(" + traitDef.name + "): " + traitDef.description });
-                } else {
-                    stats.push({ text: "Trait: " + traitList[i] });
-                }
-            }
         }
 
         const window = this.create({
@@ -872,6 +977,12 @@ var WindowSystem = {
             onConfirm: null,
             onCancel: function() {}
         });
+        if (hasGrid) {
+            const keys = Object.keys(TRAIT_SPRITE_MAP).filter(k => helper.hasTrait(entity, k));
+            window.traitGrid = { x: 0, y: 0, cols: keys.length, rows: 1, keys };
+            window.hoveredIndex = -1;
+            window.tooltip = null;
+        }
         this.open(window);
     }
 };

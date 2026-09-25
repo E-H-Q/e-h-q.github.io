@@ -807,13 +807,8 @@ function showAbilityContextMenu(key, anchorX, anchorY) {
 		tileY: window.cursorWorldPos ? window.cursorWorldPos.y : 0,
 		options
 	});
-	menu.width = Math.max(menu.width, a.description.length * 9 + 20, reason ? reason.length * 9 + 20 : 0);
 
-	const menuHeight = menu.options.length * menu.itemHeight + menu.padding * 2;
-	menu.x = anchorX - 8 - menu.width + tileSize / 2;
-	menu.y = anchorY + tileSize / 2 - menuHeight;
-
-	WindowSystem.openContextMenu(menu);
+	WindowSystem.openContextMenu(WindowSystem.anchorContextMenu(menu, anchorX, anchorY));
 }
 
 function updateViewportSize() {

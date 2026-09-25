@@ -20,25 +20,36 @@ var uiGridSelect = null;
 
 var UI_GRIDS = {
 	ability: {
-		cols: () => ABILITY_BAR_COLS,
+		cols: () => getAbilityBarCols(getActivePlayerEntity()),
 		rows: () => ABILITY_BAR_ROWS,
-		origin: () => getAbilityBarOrigin(),
-		hover: s => { window.abilityHoverSlot = abilityAtBarSlot(getActivePlayerEntity(), s) ? s : -1; },
+		origin: () => {
+			const o = getInventoryOrigin();
+			return { x: o.x - UI_GRIDS.ability.cols() * tileSize, y: o.y };
+		},
+		// Grid slot (left-to-right) -> bar slot
+		index: s => {
+			const cols = UI_GRIDS.ability.cols();
+			return abilityCellToIndex((s / cols) | 0, cols - 1 - s % cols);
+		},
+		hover: s => {
+			const i = UI_GRIDS.ability.index(s);
+			window.abilityHoverSlot = abilityAtBarSlot(getActivePlayerEntity(), i) ? i : -1;
+		},
 		clearHover: () => { window.abilityHoverSlot = -1; },
 		activate: s => {
-			const key = abilityAtBarSlot(getActivePlayerEntity(), s);
+			const key = abilityAtBarSlot(getActivePlayerEntity(), UI_GRIDS.ability.index(s));
 			if (!key) return false;
 			closeUIGridSelect();
 			handleAbilityClick(key);
 			return true;
 		},
 		contextMenu: s => {
-			const key = abilityAtBarSlot(getActivePlayerEntity(), s);
+			const i = UI_GRIDS.ability.index(s);
+			const key = abilityAtBarSlot(getActivePlayerEntity(), i);
 			if (!key) return false;
-			const o = getAbilityBarOrigin();
+			const p = abilitySlotPos(i);
 			closeUIGridSelect();
-			showAbilityContextMenu(key, o.x + (s % ABILITY_BAR_COLS) * tileSize,
-				o.y + ((s / ABILITY_BAR_COLS) | 0) * tileSize);
+			showAbilityContextMenu(key, p.x, p.y);
 			return true;
 		}
 	},
@@ -82,6 +93,13 @@ function openUIGridSelect(grid, startSlot) {
 	cursorVisible = false;
 	UI_GRIDS[grid].hover(uiGridSelect.slot);
 	update();
+}
+
+// Starts on bar slot 0 (top right). No-op without abilities.
+function openAbilityGridSelect() {
+	const cols = getAbilityBarCols(getActivePlayerEntity());
+	if (cols) openUIGridSelect('ability', cols - 1);
+	else closeUIGridSelect();
 }
 
 function closeUIGridSelect() {
@@ -241,7 +259,7 @@ function grabItemsFromTile(x, y) {
 }
 
 function resetAbilityDrag() {
-	window.abilityDrag = { key: null, startMouse: null, isDragging: false, mouse: null };
+	window.abilityDrag = { key: null, startMouse: null, isDragging: false, mouse: null, fromBar: null, fromHotbar: null };
 }
 
 function resetInventoryDrag() {
@@ -427,7 +445,7 @@ var input = {
             } else if (event.keyCode === 27) {
                 closeUIGridSelect();
             } else if (event.keyCode === 65) {
-                openUIGridSelect('ability');
+                openAbilityGridSelect();
             } else if (event.keyCode === 73 && !event.shiftKey) {
                 openUIGridSelect('inventory', INVENTORY_COLS);
             }
@@ -733,8 +751,7 @@ var input = {
             if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]) &&
                 !specialMode &&
                 !adjacentSelect && window.throwingGrenadeIndex === undefined) {
-                if (event.shiftKey) WindowSystem.openAbilitiesWindow(getActivePlayerEntity());
-                else openUIGridSelect('ability');
+                if (!event.shiftKey) openAbilityGridSelect();
             }
             return;
         }
@@ -1067,10 +1084,8 @@ var input = {
         if (abSlot >= 0) {
             const key = abilityAtBarSlot(getActivePlayerEntity(), abSlot);
             if (key) {
-                const o = getAbilityBarOrigin();
-                showAbilityContextMenu(key,
-                    o.x + (abSlot % ABILITY_BAR_COLS) * tileSize,
-                    o.y + ((abSlot / ABILITY_BAR_COLS) | 0) * tileSize);
+                const p = abilitySlotPos(abSlot);
+                showAbilityContextMenu(key, p.x, p.y);
                 return;
             }
         }
@@ -1396,6 +1411,7 @@ var input = {
                 window.inventoryDrag.item = inv[invSlot];
             } else if (activeEnt.abilityHotbar && activeEnt.abilityHotbar[invSlot]) {
                 window.abilityDrag.key = activeEnt.abilityHotbar[invSlot];
+                window.abilityDrag.fromHotbar = invSlot;
                 window.abilityDrag.startMouse = { x: canvasX, y: canvasY };
                 window.abilityDrag.mouse = { x: canvasX, y: canvasY };
                 window.abilityDrag.isDragging = false;
@@ -1412,6 +1428,7 @@ var input = {
                 window.suppressNextClick = true;
                 isMouseDown = false;
                 window.abilityDrag.key = key;
+                window.abilityDrag.fromBar = abSlot;
                 window.abilityDrag.startMouse = { x: canvasX, y: canvasY };
                 window.abilityDrag.mouse = { x: canvasX, y: canvasY };
                 window.abilityDrag.isDragging = false;
@@ -1483,20 +1500,16 @@ var input = {
             if (ad.isDragging) {
                 syncAbilityBar(activeEnt);
                 const hb = activeEnt.abilityHotbar;
-                const bs = activeEnt.abilityBarSlots;
+                const order = activeEnt.abilityOrder;
                 const t = getInventorySlotAt(ad.mouse.x, ad.mouse.y);
                 const b = getAbilitySlotAt(ad.mouse.x, ad.mouse.y);
-                let fromBar = -1;
-                for (const s in bs) if (bs[s] === ad.key) { fromBar = +s; delete bs[s]; }
-                for (const s in hb) if (hb[s] === ad.key) delete hb[s];
+                if (ad.fromHotbar !== null) delete hb[ad.fromHotbar];
                 if (t >= 0 && t < INVENTORY_COLS && !getInventory(activeEnt)[t] && !hb[t]) {
+                    for (const s in hb) if (hb[s] === ad.key) delete hb[s];
                     hb[t] = ad.key;
-                } else if (b >= 0) {
-                    const occupant = bs[b];
-                    if (occupant && fromBar >= 0) bs[fromBar] = occupant;
-                    bs[b] = ad.key;
+                } else if (ad.fromBar !== null && b >= 0 && b < order.length) {
+                    [order[ad.fromBar], order[b]] = [order[b], order[ad.fromBar]];
                 }
-                syncAbilityBar(activeEnt);
                 resetAbilityDrag();
                 update();
             } else {

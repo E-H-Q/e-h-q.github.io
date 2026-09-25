@@ -79,11 +79,13 @@ const EntitySystem = {
 
 	displayMovement: function(entity, specialMode = null) {
 		ctx.fillStyle = "rgba(0, 255, 0, 0.5)";
-		this.calculateMovement(entity, specialMode).forEach(move => {
+		const moves = this.calculateMovement(entity, specialMode);
+		moves.forEach(move => {
 			const coord = new calc.coordinate(move.x, move.y);
 			if (isPlayerControlled(entity) && !valid.find(v => v.x === coord.x && v.y === coord.y)) valid.push(coord);
 			ctx.fillRect((coord.x - camera.x) * tileSize, (coord.y - camera.y) * tileSize, tileSize, tileSize);
 		});
+		canvas.items(new Set(moves.map(m => m.x + ',' + m.y)));
 	},
 
 	moveEntity: function(entity, x, y) {
