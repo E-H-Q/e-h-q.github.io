@@ -83,8 +83,11 @@ function getInventorySlotAt(canvasX, canvasY) {
 // Ability bar: 2 rows, fills right-to-left column by column (top, then bottom).
 const ABILITY_BAR_ROWS = 2;
 
+// Own traits plus traits from equipped items.
 function getEntityAbilities(entity) {
-	return entity ? (entity.traits || []).filter(t => abilityTypes[t]) : [];
+	if (!entity) return [];
+	const fromItems = Object.values(entity.equipment || {}).flatMap(i => getItemDef(i)?.traits || []);
+	return [...new Set([...(entity.traits || []), ...fromItems])].filter(t => abilityTypes[t]);
 }
 
 // entity.abilityOrder: bar order, index = bar slot. New abilities append, removed ones drop out.
@@ -109,6 +112,11 @@ function abilityAtBarSlot(entity, slot) {
 const TRAIT_SPRITE_SIZE = 32;
 const TRAIT_GRID_COLS = 6;
 const TRAIT_GRID_ROWS = 4;
+// Overlays on traits.png, drawn over trait icons. Not part of the trait grid.
+const TRAIT_OVERLAY_MAP = {
+	itemMarker: { row: 0, col: 4 }
+};
+
 const TRAIT_SPRITE_MAP = {
 	player:     { row: 0, col: 0 },
 	default:    { row: 0, col: 1 },
@@ -130,6 +138,12 @@ const TRAIT_SPRITE_MAP = {
 	shield:     { row: 3, col: 4 },
 	detonate:   { row: 3, col: 5 }
 };
+
+// Granted by equipment only, not the entity's own traits.
+function traitFromItemOnly(entity, key) {
+	return !(entity.traits || []).includes(key) &&
+		Object.values(entity.equipment || {}).some(i => getItemDef(i)?.traits?.includes(key));
+}
 
 function traitAtSlot(slot) {
 	return Object.keys(TRAIT_SPRITE_MAP).find(k =>
@@ -206,7 +220,7 @@ function stepAnims() {
 
 function drawTraitSprite(key, sx, sy, active = true, size = tileSize) {
 	const img = document.getElementById("traits");
-	const sp = TRAIT_SPRITE_MAP[key];
+	const sp = TRAIT_SPRITE_MAP[key] || TRAIT_OVERLAY_MAP[key];
 	if (!img || !img.complete || !img.naturalWidth || !sp) {
 		ctx.fillStyle = "#FF00FF";
 		ctx.fillRect(sx, sy, size, size);

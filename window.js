@@ -462,8 +462,8 @@ var WindowSystem = {
             const o = this.traitSlotOrigin(win, slot);
             const key = this.traitKeyAt(win, slot);
             const has = win.traitGrid.keys ? true : !!helper.hasTrait(win.entity, key);
-            // traits from items, needs marker!
             if (key) drawTraitSprite(key, o.x, o.y, has, winTileSize());
+            if (key && traitFromItemOnly(win.entity, key)) drawTraitSprite('itemMarker', o.x, o.y, true, winTileSize());
             const hovered = slot === win.hoveredIndex;
             if (!hovered && win.isExamineWindow) continue;
             ctx.strokeStyle = hovered ? "rgba(255, 255, 0, 1)" : "rgba(255, 255, 255, 1)";
@@ -471,37 +471,6 @@ var WindowSystem = {
             ctx.strokeRect(o.x + 0.5, o.y + 0.5, winTileSize() - 1, winTileSize() - 1);
         }
         if (win.tooltip) this.drawContextMenu(win.tooltip);
-    },
-
-    openAbilitiesWindow: function(entity) {
-        const keys = (entity.traits || []).filter(t => abilityTypes[t]);
-        if (keys.length === 0) {
-            console.log(entity.name + " has no abilities.");
-            return;
-        }
-        const equipped = getEquippedAbilities(entity);
-        const items = keys.map(key => {
-            const a = abilityTypes[key];
-            return { text: a.name + ": " + a.description, key };
-        });
-        const preSelected = [];
-        keys.forEach((k, i) => { if (equipped.includes(k)) preSelected.push(i); });
-        this.openSelectionWindow({
-            title: "Abilities: " + entity.name,
-            width: 500,
-            height: Math.min(600, 100 + items.length * 35),
-            items,
-            confirmLabel: "EQUIP",
-            multiSelect: true,
-            maxSelect: 4,
-            allowEmpty: true,
-            preSelectedIndices: preSelected,
-            onConfirm: function(selectedItems) {
-                entity.equippedAbilities = selectedItems.map(it => it.key);
-                syncAbilityBar(entity);
-                update();
-            }
-        });
     },
 
     createContextMenu: function(config) {
