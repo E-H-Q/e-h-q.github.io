@@ -886,15 +886,29 @@ var turns = {
         this.enemyRandomMove(entity);
     },
 
-    computeEnemyPath: function(entity, targetX, targetY) {
-        if (!pts || targetX < 0 || targetX >= size || targetY < 0 || targetY >= size) return [];
-
+    enemyGraph: function(entity, targetX, targetY, passable = []) {
+        populate.reset();
+        populate.walls();
         const graph = new Graph(pts, { diagonal: true });
+        const hasKey = getInventory(entity).some(i => i && i.itemType === 'key');
+        walls.forEach(w => {
+            if (w.type === 'door' && !w.open && (!w.locked || hasKey) && graph.grid[w.x]?.[w.y]) graph.grid[w.x][w.y].weight = 1;
+        });
+        const tw = wallAt(targetX, targetY);
+        if (!tw || ['water', 'fire', 'door'].includes(tw.type)) graph.grid[targetX][targetY].weight ||= 1;
         entities.forEach(e => {
             if (e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && !(e.x === targetX && e.y === targetY)) {
+                if (passable.some(p => p.x === e.x && p.y === e.y)) return;
                 if (graph.grid[e.x]?.[e.y]) graph.grid[e.x][e.y].weight = 0;
             }
         });
+        return graph;
+    },
+
+    computeEnemyPath: function(entity, targetX, targetY) {
+        if (!pts || targetX < 0 || targetX >= size || targetY < 0 || targetY >= size) return [];
+
+        const graph = this.enemyGraph(entity, targetX, targetY);
 
         if (!graph.grid[entity.x]?.[entity.y] || !graph.grid[targetX]?.[targetY]) return [];
 
@@ -914,9 +928,10 @@ var turns = {
             const stepCost = w?.type === 'water' ? 2 : 1;
             if (distanceMoved + stepCost <= entity.range) {
                 const occupied = entities.some(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y);
-                const isWall = w && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open);
+                const isWall = w && w.type !== 'water' && w.type !== 'fire' && w.type !== 'door';
                 if (!occupied && !isWall) { trimmed.push(step); distanceMoved += stepCost; }
                 else break;
+                if (w?.type === 'door' && !w.open) break;
             } else break;
         }
         return trimmed;
@@ -936,13 +951,7 @@ var turns = {
         let path = (pv && pv.length && !passable.length && !avoidGrenades && pv.tx === targetX && pv.ty === targetY) ? pv : null;
 
         if (!path) {
-            const diagonalGraph = new Graph(pts, { diagonal: true });
-            entities.forEach(e => {
-                if (e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && !(e.x === targetX && e.y === targetY)) {
-                    if (passable.some(p => p.x === e.x && p.y === e.y)) return;
-                    if (diagonalGraph.grid[e.x]?.[e.y]) diagonalGraph.grid[e.x][e.y].weight = 0;
-                }
-            });
+            const diagonalGraph = this.enemyGraph(entity, targetX, targetY, passable);
 
             if (avoidGrenades) {
                 const grenadeRadius = itemTypes.grenade.damageRadius;
@@ -985,6 +994,10 @@ var turns = {
             if (distanceMoved + stepCost > entity.range) break;
 
             const occupied = entities.some(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y);
+            if (!occupied && w?.type === 'door' && !w.open) {
+                if (tryOpenDoor(entity, w) && !w.open) tryOpenDoor(entity, w);
+                break;
+            }
             const isWall = w && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open);
 
             if (occupied || isWall) break;
