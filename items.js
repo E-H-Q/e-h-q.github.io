@@ -401,6 +401,7 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 	if (path.length === 0) return false;
 
 	const landingSpot = path[Math.min(path.length - 1, entity.attack_range)];
+	if (isItemEquipped(entity, item)) unequipItem(entity, itemDef.slot);
 	
 	if (item.isLive && itemDef.effect == "grenade") {
 		allEnemies.push({

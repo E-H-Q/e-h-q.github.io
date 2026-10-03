@@ -245,16 +245,9 @@ function activateDoorMode(useKey = false) {
 }
 
 function grabItemsFromTile(x, y) {
-	const activeEnt = getActivePlayerEntity();
 	if (!helper.hasGrabbableAt(x, y)) return false;
 
-	const origX = activeEnt.x;
-	const origY = activeEnt.y;
-	activeEnt.x = x;
-	activeEnt.y = y;
-	pickupItem(activeEnt, x, y);
-	activeEnt.x = origX;
-	activeEnt.y = origY;
+	pickupItem(getActivePlayerEntity(), x, y);
 	return true;
 }
 
@@ -1029,6 +1022,8 @@ var input = {
 
                 if (specialMode === 'peek' && peekStep === 2) {
                     if (EntitySystem.attack(specialModeEntity, click_pos.x, click_pos.y)) {
+                        specialModeEntity.x = peekStartX;
+                        specialModeEntity.y = peekStartY;
                         helper.tileEffects(specialModeEntity);
                         currentEntityTurnsRemaining--;
                     }
