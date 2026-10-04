@@ -115,7 +115,7 @@ function rebuildEntities() {
 function charmEntity(target, charmer) {
 	if (target._precharm) return;
 	if (charmer && isPlayerControlled(target) === isPlayerControlled(charmer)) return;
-	target._precharm = { traits: target.traits.filter(t => t !== 'charmed'), playerColor: target.playerColor };
+	target._precharm = { traits: target.traits.filter(t => t !== 'charmed'), playerColor: target.playerColor, peer: target.peer };
 	entities.forEach(e => { if (e.following === target) e.following = null; });
 	target.following = null;
 	const joinPlayers = charmer ? isPlayerControlled(charmer) : !isPlayerControlled(target);
@@ -123,6 +123,7 @@ function charmEntity(target, charmer) {
 		if (!helper.hasTrait(target, 'player')) target.traits.push('player');
 		if (!helper.hasTrait(target, 'charmed')) target.traits.push('charmed');
 		target.playerColor = "rgba(255, 105, 180, 0.5)";
+		target.peer = charmer?.peer;
 		moveEntityList(allEnemies, allPlayers, target);
 	} else {
 		const src = charmer || target;
@@ -153,6 +154,8 @@ function uncharmEntity(target) {
 	target.traits = target._precharm.traits.slice();
 	if (target._precharm.playerColor !== undefined) target.playerColor = target._precharm.playerColor;
 	else delete target.playerColor;
+	if (target._precharm.peer !== undefined) target.peer = target._precharm.peer;
+	else delete target.peer;
 	delete target._precharm;
 	delete target.charmRounds;
 	if (isPlayerControlled(target)) moveEntityList(allEnemies, allPlayers, target);

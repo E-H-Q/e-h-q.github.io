@@ -69,17 +69,13 @@ var turns = {
         if (entity.awareOfPlayer === true) return true;   // viewport override
 
         const buffer = 5;
-        const playerCamera = {
-            x: player.x - Math.round(viewportWidth / 2) + 1,
-            y: player.y - Math.round(viewportHeight / 2) + 1
-        };
-
-        return (
-            entity.x >= playerCamera.x - buffer &&
-            entity.x <= playerCamera.x + viewportWidth + buffer &&
-            entity.y >= playerCamera.y - buffer &&
-            entity.y <= playerCamera.y + viewportHeight + buffer
-        );
+        return allPlayers.some(p => {
+            const cx = p.x - Math.round(viewportWidth / 2) + 1;
+            const cy = p.y - Math.round(viewportHeight / 2) + 1;
+            return isPlayerControlled(p) &&
+                entity.x >= cx - buffer && entity.x <= cx + viewportWidth + buffer &&
+                entity.y >= cy - buffer && entity.y <= cy + viewportHeight + buffer;
+        });
     },
 
     _roundReset: function() {
@@ -108,6 +104,8 @@ var turns = {
             return;
         }
         hasDied = false;
+        const cur = entities[currentEntityIndex];
+        if (net.guest && (currentEntityTurnsRemaining <= 0 || !isPlayerControlled(cur) || cur.following)) return net.drawPreview();
         if (currentEntityIndex >= entities.length) { currentEntityIndex = -1; currentEntityTurnsRemaining = 0; this._roundReset(); }
 
         if (currentEntityTurnsRemaining <= 0) { // ONLY RUNS WHEN NON-PLAYER ENTITIES ARE ALSO PRESENT!? NEEDS TO TRIGGER AFTER *ALL* ENTITY TURNS!!!

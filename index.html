@@ -115,7 +115,7 @@
 							<button id="peek-button" class="peek-button" onclick="activatePeekMode()">PEEK</button>
 						</div>
 					</div>
-					<div style="margin-top: 10px;">
+					<div id="edit-row" style="margin-top: 10px;">
 						<span id="size-input-container">
 							<label style="margin-right: 10px;">TILE: 
 								<select id="tile-type" style="width: 80px;">
@@ -208,6 +208,12 @@
 							<label>Delay (ms): <span id="delay-value">250</span></label><br>
 							Fast<input type="range" id="turn-delay" min="0" max="1000" value="250" step="50" style="width: 120px;" oninput="document.getElementById('delay-value').textContent = this.value" autocomplete="off">Slow
 						</fieldset>
+						<fieldset id="net-settings">
+							<legend>Online</legend>
+							<button id="net-host" onclick="net.start()">HOST</button><br>
+							<input id="net-link" readonly placeholder="link" autocomplete="off" style="width: 160px;" onclick="this.select(); navigator.clipboard.writeText(this.value)"><br>
+							<span id="net-status">offline</span>
+						</fieldset>
 					</div>
 				</div>
 				<div id="right-panel" style="max-width: 25vw; min-width: 25vw;">
@@ -253,6 +259,8 @@
 		<script type="text/javascript" src="turns.js"></script>
 		<script type="text/javascript" src="circle.js"></script>
 		<script type="text/javascript" src="window.js"></script>
+		<script type="text/javascript" src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+		<script type="text/javascript" src="net.js"></script>
 		<script type="text/javascript" src="script.js"></script>
 	</body>
 </html>
