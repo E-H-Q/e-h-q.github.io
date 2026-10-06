@@ -96,7 +96,11 @@ function reindexEntityCursor() {
 	if (currentEntityIndex < 0 || currentEntityIndex >= entities.length) return;
 	let alive = 0;
 	for (let i = 0; i < currentEntityIndex; i++) if (entities[i].hp >= 1) alive++;
-	currentEntityIndex = entities[currentEntityIndex].hp >= 1 ? alive : alive - 1;
+	if (entities[currentEntityIndex].hp >= 1) currentEntityIndex = alive;
+	else {
+		currentEntityIndex = alive - 1;
+		currentEntityTurnsRemaining = 0;
+	}
 }
 
 function rebuildEntities() {
@@ -349,13 +353,19 @@ function executeAbility(key, entity, x, y) {
 }
 
 // Console override for logging
-(function() {
+function printLog(message) {
 	var logger = document.getElementById('log');
-	console.log = function(message) {
-		logger.insertAdjacentHTML('beforeend', (typeof message === 'object' ? JSON.stringify(message) : message) + '<br />');
-		while (logger.childNodes.length > 800) logger.removeChild(logger.firstChild);
-	};
-})();
+	logger.insertAdjacentHTML('beforeend', (typeof message === 'object' ? JSON.stringify(message) : message) + '<br />');
+	while (logger.childNodes.length > 800) logger.removeChild(logger.firstChild);
+}
+
+console.log = function(message) {
+	if (typeof net !== 'undefined' && net.peer) {
+		if (net.applying) return;
+		net.logs.push(message);
+	}
+	printLog(message);
+};
 
 function createAndFillTwoDArray({rows, columns, defaultValue}) {
 	return Array.from({length: rows}, () => Array(columns).fill(defaultValue));

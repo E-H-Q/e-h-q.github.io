@@ -10,8 +10,10 @@ var net = {
 	last: '',
 	lastUi: '',
 	anims: [],
+	logs: [],
 	draws: [],
 	preview: [],
+	menu: null,
 	lastDraws: '',
 	drawing: false,
 	from: null,
@@ -162,7 +164,12 @@ var net = {
 	ui: () => JSON.stringify({
 		c: window.cursorWorldPos, a: action.value, s: specialMode,
 		e: [...allPlayers, ...allEnemies].indexOf(specialModeEntity),
-		g: window.throwingGrenadeIndex ?? null, j: adjacentSelect, p: [peekStep, peekStartX, peekStartY]
+		g: window.throwingGrenadeIndex ?? null, j: adjacentSelect, p: [peekStep, peekStartX, peekStartY],
+		m: activeContextMenu && {
+			tx: activeContextMenu.tileX, ty: activeContextMenu.tileY, w: activeContextMenu.width, o: activeContextMenu.options,
+			ox: activeContextMenu.x - (activeContextMenu.tileX - camera.x) * tileSize,
+			oy: activeContextMenu.y - (activeContextMenu.tileY - camera.y) * tileSize
+		}
 	}),
 
 	applyUi: str => {
@@ -175,6 +182,18 @@ var net = {
 		window.throwingGrenadeIndex = u.g ?? undefined;
 		adjacentSelect = u.j;
 		[peekStep, peekStartX, peekStartY] = u.p;
+		net.menu = u.m;
+	},
+
+	drawMenu: () => {
+		const m = net.menu;
+		if (!m || net.myTurn()) return;
+		const menu = WindowSystem.createContextMenu({
+			x: (m.tx - camera.x) * tileSize + m.ox, y: (m.ty - camera.y) * tileSize + m.oy,
+			tileX: m.tx, tileY: m.ty, options: m.o
+		});
+		menu.width = m.w;
+		WindowSystem.drawContextMenu(WindowSystem.clampContextMenu(menu));
 	},
 
 	drawPreview: () => {
@@ -185,7 +204,13 @@ var net = {
 	sync: () => {
 		const p = net.draws, d = JSON.stringify(p);
 		net.draws = [];
-		if (!net.peer || EntitySystem._explosionPending) return;
+		if (!net.peer) return;
+		if (net.logs.length) {
+			const l = net.logs;
+			net.logs = [];
+			net.conns.forEach(c => c.send({t: 'log', l}));
+		}
+		if (EntitySystem._explosionPending) return;
 		const s = net.pack(), mine = net.owns(entities[currentEntityIndex]), was = net.mine;
 		net.mine = mine;
 		if (net.applying) {
@@ -193,7 +218,7 @@ var net = {
 			net.anims = [];
 			return;
 		}
-		if (mine) {
+		if (mine || was) {
 			const u = net.ui();
 			if (u !== net.lastUi) {
 				net.lastUi = u;
@@ -209,6 +234,10 @@ var net = {
 	},
 
 	recv: (c, m) => {
+		if (m.t === 'log') {
+			if (!net.guest) net.conns.forEach(o => o !== c && o.send(m));
+			return m.l.forEach(printLog);
+		}
 		if (m.t === 'ui') {
 			if (!net.guest) net.conns.forEach(o => o !== c && o.send(m));
 			if (net.owns(entities[currentEntityIndex])) return;
@@ -246,6 +275,14 @@ var net = {
 			try { f(...a); } finally { net.drawing = false; }
 		};
 	});
+}
+
+{
+	const w = canvas.window;
+	canvas.window = () => {
+		w();
+		net.drawMenu();
+	};
 }
 
 ['deathAnim', 'explosionAnim'].forEach(k => {
