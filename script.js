@@ -394,7 +394,7 @@ function renderScene() {
 	canvas.player();
 	canvas.items();
 	const ce = entities[currentEntityIndex] || player;
-	if (isPlayerControlled(ce) && typeof turns !== 'undefined' && turns.checkEnemyLOS) {
+	if (!net.guest && isPlayerControlled(ce) && typeof turns !== 'undefined' && turns.checkEnemyLOS) {
 		turns.checkEnemyLOS();
 	}
 	canvas.enemy();
@@ -429,7 +429,7 @@ function update() {
 	const oldCameraY = camera.y;
 
 	if (!EntitySystem._explosionPending) {
-		if (isPlayerControlled(currentEntity) || isAiming) {
+		if (net.owns(currentEntity) || isAiming) {
 			updateCamera();
 		} else {
 			camera = {
@@ -439,7 +439,7 @@ function update() {
 		}
 	}
 
-	if (isPlayerControlled(currentEntity) && window.cursorWorldPos && cursorVisible) {
+	if (net.owns(currentEntity) && window.cursorWorldPos && cursorVisible) {
 		window.cursorWorldPos.x += (camera.x - oldCameraX);
 		window.cursorWorldPos.y += (camera.y - oldCameraY);
 		window.cursorWorldPos.x = Math.max(0, Math.min(size - 1, window.cursorWorldPos.x));
@@ -535,22 +535,24 @@ function update() {
 
 	var elem = document.getElementById("log");
 	elem.scrollTop = elem.scrollHeight;
+	net.sync();
 }
 
 action.selectedIndex = 0;
 
 function handleMouseMove(event) {
 	if (EntitySystem._explosionPending) return;
-	if (currentEntityIndex >= 0 && !isPlayerControlled(entities[currentEntityIndex]) && allPlayers.length > 0) return;
+	if (currentEntityIndex >= 0 && !net.owns(entities[currentEntityIndex]) && allPlayers.length > 0) return;
 	input.mouse(event);
 }
 
 c.onmousemove = handleMouseMove;
-c.addEventListener("click", input.click);
-c.addEventListener("mousedown", input.mousedown);
-c.addEventListener("contextmenu", input.right_click);
+const onMyTurn = fn => e => net.myTurn() ? fn(e) : e.type === 'contextmenu' && e.preventDefault();
+c.addEventListener("click", onMyTurn(input.click));
+c.addEventListener("mousedown", onMyTurn(input.mousedown));
+c.addEventListener("contextmenu", onMyTurn(input.right_click));
 document.addEventListener("mouseup", input.mouseup);
-document.addEventListener("keydown", input.keyboard);
+document.addEventListener("keydown", onMyTurn(input.keyboard));
 document.addEventListener("keyup", input.keyboard);
 
 var div_for_coords = document.createElement("div");

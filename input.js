@@ -556,6 +556,7 @@ var input = {
         }
 
         if (event.shiftKey && event.keyCode === 69) {
+            if (net.guest) return;
             edit.checked = !edit.checked;
             if (!edit.checked) selectedEditTiles = [];
             document.getElementById('size-input-container').style.display = edit.checked ? 'inline-block' : 'none';

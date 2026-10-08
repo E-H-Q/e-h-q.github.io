@@ -96,7 +96,11 @@ function reindexEntityCursor() {
 	if (currentEntityIndex < 0 || currentEntityIndex >= entities.length) return;
 	let alive = 0;
 	for (let i = 0; i < currentEntityIndex; i++) if (entities[i].hp >= 1) alive++;
-	currentEntityIndex = entities[currentEntityIndex].hp >= 1 ? alive : alive - 1;
+	if (entities[currentEntityIndex].hp >= 1) currentEntityIndex = alive;
+	else {
+		currentEntityIndex = alive - 1;
+		currentEntityTurnsRemaining = 0;
+	}
 }
 
 function rebuildEntities() {
@@ -115,7 +119,7 @@ function rebuildEntities() {
 function charmEntity(target, charmer) {
 	if (target._precharm) return;
 	if (charmer && isPlayerControlled(target) === isPlayerControlled(charmer)) return;
-	target._precharm = { traits: target.traits.filter(t => t !== 'charmed'), playerColor: target.playerColor };
+	target._precharm = { traits: target.traits.filter(t => t !== 'charmed'), playerColor: target.playerColor, peer: target.peer };
 	entities.forEach(e => { if (e.following === target) e.following = null; });
 	target.following = null;
 	const joinPlayers = charmer ? isPlayerControlled(charmer) : !isPlayerControlled(target);
@@ -123,6 +127,7 @@ function charmEntity(target, charmer) {
 		if (!helper.hasTrait(target, 'player')) target.traits.push('player');
 		if (!helper.hasTrait(target, 'charmed')) target.traits.push('charmed');
 		target.playerColor = "rgba(255, 105, 180, 0.5)";
+		target.peer = charmer?.peer;
 		moveEntityList(allEnemies, allPlayers, target);
 	} else {
 		const src = charmer || target;
@@ -153,6 +158,8 @@ function uncharmEntity(target) {
 	target.traits = target._precharm.traits.slice();
 	if (target._precharm.playerColor !== undefined) target.playerColor = target._precharm.playerColor;
 	else delete target.playerColor;
+	if (target._precharm.peer !== undefined) target.peer = target._precharm.peer;
+	else delete target.peer;
 	delete target._precharm;
 	delete target.charmRounds;
 	if (isPlayerControlled(target)) moveEntityList(allEnemies, allPlayers, target);
@@ -346,13 +353,19 @@ function executeAbility(key, entity, x, y) {
 }
 
 // Console override for logging
-(function() {
+function printLog(message) {
 	var logger = document.getElementById('log');
-	console.log = function(message) {
-		logger.insertAdjacentHTML('beforeend', (typeof message === 'object' ? JSON.stringify(message) : message) + '<br />');
-		while (logger.childNodes.length > 800) logger.removeChild(logger.firstChild);
-	};
-})();
+	logger.insertAdjacentHTML('beforeend', (typeof message === 'object' ? JSON.stringify(message) : message) + '<br />');
+	while (logger.childNodes.length > 800) logger.removeChild(logger.firstChild);
+}
+
+console.log = function(message) {
+	if (typeof net !== 'undefined' && net.peer) {
+		if (net.applying) return;
+		net.logs.push(message);
+	}
+	printLog(message);
+};
 
 function createAndFillTwoDArray({rows, columns, defaultValue}) {
 	return Array.from({length: rows}, () => Array(columns).fill(defaultValue));
