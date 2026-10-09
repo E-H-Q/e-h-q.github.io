@@ -279,7 +279,7 @@ var abilityTypes = {
 			const fi = walls.findIndex(w => w.x === x && w.y === y && w.type === 'fire');
 			if (fi >= 0) walls.splice(fi, 1);
 
-			walls.push({x: x, y: y, type: 'shield', turnsRemaining: 1, owner: entity});
+			walls.push({x: x, y: y, type: 'shield', owner: entity});
 			console.log(entity.name + " put up their Shield!");
 		}
 	},
