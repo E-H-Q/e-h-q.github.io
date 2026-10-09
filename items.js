@@ -717,6 +717,11 @@ function dropInventoryItemAtSlot(entity, slotIdx) {
 		console.log(entity.name + " dropped " + quantity + " " + itemDef.name + (quantity > 1 ? "s" : ""));
 	}
 	inv[slotIdx] = null;
+	// cancels throw mode on drop
+	if (window.throwingGrenadeIndex === slotIdx) {
+		window.throwingGrenadeIndex = undefined;
+		action.value = window.lastUsedAction || "move";
+	}
 	update();
 	return true;
 }

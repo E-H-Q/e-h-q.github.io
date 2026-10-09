@@ -30,7 +30,7 @@ function groupLeadsWithFollowers() {
 }
 
 function startFollowing(follower, followed) {
-    const inCombat = allEnemies.some(e => e.hp > 0 && !helper.hasTrait(e, 'explode') && (e.seenX !== 0 || e.seenY !== 0));
+    const inCombat = allEnemies.some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && (e.seenX !== 0 || e.seenY !== 0));
     if (inCombat) {
         console.log("Cannot follow while in combat!");
         return;
@@ -391,7 +391,7 @@ var turns = {
         const spottedSquadMembers = new Set(); // players whose squad was just dissolved this call
 
         allEnemies.forEach(enemy => {
-            if (enemy.hp < 1) return;
+            if (enemy.hp < 1 || helper.isGrenadeEntity(enemy)) return;
             if (isPlayerControlled(enemy)) return; // player-trait entities can live in allEnemies; don't treat them as observers
             if (!this.shouldProcessEntity(enemy)) return;
 
