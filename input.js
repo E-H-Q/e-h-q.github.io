@@ -540,7 +540,7 @@ var input = {
             }
             if (window.throwingGrenadeIndex !== undefined) {
                 window.throwingGrenadeIndex = undefined;
-                action.value = window.preThrowAction || "move";
+                action.value = window.lastUsedAction || "move";
                 console.log("Grenade throw cancelled");
                 update();
             } else if (adjacentSelect) {
@@ -966,7 +966,7 @@ var input = {
                         helper.tileEffects(activeEnt);
                         currentEntityTurnsRemaining--;
 
-                        action.value = window.preThrowAction || "move";
+                        action.value = window.lastUsedAction || "move";
                         update();
                     }
                     return;
@@ -1349,6 +1349,7 @@ var input = {
                                 allEnemies[receiverEnemyIdx] = activeEnt;
                             }
                             console.log(activeEnt.name + " transfers turn to " + clickedEntity.name + ".");
+                            action.value = "move";
                             update();
                         }
                     });

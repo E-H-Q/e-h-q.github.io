@@ -183,6 +183,7 @@ var turns = {
 
                 if (!entities[currentEntityIndex]) currentEntityIndex = 0;
                 currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
+                action.value = "move";
                 for (let i = walls.length - 1; i >= 0; i--) {
                     if (walls[i].type === 'shield' && walls[i].owner === entities[currentEntityIndex] && --walls[i].turnsRemaining <= 0) walls.splice(i, 1);
                 }

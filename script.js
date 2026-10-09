@@ -153,15 +153,6 @@ function updateMapSize() {
 	}
 }
 
-function endPlayerTurn() {
-	currentEntityTurnsRemaining--;
-	if (currentEntityTurnsRemaining <= 0) {
-		currentEntityIndex++;
-		if (currentEntityIndex >= entities.length) currentEntityIndex = 0;
-		currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
-	}
-}
-
 function updatePeekButton() {
 	const peekButton = document.getElementById('peek-button');
 	const isActiveTurn = currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]);
@@ -189,6 +180,7 @@ function useSpecialMode(entity, mode) {
 		action.value = "move";
 	} else if (abilityTypes[mode]) {
 		if (isPlayerControlled(entity)) {
+			window.lastUsedAction = action.value;
 			action.value = "attack";
 			console.log(abilityTypes[mode].name + ": select a target.");
 		} else {
@@ -213,14 +205,15 @@ function exitSpecialMode(includePeek = true) {
 	if (specialMode === 'peek') {
 		if (peekStep === 1 && specialModeEntity) specialModeEntity.range = savedPlayerRange;
 		peekStep = 1;
+		action.value = "move";
 		console.log("Exited peek mode.");
 	} else {
+		action.value = window.lastUsedAction || "move";
 		console.log("Exited " + abilityTypes[specialMode].name + " mode.");
 	}
 	specialMode = null;
 	specialModeEntity = null;
 	action.disabled = false;
-	action.value = "move";
 	update();
 }
 
@@ -554,6 +547,8 @@ c.addEventListener("contextmenu", onMyTurn(input.right_click));
 document.addEventListener("mouseup", input.mouseup);
 document.addEventListener("keydown", onMyTurn(input.keyboard));
 document.addEventListener("keyup", input.keyboard);
+const blockTabSpace = e => (e.keyCode === 9 || e.keyCode === 32) && !isTypingInTextField() && e.preventDefault();
+['keydown', 'keyup'].forEach(t => document.addEventListener(t, blockTabSpace));
 
 var div_for_coords = document.createElement("div");
 document.body.appendChild(div_for_coords);
@@ -762,7 +757,7 @@ function showInventoryContextMenu(slotIdx, event) {
 			danger: true,
 			action: function() {
 				window.throwingGrenadeIndex = slotIdx;
-				window.preThrowAction = action.value;
+				window.lastUsedAction = action.value;
 				action.value = "attack";
 				console.log("Select where to throw to:");
 				update();

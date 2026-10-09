@@ -667,7 +667,7 @@ function useItem(entity, inventoryIndex) {
 				console.log(entity.name + " pulled the pin! Better throw it!");
 			}
 			window.throwingGrenadeIndex = liveIdx;
-			window.preThrowAction = action.value;
+			window.lastUsedAction = action.value;
 			action.value = "attack";
 			console.log("Select target to throw grenade (range: " + entity.attack_range + ")");
 			update();

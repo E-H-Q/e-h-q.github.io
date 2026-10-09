@@ -347,7 +347,7 @@ function executeAbility(key, entity, x, y) {
 	try { a.execute(entity, x, y); } finally { activeAbility = null; }
 	helper.tileEffects(entity);
 	spendAP(key);
-	if (isPlayerControlled(entity)) { action.value = "move"; action.disabled = false; }
+	if (isPlayerControlled(entity)) { action.value = window.lastUsedAction || "move"; action.disabled = false; }
 	update();
 	return true;
 }
