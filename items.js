@@ -307,7 +307,7 @@ function calculateEntityTargeting(entity, endX, endY) {
 			if (calc.distance(entity.x, endX, entity.y, endY) <= range && isWall) return [{x: endX, y: endY}];
 		}
 		if (canBreach) {
-			const isWall = walls.find(w => w.x === endX && w.y === endY && w.type !== 'glass' && w.type !== 'water' && w.type !== 'fire' && w.type !== 'door');
+			const isWall = walls.find(w => w.x === endX && w.y === endY && w.type !== 'glass' && w.type !== 'water' && w.type !== 'fire' && w.type !== 'pit' && w.type !== 'door');
 			if (calc.distance(entity.x, endX, entity.y, endY) <= range && isWall) return [{x: endX, y: endY}];
 		}
 		return [];
@@ -403,7 +403,9 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 	const landingSpot = path[Math.min(path.length - 1, entity.attack_range)];
 	if (isItemEquipped(entity, item)) unequipItem(entity, itemDef.slot);
 	
-	if (item.isLive && itemDef.effect == "grenade") {
+	if (wallAt(landingSpot.x, landingSpot.y)?.type === 'pit') {
+		//console.log(itemDef.name + " fell into the pit!");
+	} else if (item.isLive && itemDef.effect == "grenade") {
 		allEnemies.push({
 			name: "Grenade", hp: 1,
 			x: landingSpot.x, y: landingSpot.y,

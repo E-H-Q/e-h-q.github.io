@@ -1003,7 +1003,7 @@ var input = {
                 const enemies = targetsInArea.filter(e => e !== activeEnt && e.hp > 0);
                 const hasWalls = (canDestroy || canBreach) && targetingTiles.some(t => {
                     const w = wallAt(t.x, t.y);
-                    return w && w.type !== 'glass' && w.type !== 'water' && w.type !== 'fire';
+                    return w && w.type !== 'glass' && w.type !== 'water' && w.type !== 'fire' && w.type !== 'pit';
                 });
                 const hasBreakable = targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y && (w.type === 'glass' || w.type === 'door')));
                 const hasTargets = targetingTiles.length > 0 && (enemies.length > 0 || hasWalls || hasBreakable);

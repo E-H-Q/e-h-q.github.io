@@ -1069,7 +1069,7 @@ var turns = {
         const path = line({x: x1, y: y1}, {x: x2, y: y2});
         for (let i = 1; i < path.length - 1; i++) {
             const wall = wallAt(path[i].x, path[i].y);
-            if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && !(wall.type === 'door' && wall.open)) return false;
+            if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && wall.type !== 'pit' && !(wall.type === 'door' && wall.open)) return false;
         }
         return true;
     }

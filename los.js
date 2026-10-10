@@ -30,7 +30,7 @@ function line(p0, p1) {
 
 function wallBlocksLOS(wall) {
 	if (!wall) return false;
-	if (wall.type === 'glass' || wall.type === 'water' || wall.type === 'fire') return false;
+	if (wall.type === 'glass' || wall.type === 'water' || wall.type === 'fire' || wall.type === 'pit') return false;
 	if (wall.type === 'door' && wall.open) return false;
 	return true;
 }
@@ -46,7 +46,7 @@ function clipPathAtWall(path, canBreach = false) {
 	for (let i = 1; i < path.length; i++) {
 		const wall = wallAt(path[i].x, path[i].y);
 		if (!wall) continue;
-		if (wall.type === 'water' || wall.type === 'fire') continue;
+		if (wall.type === 'water' || wall.type === 'fire' || wall.type === 'pit') continue;
 		if (wall.type === 'glass') {
 			if (wall.damaged) continue;
 			if (i === path.length - 1) return path;
@@ -76,7 +76,7 @@ function hasBreachingLOS(startX, startY, endX, endY) {
 	for (let i = 1; i < path.length; i++) {
 		const wall = wallAt(path[i].x, path[i].y);
 		if (!wall) continue;
-		if (wall.type === 'water' || wall.type === 'fire') continue;
+		if (wall.type === 'water' || wall.type === 'fire' || wall.type === 'pit') continue;
 		if (wall.type === 'glass') continue;
 		if (wall.type === 'door' && wall.open) continue;
 		if (wallsHit === 0) { wallsHit++; i++; continue; }

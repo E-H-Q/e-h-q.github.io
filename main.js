@@ -273,7 +273,7 @@ var abilityTypes = {
 		},
 		validate: function(entity, x, y) {
 			const w = wallAt(x, y);
-			return (!w || w.type === 'fire' || w.type === 'water') && !entities.some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === x && e.y === y);
+			return (!w || w.type === 'fire' || w.type === 'water' || w.type === 'pit') && !entities.some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === x && e.y === y);
 		},
 		execute: function(entity, x, y) {
 			const fi = walls.findIndex(w => w.x === x && w.y === y && w.type === 'fire');

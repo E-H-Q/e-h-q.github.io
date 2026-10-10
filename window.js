@@ -684,6 +684,11 @@ var WindowSystem = {
                     win.items.push({ text: ""});
                     win.items.push({ danger: true, text: "Movement range -50%" });
                     break;
+                case "pit":
+                    win.items.push({ text: "A deep pit in the ground." });
+                    win.items.push({ text: ""});
+                    win.items.push({ danger: true, text: "Cannot be moved through." });
+                    break;
                 case "fire":
                     win.items.push({ text: "Blazing flames, walk carefully!" });
                     win.items.push({ text: ""});
@@ -808,13 +813,7 @@ var WindowSystem = {
             ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
 
         } else if (entity.type) {
-            const tilesImg = document.getElementById("tiles");
-            if (entity.type === 'grave') {
-                drawEntitySprite("grave", spriteX, spriteY, spriteSize);
-            } else if (tilesImg && tilesImg.complete) {
-                const tileIndex = { wall: TILE_WALL, glass: TILE_GLASS, water: TILE_WATER, fire: TILE_FIRE, door: TILE_DOOR_CLOSED }[entity.type];
-                if (tileIndex !== undefined) ctx.drawImage(tilesImg, tileIndex * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, spriteX, spriteY, spriteSize, spriteSize);
-            }
+            drawTileSprite(entity.type, spriteX, spriteY, spriteSize);
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 16px monospace";
             ctx.textAlign = "center";

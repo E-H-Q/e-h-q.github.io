@@ -10,7 +10,7 @@ const EntitySystem = {
 		if (path.length < calc.distance(entity.x, targetX, entity.y, targetY) + 1) return false;
 		for (let i = 1; i < path.length - 1; i++) {
 			const wall = wallAt(path[i].x, path[i].y);
-			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && !(ignoreShields && wall.type === 'shield') && !(wall.type === 'door' && wall.open)) return false;
+			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && wall.type !== 'pit' && !(ignoreShields && wall.type === 'shield') && !(wall.type === 'door' && wall.open)) return false;
 		}
 		return true;
 	},
@@ -178,7 +178,7 @@ const EntitySystem = {
 			if (idx < 0) continue;
 			const wall = walls[idx];
 			if (wall.permanent) continue;
-			if (wall.type === 'water' || wall.type === 'fire') continue;
+			if (wall.type === 'water' || wall.type === 'fire' || wall.type === 'pit') continue;
 			if (wall.type === 'door' && wall.open) continue;
 			if (wall.type === 'glass') {
 				if (canDestroy || canBreach || wall.damaged) {
@@ -316,7 +316,7 @@ const EntitySystem = {
 
 		if (helper.hasTrait(grenade, 'canDestroy')) {
 			for (const tile of blastTiles) {
-				const wi = walls.findIndex(w => w.x === tile.x && w.y === tile.y && w.type !== 'water' && w.type !== 'fire' && !w.permanent);
+				const wi = walls.findIndex(w => w.x === tile.x && w.y === tile.y && w.type !== 'water' && w.type !== 'fire' && w.type !== 'pit' && !w.permanent);
 				if (wi >= 0) walls.splice(wi, 1);
 			}
 		}

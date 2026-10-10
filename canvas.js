@@ -19,15 +19,20 @@ const SPRITE_LOCKED = 12;
 const SPRITE_CHARM_STATUS = 13;
 const SPRITE_UNAWARE = 14;
 
-const TILE_SIZE        = 32;
-const TILE_WALL        = 0;
-const TILE_FLOOR       = 1;
-const TILE_GLASS       = 2;
-const TILE_BROKEN      = 3;
-const TILE_WATER       = 4;
-const TILE_FIRE        = 5;
-const TILE_DOOR_CLOSED = 6;
-const TILE_DOOR_OPEN   = 7;
+const TILE_SIZE = 32;
+const TILE_SPRITE_MAP = {
+	wall:     { row: 0, col: 0 },
+	glass:    { row: 0, col: 1 },
+	door:     { row: 0, col: 2 },
+	doorOpen: { row: 0, col: 3 },
+	grave:    { row: 0, col: 4 },
+	floor:    { row: 1, col: 0 },
+	water:    { row: 1, col: 1 },
+	fire:     { row: 1, col: 2 },
+	pit:      { row: 1, col: 3 },
+	damage:   { row: 2, col: 0 },
+	blood:    { row: 2, col: 1 }
+};
 
 const ITEM_SPRITE_SIZE = 32;
 // Row 0 = weapons, Row 1 = consumables, Row 2 = equipment
@@ -158,9 +163,7 @@ const ENTITY_SPRITE_MAP = {
 	enemy:      { row: 1, col: 0 },
 	defensive:  { row: 1, col: 1 },
 	aggressive: { row: 1, col: 2 },
-	death:      { row: 2, col: 0 },
-	grave:      { row: 2, col: 1 },
-	blood:      { row: 2, col: 2 }
+	death:      { row: 2, col: 0 }
 };
 
 // Cosmetic blood splatter, "x,y" -> quarter-turn rotation. Session only — cleared on map load / regen.
@@ -169,7 +172,7 @@ var bloodTiles = new Map();
 // A tile takes blood if it isn't water or fire and isn't already bloodied.
 function canBleedOn(x, y) {
 	const t = wallAt(x, y)?.type;
-	return t !== 'water' && t !== 'fire' && !bloodTiles.has(x + ',' + y);
+	return t !== 'water' && t !== 'fire' && t !== 'pit' && !bloodTiles.has(x + ',' + y);
 }
 
 function addBlood(x, y) {
@@ -204,6 +207,13 @@ function drawEntitySprite(key, sx, sy, size) {
 	if (!img || !img.complete || !img.naturalWidth || !sp) return;
 	ctx.drawImage(img, sp.col * ENTITY_SPRITE_SIZE, sp.row * ENTITY_SPRITE_SIZE,
 		ENTITY_SPRITE_SIZE, ENTITY_SPRITE_SIZE, sx, sy, size, size);
+}
+
+function drawTileSprite(key, sx, sy, size = tileSize) {
+	const img = document.getElementById("tiles");
+	const sp = TILE_SPRITE_MAP[key];
+	if (!img || !img.complete || !img.naturalWidth || !sp) return;
+	ctx.drawImage(img, sp.col * TILE_SIZE, sp.row * TILE_SIZE, TILE_SIZE, TILE_SIZE, sx, sy, size, size);
 }
 
 // Generic timed animation queue; each entry re-renders the live scene, then calls draw(t).
@@ -283,7 +293,6 @@ var canvas = {
 	},
 
 	grid: () => {
-		const tilesImg = document.getElementById("tiles");
 		for (let i = 0; i < viewportWidth; i++) {
 			for (let j = 0; j < viewportHeight; j++) {
 				const worldX = camera.x + i;
@@ -299,8 +308,8 @@ var canvas = {
 					ctx.moveTo(screenX + tileSize, screenY);
 					ctx.lineTo(screenX, screenY + tileSize);
 					ctx.stroke();
-				} else if (tilesImg && tilesImg.complete && tilesImg.naturalWidth > 0) {
-					ctx.drawImage(tilesImg, TILE_FLOOR * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+				} else {
+					drawTileSprite("floor", screenX, screenY);
 				}
 			}
 		}
@@ -329,33 +338,39 @@ var canvas = {
 			const screenY = (wall.y - camera.y) * tileSize;
 			if (wall.type === 'glass') {
 				if (hasSprites) {
-					ctx.drawImage(tilesImg, TILE_GLASS * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+					drawTileSprite("glass", screenX, screenY);
 				} else {
 					ctx.fillStyle = wall.damaged ? "rgba(0, 100, 255, 0.3)" : "rgba(0, 100, 255, 0.5)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
 			} else if (wall.type === 'water') {
 				if (hasSprites) {
-					ctx.drawImage(tilesImg, TILE_WATER * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+					drawTileSprite("water", screenX, screenY);
 				} else {
 					ctx.fillStyle = "rgba(0, 50, 200, 0.5)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
+			} else if (wall.type === 'pit') {
+				if (hasSprites) {
+					drawTileSprite("pit", screenX, screenY);
+				} else {
+					ctx.fillStyle = "rgba(20, 20, 20, 0.8)";
+					ctx.fillRect(screenX, screenY, tileSize, tileSize);
+				}
 			} else if (wall.type === 'fire') {
 				if (hasSprites) {
-					ctx.drawImage(tilesImg, TILE_FIRE * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+					drawTileSprite("fire", screenX, screenY);
 				} else {
 					ctx.fillStyle = "rgba(255, 100, 0, 0.6)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
 				}
 			} else if (wall.type === 'grave') {
-				drawEntitySprite("grave", screenX, screenY, tileSize);
+				drawTileSprite("grave", screenX, screenY);
 			} else if (wall.type === 'shield') {
 				drawTraitSprite("shield", screenX, screenY);
 			} else if (wall.type === 'door') {
 				if (hasSprites) {
-					const doorTile = wall.open ? TILE_DOOR_OPEN : TILE_DOOR_CLOSED;
-					ctx.drawImage(tilesImg, doorTile * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+					drawTileSprite(wall.open ? "doorOpen" : "door", screenX, screenY);
 					if (wall.locked) {
 						const movesImg = document.getElementById("moves");
 						if (movesImg && movesImg.complete && movesImg.naturalWidth > 0) {
@@ -368,7 +383,7 @@ var canvas = {
 				}
 			} else {
 				if (hasSprites) {
-					ctx.drawImage(tilesImg, TILE_WALL * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+					drawTileSprite("wall", screenX, screenY);
 				} else {
 					ctx.fillStyle = wall.damaged ? "rgba(200, 100, 0, 0.7)" : "rgba(255, 0, 0, 0.5)";
 					ctx.fillRect(screenX, screenY, tileSize, tileSize);
@@ -378,7 +393,7 @@ var canvas = {
 			// Shared damage overlay: inverted for every tile type except glass
 			if (wall.damaged && hasSprites) {
 				if (wall.type !== 'glass') ctx.filter = "invert(1)";
-				ctx.drawImage(tilesImg, TILE_BROKEN * TILE_SIZE, 0, TILE_SIZE, TILE_SIZE, screenX, screenY, tileSize, tileSize);
+				drawTileSprite("damage", screenX, screenY);
 				ctx.filter = "none";
 			}
 		});
@@ -389,11 +404,11 @@ var canvas = {
 		bloodTiles.forEach((rot, key) => {
 			const [x, y] = key.split(',').map(Number);
 			const t = wallAt(x, y)?.type;
-			if (t === 'water' || t === 'fire' || t === 'shield') return;
+			if (t === 'water' || t === 'fire' || t === 'pit' || t === 'shield') return;
 			ctx.save();
 			ctx.translate((x - camera.x + 0.5) * tileSize, (y - camera.y + 0.5) * tileSize);
 			ctx.rotate(rot * Math.PI / 2);
-			drawEntitySprite("blood", -tileSize / 2, -tileSize / 2, tileSize);
+			drawTileSprite("blood", -tileSize / 2, -tileSize / 2);
 			ctx.restore();
 		});
 	},
@@ -491,7 +506,7 @@ var canvas = {
 				const isCursor = window.cursorWorldPos && point.x === window.cursorWorldPos.x && point.y === window.cursorWorldPos.y;
 				const hasTarget = !directOnly && (
 					entities.some(e => e.hp > 0 && e.x === point.x && e.y === point.y) ||
-					walls.some(w => w.x === point.x && w.y === point.y && w.type !== 'water' && w.type !== 'fire' && !w.open)
+					walls.some(w => w.x === point.x && w.y === point.y && w.type !== 'water' && w.type !== 'fire' && w.type !== 'pit' && !w.open)
 				);
 				if (isCursor || hasTarget) canvas.crosshair(point.x, point.y);
 			});
