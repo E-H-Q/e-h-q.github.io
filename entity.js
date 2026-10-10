@@ -174,7 +174,7 @@ const EntitySystem = {
 		let destroyedAny = false;
 
 		for (const tile of calculateEntityTargeting(attacker, targetX, targetY)) {
-			const idx = walls.findIndex(w => w.x === tile.x && w.y === tile.y);
+			const idx = walls.indexOf(wallAt(tile.x, tile.y));
 			if (idx < 0) continue;
 			const wall = walls[idx];
 			if (wall.permanent) continue;

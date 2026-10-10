@@ -1002,7 +1002,7 @@ var input = {
                 const targetsInArea = getTargetedEntities(activeEnt, click_pos.x, click_pos.y);
                 const enemies = targetsInArea.filter(e => e !== activeEnt && e.hp > 0);
                 const hasWalls = (canDestroy || canBreach) && targetingTiles.some(t => {
-                    const w = walls.find(w => w.x === t.x && w.y === t.y);
+                    const w = wallAt(t.x, t.y);
                     return w && w.type !== 'glass' && w.type !== 'water' && w.type !== 'fire';
                 });
                 const hasBreakable = targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y && (w.type === 'glass' || w.type === 'door')));
