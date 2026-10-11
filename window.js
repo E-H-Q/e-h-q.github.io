@@ -802,7 +802,7 @@ var WindowSystem = {
                 this._drawItemSprite('grenadeLive', spriteX, spriteY, spriteSize);
             } else {
                 drawEntitySprite(entitySpriteId(entity), spriteX, spriteY, spriteSize);
-                canvas.drawEntityStatusSprites(entity, spriteX, spriteY, spriteSize);
+                canvas.drawStatusSprites(entity, spriteX, spriteY, spriteSize);
             }
 
             ctx.fillStyle = "#ffffff";
@@ -813,7 +813,7 @@ var WindowSystem = {
             ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
 
         } else if (entity.type) {
-            drawTileSprite(entity.type, spriteX, spriteY, spriteSize);
+            drawWall(entity, spriteX, spriteY, spriteSize);
             ctx.fillStyle = "#ffffff";
             ctx.font = "bold 16px monospace";
             ctx.textAlign = "center";

@@ -156,7 +156,6 @@ function load_map() {
 		});
 
 		if (typeof updatePlayerSelect === 'function') updatePlayerSelect();
-		//turns.checkEnemyLOS();
 		update();
 	};
 	reader.readAsText(load);

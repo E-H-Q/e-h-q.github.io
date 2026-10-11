@@ -626,7 +626,7 @@ var input = {
                     e !== activeEnt &&
                     e.hp > 0 && !helper.isGrenadeEntity(e) &&
                     (donorMode ? canDonateTo(activeEnt, e) : (!isPlayerControlled(e) && (e.seenX !== 0 || e.seenY !== 0))) &&
-                    EntitySystem.hasLOS(activeEnt, e.x, e.y, true) &&
+                    EntitySystem.hasLOS(activeEnt, e.x, e.y) &&
                     e.x >= camera.x && e.x < camera.x + viewportWidth &&
                     e.y >= camera.y && e.y < camera.y + viewportHeight &&
                     calc.distance(activeEnt.x, e.x, activeEnt.y, e.y) <= range
@@ -644,7 +644,7 @@ var input = {
             else if (action.value === "move") {
                 const visibleFriends = allPlayers.filter(friend =>
                     friend !== activeEnt &&
-                    hasPermissiveLOS(activeEnt.x, activeEnt.y, friend.x, friend.y) &&
+                    EntitySystem.hasLOS(activeEnt, friend.x, friend.y) &&
                     friend.x >= camera.x && friend.x < camera.x + viewportWidth &&
                     friend.y >= camera.y && friend.y < camera.y + viewportHeight
                 );
@@ -983,7 +983,7 @@ var input = {
                 const canDestroy = helper.hasTrait(activeEnt, 'canDestroy');
                 const hasLOS = canBreach || canDestroy
                     ? hasBreachingLOS(activeEnt.x, activeEnt.y, click_pos.x, click_pos.y)
-                    : hasPermissiveLOS(activeEnt.x, activeEnt.y, click_pos.x, click_pos.y);
+                    : EntitySystem.hasLOS(activeEnt, click_pos.x, click_pos.y);
 
 
                 if (dist > effectiveRange || !hasLOS) return;

@@ -291,7 +291,7 @@ var abilityTypes = {
 		description: "Detonate a grenade in sight.",
 		targets: function(entity) {
 			return allEnemies.filter(e => helper.isGrenadeEntity(e) && e.hp > 0 &&
-				EntitySystem.hasLOS(entity, e.x, e.y, isPlayerControlled(entity)));
+				EntitySystem.hasLOS(entity, e.x, e.y));
 		},
 		canUse: function(entity) {
 			if (!this.targets(entity).length) return "No grenades in sight";
@@ -550,8 +550,7 @@ function spawnEnemy() {
 			following: null
 		};
 		allEnemies.push(newEnemy);
-		if (typeof turns !== 'undefined' && turns.hasStrictLOS &&
-		    turns.hasStrictLOS(newEnemy.x, newEnemy.y, player.x, player.y)) {
+		if (EntitySystem.hasLOS(newEnemy, player.x, player.y)) {
 			newEnemy.seenX = player.x;
 			newEnemy.seenY = player.y;
 		}
@@ -655,11 +654,7 @@ var helper = {
 			for (let y = Math.max(0, entity.y - searchRadius); y <= Math.min(size - 1, entity.y + searchRadius); y++) {
 				if (helper.tileBlocked(x, y)) continue;
 				if (x === entity.x && y === entity.y) continue;
-				const blocksLOS = !EntitySystem.hasLOS({x, y}, fromX, fromY, true); // USES PERMISSIVE LOS!!!!!!!!!!!
-				// Tiles adjacent to an open door count as cover — entity can close it to block LOS
-				const nearOpenDoor = helper.getAdjacentTiles(x, y, false)
-					.some(t => { const w = wallAt(t.x, t.y); return w && w.type === 'door' && w.open; });
-				if (blocksLOS || nearOpenDoor) {
+				if (!EntitySystem.hasLOS({x, y}, fromX, fromY)) {
 					coverTiles.push({ x, y, distance: calc.distance(entity.x, x, entity.y, y) });
 				}
 			}
@@ -751,21 +746,6 @@ var calc = {
 		// Peek movement display only applies to the entity that activated it
 		const mode = (specialMode === 'peek' && peekStep === 1 && entity === specialModeEntity) ? 'peek' : null;
 		EntitySystem.displayMovement(entity, mode);
-	},
-
-	los: function(look) {
-		const path = line(look.start, look.end);
-		let earliestWallIndex = path.length;
-		for (let wall of walls) {
-			const wallIndex = path.findIndex(el => el.x === wall.x && el.y === wall.y);
-			if (wallIndex > 0 && wallIndex < earliestWallIndex) {
-				earliestWallIndex = wallIndex;
-			}
-		}
-		if (earliestWallIndex < path.length) {
-			path.length = earliestWallIndex;
-		}
-		return path;
 	},
 
 	roll: function(sides, dice = 1) {

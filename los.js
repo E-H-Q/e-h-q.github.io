@@ -28,9 +28,10 @@ function line(p0, p1) {
 	return points;
 }
 
-function wallBlocksLOS(wall) {
+function wallBlocksLOS(wall, ignoreShields = false) {
 	if (!wall) return false;
 	if (wall.type === 'glass' || wall.type === 'water' || wall.type === 'fire' || wall.type === 'pit') return false;
+	if (ignoreShields && wall.type === 'shield') return false;
 	if (wall.type === 'door' && wall.open) return false;
 	return true;
 }
@@ -40,33 +41,12 @@ function wallBlocksLOS(wall) {
 function clipPathAtWall(path, canBreach = false) {
 	if (!path || path.length === 0) return [];
 
-	const startX = path[0].x;
-	const startY = path[0].y;
-
 	for (let i = 1; i < path.length; i++) {
-		const wall = wallAt(path[i].x, path[i].y);
-		if (!wall) continue;
-		if (wall.type === 'water' || wall.type === 'fire' || wall.type === 'pit') continue;
-		if (wall.type === 'glass') {
-			if (wall.damaged) continue;
-			if (i === path.length - 1) return path;
-			continue;
-		}
-		if (wall.type === 'door' && wall.open) continue;
-		// Regular wall / shield / closed door
+		if (!wallBlocksLOS(wallAt(path[i].x, path[i].y))) continue;
 		if (canBreach) return path.slice(0, Math.min(i + 2, path.length));
 		return path.slice(0, i);
 	}
 	return path;
-}
-
-function hasPermissiveLOS(startX, startY, endX, endY) {
-	const path = line({x: startX, y: startY}, {x: endX, y: endY});
-	for (let i = 1; i < path.length - 1; i++) {
-		const wall = wallAt(path[i].x, path[i].y);
-		if (wallBlocksLOS(wall)) return false;
-	}
-	return true;
 }
 
 // LOS check for canBreach/canDestroy: clear path OR 1 adjacent regular wall tile + 1 tile beyond it.
@@ -74,11 +54,7 @@ function hasBreachingLOS(startX, startY, endX, endY) {
 	const path = line({x: startX, y: startY}, {x: endX, y: endY});
 	let wallsHit = 0;
 	for (let i = 1; i < path.length; i++) {
-		const wall = wallAt(path[i].x, path[i].y);
-		if (!wall) continue;
-		if (wall.type === 'water' || wall.type === 'fire' || wall.type === 'pit') continue;
-		if (wall.type === 'glass') continue;
-		if (wall.type === 'door' && wall.open) continue;
+		if (!wallBlocksLOS(wallAt(path[i].x, path[i].y))) continue;
 		if (wallsHit === 0) { wallsHit++; i++; continue; }
 		return false;
 	}

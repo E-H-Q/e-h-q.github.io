@@ -4,13 +4,10 @@ const EntitySystem = {
 	_explosionQueue: [],
 	_explosionPending: false,
 
-	hasLOS: function(entity, targetX, targetY, usePermissive = false, ignoreShields = false) {
-		if (usePermissive) return hasPermissiveLOS(entity.x, entity.y, targetX, targetY);
+	hasLOS: function(entity, targetX, targetY, ignoreShields = false) {
 		const path = line({x: entity.x, y: entity.y}, {x: targetX, y: targetY});
-		if (path.length < calc.distance(entity.x, targetX, entity.y, targetY) + 1) return false;
 		for (let i = 1; i < path.length - 1; i++) {
-			const wall = wallAt(path[i].x, path[i].y);
-			if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && wall.type !== 'pit' && !(ignoreShields && wall.type === 'shield') && !(wall.type === 'door' && wall.open)) return false;
+			if (wallBlocksLOS(wallAt(path[i].x, path[i].y), ignoreShields)) return false;
 		}
 		return true;
 	},
@@ -98,7 +95,7 @@ const EntitySystem = {
 
 	canAttack: function(entity, target) {
 		return calc.distance(entity.x, target.x, entity.y, target.y) <= entity.attack_range &&
-			this.hasLOS(entity, target.x, target.y, isPlayerControlled(entity));
+			this.hasLOS(entity, target.x, target.y);
 	},
 
 	attack: function(attacker, targetX, targetY) {

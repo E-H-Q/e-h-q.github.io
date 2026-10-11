@@ -216,6 +216,17 @@ function drawTileSprite(key, sx, sy, size = tileSize) {
 	ctx.drawImage(img, sp.col * TILE_SIZE, sp.row * TILE_SIZE, TILE_SIZE, TILE_SIZE, sx, sy, size, size);
 }
 
+function drawWall(wall, sx, sy, size = tileSize) {
+	if (wall.type === 'shield') drawTraitSprite('shield', sx, sy, true, size);
+	else drawTileSprite(wall.type === 'door' && wall.open ? 'doorOpen' : TILE_SPRITE_MAP[wall.type] ? wall.type : 'wall', sx, sy, size);
+	if (wall.damaged) {
+		if (wall.type !== 'glass') ctx.filter = 'invert(1)';
+		drawTileSprite('damage', sx, sy, size);
+		ctx.filter = 'none';
+	}
+	canvas.drawStatusSprites(wall, sx, sy, size);
+}
+
 // Generic timed animation queue; each entry re-renders the live scene, then calls draw(t).
 const anims = [];
 
@@ -331,72 +342,7 @@ var canvas = {
 	},
 
 	walls: () => {
-		const tilesImg = document.getElementById("tiles");
-		const hasSprites = tilesImg && tilesImg.complete && tilesImg.naturalWidth > 0;
-		walls.forEach(wall => {
-			const screenX = (wall.x - camera.x) * tileSize;
-			const screenY = (wall.y - camera.y) * tileSize;
-			if (wall.type === 'glass') {
-				if (hasSprites) {
-					drawTileSprite("glass", screenX, screenY);
-				} else {
-					ctx.fillStyle = wall.damaged ? "rgba(0, 100, 255, 0.3)" : "rgba(0, 100, 255, 0.5)";
-					ctx.fillRect(screenX, screenY, tileSize, tileSize);
-				}
-			} else if (wall.type === 'water') {
-				if (hasSprites) {
-					drawTileSprite("water", screenX, screenY);
-				} else {
-					ctx.fillStyle = "rgba(0, 50, 200, 0.5)";
-					ctx.fillRect(screenX, screenY, tileSize, tileSize);
-				}
-			} else if (wall.type === 'pit') {
-				if (hasSprites) {
-					drawTileSprite("pit", screenX, screenY);
-				} else {
-					ctx.fillStyle = "rgba(20, 20, 20, 0.8)";
-					ctx.fillRect(screenX, screenY, tileSize, tileSize);
-				}
-			} else if (wall.type === 'fire') {
-				if (hasSprites) {
-					drawTileSprite("fire", screenX, screenY);
-				} else {
-					ctx.fillStyle = "rgba(255, 100, 0, 0.6)";
-					ctx.fillRect(screenX, screenY, tileSize, tileSize);
-				}
-			} else if (wall.type === 'grave') {
-				drawTileSprite("grave", screenX, screenY);
-			} else if (wall.type === 'shield') {
-				drawTraitSprite("shield", screenX, screenY);
-			} else if (wall.type === 'door') {
-				if (hasSprites) {
-					drawTileSprite(wall.open ? "doorOpen" : "door", screenX, screenY);
-					if (wall.locked) {
-						const movesImg = document.getElementById("moves");
-						if (movesImg && movesImg.complete && movesImg.naturalWidth > 0) {
-							ctx.drawImage(movesImg, SPRITE_LOCKED * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE, screenX, screenY, tileSize, tileSize);
-						}
-					}
-				} else {
-					ctx.fillStyle = wall.open ? "rgba(139, 90, 43, 0.3)" : "rgba(139, 90, 43, 0.8)";
-					ctx.fillRect(screenX, screenY, tileSize, tileSize);
-				}
-			} else {
-				if (hasSprites) {
-					drawTileSprite("wall", screenX, screenY);
-				} else {
-					ctx.fillStyle = wall.damaged ? "rgba(200, 100, 0, 0.7)" : "rgba(255, 0, 0, 0.5)";
-					ctx.fillRect(screenX, screenY, tileSize, tileSize);
-				}
-			}
-
-			// Shared damage overlay: inverted for every tile type except glass
-			if (wall.damaged && hasSprites) {
-				if (wall.type !== 'glass') ctx.filter = "invert(1)";
-				drawTileSprite("damage", screenX, screenY);
-				ctx.filter = "none";
-			}
-		});
+		walls.forEach(wall => drawWall(wall, (wall.x - camera.x) * tileSize, (wall.y - camera.y) * tileSize));
 	},
 
 	// Drawn after walls: sits on floor and wall tiles, under entities and items
@@ -504,9 +450,10 @@ var canvas = {
 				if (crosshairSet && !crosshairSet.has(point.x + ',' + point.y)) return;
 
 				const isCursor = window.cursorWorldPos && point.x === window.cursorWorldPos.x && point.y === window.cursorWorldPos.y;
+				const w = wallAt(point.x, point.y);
 				const hasTarget = !directOnly && (
 					entities.some(e => e.hp > 0 && e.x === point.x && e.y === point.y) ||
-					walls.some(w => w.x === point.x && w.y === point.y && w.type !== 'water' && w.type !== 'fire' && w.type !== 'pit' && !w.open)
+					(w && w.type !== 'water' && w.type !== 'fire' && w.type !== 'pit' && !w.open)
 				);
 				if (isCursor || hasTarget) canvas.crosshair(point.x, point.y);
 			});
@@ -548,9 +495,8 @@ var canvas = {
 		}
 	},
 
-	// Overlays that belong on the sprite itself, at any size: unaware marker,
-	// fire and charm. Shared by the map and the examine window.
-	drawEntityStatusSprites: (entity, screenX, screenY, size = tileSize) => {
+	// Sprite overlays for entities and walls; shared by the map and the examine window.
+	drawStatusSprites: (entity, screenX, screenY, size = tileSize) => {
 		const movesImg = document.getElementById("moves");
 		if (!movesImg || !movesImg.complete || !movesImg.naturalWidth) return;
 		const sprite = (i, ox = 0) => ctx.drawImage(movesImg, i * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
@@ -558,6 +504,7 @@ var canvas = {
 
 		if (!isPlayerControlled(entity) && entity.seenX === 0 && entity.seenY === 0) sprite(SPRITE_UNAWARE);
 		if (helper.hasTrait(entity, 'fire')) sprite(SPRITE_FIRE_STATUS);
+		if (entity.locked) sprite(SPRITE_LOCKED);
 		if (helper.hasTrait(entity, 'charmed')) {
 			for (let i = 0; i < entity.charmRounds; i++) sprite(SPRITE_CHARM_STATUS, i * 3);
 		}
@@ -592,7 +539,7 @@ var canvas = {
 		ctx.fillRect(screenX, screenY, tileSize, tileSize);
 		if (hasActed) ctx.filter = "brightness(75%)";
 		drawEntitySprite(imgId, screenX, screenY, tileSize);
-		canvas.drawEntityStatusSprites(entity, screenX, screenY);
+		canvas.drawStatusSprites(entity, screenX, screenY);
 
 		if (!isZoomedOut) {
 			ctx.fillStyle = "rgba(255, 255, 255, 1)";
@@ -679,7 +626,7 @@ var canvas = {
 			}
 		} else if (adjacentSelect.mode === 'door') {
 			const doorTiles = helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
-				.filter(tile => walls.some(w => w.x === tile.x && w.y === tile.y && w.type === 'door'));
+				.filter(tile => wallAt(tile.x, tile.y)?.type === 'door');
 			for (const tile of doorTiles) {
 				ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
 			}

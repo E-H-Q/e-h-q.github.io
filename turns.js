@@ -56,7 +56,7 @@ var turns = {
         allEnemies.forEach(enemy => {
             enemy.awareOfPlayer = false;
             if (enemy.hp < 1) return;
-            const vis = playerEntities.filter(p => EntitySystem.hasLOS(enemy, p.x, p.y, false, true));
+            const vis = playerEntities.filter(p => EntitySystem.hasLOS(enemy, p.x, p.y, true));
             if (vis.length) enemy.awareOfPlayer = true;
             this._visibleCache.set(enemy, vis);
         });
@@ -261,7 +261,7 @@ var turns = {
             if (!target) { this._chainStep(() => this.enemyTurn(currentEntity)); return; }
             const dist = calc.distance(currentEntity.x, target.x, currentEntity.y, target.y);
             const effectiveRange = getEntityAttackRange(currentEntity);
-            const canSeeTarget = EntitySystem.hasLOS(currentEntity, target.x, target.y, false);
+            const canSeeTarget = EntitySystem.hasLOS(currentEntity, target.x, target.y);
             const willAttack = canSeeTarget && dist <= effectiveRange;
 
             const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
@@ -458,7 +458,7 @@ var turns = {
             // Visible-to-newly-spotted enemies
             const visibleEnemies = allEnemies.filter(e =>
                 !isPlayerControlled(e) && e.hp > 0 &&
-                newlySpotted.some(sp => EntitySystem.hasLOS(e, sp.x, sp.y, false))
+                newlySpotted.some(sp => EntitySystem.hasLOS(e, sp.x, sp.y))
             );
             const remainingEnemies = allEnemies.filter(e =>
                 !isPlayerControlled(e) && !visibleEnemies.includes(e)
@@ -630,10 +630,10 @@ var turns = {
 
             if (key === 'shield' && currentEntityTurnsRemaining === def.ap) {
                 const threat = (entity.lastAttacker && entity.lastAttacker.hp > 0 &&
-                    EntitySystem.hasLOS(entity, entity.lastAttacker.x, entity.lastAttacker.y, false)) ? entity.lastAttacker :
+                    EntitySystem.hasLOS(entity, entity.lastAttacker.x, entity.lastAttacker.y)) ? entity.lastAttacker :
                     entities.find(e => e.hp > 0 && !helper.isGrenadeEntity(e) &&
                         isPlayerControlled(e) !== isPlayerControlled(entity) &&
-                        EntitySystem.hasLOS(entity, e.x, e.y, false));
+                        EntitySystem.hasLOS(entity, e.x, e.y));
                 if (threat) {
                     const tile = line({x: entity.x, y: entity.y}, {x: threat.x, y: threat.y})[1];
                     if (tile && def.validate(entity, tile.x, tile.y)) {
@@ -647,9 +647,9 @@ var turns = {
             if (key === 'charm' && entity.hp <= charmHpThreshold && hasAmmo(entity)) {
                 const seen = entities.filter(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) &&
                     isPlayerControlled(e) !== isPlayerControlled(entity) &&
-                    EntitySystem.hasLOS(entity, e.x, e.y, false));
+                    EntitySystem.hasLOS(entity, e.x, e.y));
                 const seenAllies = entities.filter(e => canDonateTo(entity, e) &&
-                    EntitySystem.hasLOS(entity, e.x, e.y, false));
+                    EntitySystem.hasLOS(entity, e.x, e.y));
                 if (seen.length > seenAllies.length) {
                     const range = getEntityAttackRange(entity);
                     const victim = seen.filter(e => calc.distance(entity.x, e.x, entity.y, e.y) <= range)
@@ -673,7 +673,7 @@ var turns = {
             target = this.pickTarget(entity);
             if (!target) { currentEntityTurnsRemaining--; return; }
             dist = calc.distance(entity.x, target.x, entity.y, target.y);
-            canSeeTarget = EntitySystem.hasLOS(entity, target.x, target.y, false);
+            canSeeTarget = EntitySystem.hasLOS(entity, target.x, target.y);
         }
 
         this.decideWeapon(entity, dist);
@@ -688,13 +688,13 @@ var turns = {
             const blastRadius = itemTypes.grenade.damageRadius;
 
             // Close an adjacent door that breaks LOS first — no grenade needed
-            if (EntitySystem.hasLOS(entity, attackerPos.x, attackerPos.y, false)) {
+            if (EntitySystem.hasLOS(entity, attackerPos.x, attackerPos.y)) {
                 const doorToClose = helper.getAdjacentTiles(entity.x, entity.y, false)
                     .map(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'door' && w.open))
                     .filter(Boolean)
                     .find(door => {
                         door.open = false;
-                        const blocks = !EntitySystem.hasLOS(entity, attackerPos.x, attackerPos.y, false);
+                        const blocks = !EntitySystem.hasLOS(entity, attackerPos.x, attackerPos.y);
                         door.open = true;
                         return blocks;
                     });
@@ -719,7 +719,7 @@ var turns = {
             for (let x = Math.max(0, entity.x - searchRadius); x <= Math.min(size - 1, entity.x + searchRadius); x++) {
                 for (let y = Math.max(0, entity.y - searchRadius); y <= Math.min(size - 1, entity.y + searchRadius); y++) {
                     if (helper.tileBlocked(x, y) || (x === entity.x && y === entity.y)) continue;
-                    if (EntitySystem.hasLOS({x, y}, attackerPos.x, attackerPos.y, false)) continue;
+                    if (EntitySystem.hasLOS({x, y}, attackerPos.x, attackerPos.y)) continue;
                     if (activeGrenades.some(g => calc.distance(x, g.x, y, g.y) <= blastRadius)) continue;
                     const d = calc.distance(entity.x, x, entity.y, y);
                     if (d < coverDist) { coverDist = d; cover = {x, y}; }
@@ -728,7 +728,7 @@ var turns = {
             closedDoors.forEach(d => { d.open = false; });
 
             const canEscape = EntitySystem.canMoveOutsideRadius(entity, entity.x, entity.y, blastRadius);
-            const exposed   = EntitySystem.hasLOS(entity, attackerPos.x, attackerPos.y, false);
+            const exposed   = EntitySystem.hasLOS(entity, attackerPos.x, attackerPos.y);
 
             if (cover) {
                 const dropped = (canEscape && exposed && (entity.x !== cover.x || entity.y !== cover.y)) ? this._defenderDropGrenade(entity) : null;
@@ -820,7 +820,7 @@ var turns = {
                                 for (let y = Math.max(0, entity.y - searchRadius); y <= Math.min(size - 1, entity.y + searchRadius); y++) {
                                     if (helper.tileBlocked(x, y)) continue;
                                     if (x === entity.x && y === entity.y) continue;
-                                    if (!EntitySystem.hasLOS({x: entity.x, y: entity.y}, x, y, false)) {
+                                    if (!EntitySystem.hasLOS({x: entity.x, y: entity.y}, x, y)) {
                                         hidingSpots.push({ x, y, distance: calc.distance(entity.x, x, entity.y, y) });
                                     }
                                 }
@@ -1063,14 +1063,5 @@ var turns = {
     attack: function(target, entity) {
         EntitySystem.attack(entity, target);
         currentEntityTurnsRemaining--;
-    },
-
-    hasStrictLOS: function(x1, y1, x2, y2) {
-        const path = line({x: x1, y: y1}, {x: x2, y: y2});
-        for (let i = 1; i < path.length - 1; i++) {
-            const wall = wallAt(path[i].x, path[i].y);
-            if (wall && wall.type !== 'glass' && wall.type !== 'water' && wall.type !== 'fire' && wall.type !== 'pit' && !(wall.type === 'door' && wall.open)) return false;
-        }
-        return true;
     }
 };
