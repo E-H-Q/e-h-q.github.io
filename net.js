@@ -94,7 +94,7 @@ var net = {
 		update();
 	},
 
-	unown: id => [...allPlayers, ...allEnemies].forEach(e => [e, e._precharm].forEach(o => {
+	unown: id => allEntities().forEach(e => [e, e._precharm].forEach(o => {
 		if (o && (id === undefined || o.peer === id)) delete o.peer;
 	})),
 
@@ -130,7 +130,7 @@ var net = {
 
 	unpack: str => {
 		const s = JSON.parse(str), objs = [];
-		const sel = [...allPlayers, ...allEnemies].indexOf(specialModeEntity);
+		const sel = allEntities().indexOf(specialModeEntity);
 		const tag = o => {
 			if (!o || typeof o !== 'object') return;
 			if (o.$i !== undefined) {
@@ -163,12 +163,12 @@ var net = {
 
 	ui: () => JSON.stringify({
 		c: window.cursorWorldPos, a: action.value, s: specialMode,
-		e: [...allPlayers, ...allEnemies].indexOf(specialModeEntity),
+		e: allEntities().indexOf(specialModeEntity),
 		g: window.throwingGrenadeIndex ?? null, j: adjacentSelect, p: [peekStep, peekStartX, peekStartY],
 		m: activeContextMenu && {
 			tx: activeContextMenu.tileX, ty: activeContextMenu.tileY, w: activeContextMenu.width, o: activeContextMenu.options,
-			ox: activeContextMenu.x - (activeContextMenu.tileX - camera.x) * tileSize,
-			oy: activeContextMenu.y - (activeContextMenu.tileY - camera.y) * tileSize
+			ox: activeContextMenu.x - toScreenX(activeContextMenu.tileX),
+			oy: activeContextMenu.y - toScreenY(activeContextMenu.tileY)
 		}
 	}),
 
@@ -178,7 +178,7 @@ var net = {
 		cursorVisible = true;
 		action.value = u.a;
 		specialMode = u.s;
-		specialModeEntity = [...allPlayers, ...allEnemies][u.e] || null;
+		specialModeEntity = allEntities()[u.e] || null;
 		window.throwingGrenadeIndex = u.g ?? undefined;
 		adjacentSelect = u.j;
 		[peekStep, peekStartX, peekStartY] = u.p;
@@ -189,7 +189,7 @@ var net = {
 		const m = net.menu;
 		if (!m || net.myTurn()) return;
 		const menu = WindowSystem.createContextMenu({
-			x: (m.tx - camera.x) * tileSize + m.ox, y: (m.ty - camera.y) * tileSize + m.oy,
+			x: toScreenX(m.tx) + m.ox, y: toScreenY(m.ty) + m.oy,
 			tileX: m.tx, tileY: m.ty, options: m.o
 		});
 		menu.width = m.w;
@@ -197,7 +197,7 @@ var net = {
 	},
 
 	drawPreview: () => {
-		const ents = [...allPlayers, ...allEnemies];
+		const ents = allEntities();
 		net.preview.forEach(([k, a]) => canvas[k](...(k === 'path' ? [a[0], a[1], a[2], ents[a[3]]] : a)));
 	},
 
@@ -262,7 +262,7 @@ var net = {
 {
 	const xy = a => a && a.map(p => ({x: p.x, y: p.y}));
 	const previewArgs = {
-		path: (p, x, y, e) => [xy(p), x, y, [...allPlayers, ...allEnemies].indexOf(e)],
+		path: (p, x, y, e) => [xy(p), x, y, allEntities().indexOf(e)],
 		los: (p, d, h) => [xy(p), d, xy(h)],
 		crosshair: (x, y) => [x, y]
 	};

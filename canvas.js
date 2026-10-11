@@ -10,7 +10,7 @@ const DIR_TO_SPRITE = {
 	"-1,0": 6,  // left
 	"-1,-1":7   // up-left
 };
-const MOVE_SPRITE_SIZE = 32;
+const SPRITE_SIZE = 32;
 const SPRITE_ACTIVE    = 8;
 const SPRITE_CROSSHAIR = 9;
 const SPRITE_FOLLOWER = 10;
@@ -19,7 +19,6 @@ const SPRITE_LOCKED = 12;
 const SPRITE_CHARM_STATUS = 13;
 const SPRITE_UNAWARE = 14;
 
-const TILE_SIZE = 32;
 const TILE_SPRITE_MAP = {
 	wall:     { row: 0, col: 0 },
 	glass:    { row: 0, col: 1 },
@@ -34,7 +33,6 @@ const TILE_SPRITE_MAP = {
 	blood:    { row: 2, col: 1 }
 };
 
-const ITEM_SPRITE_SIZE = 32;
 // Row 0 = weapons, Row 1 = consumables, Row 2 = equipment
 // Order matches the dropdown menus in the UI (same order as itemTypes defined in items.js)
 const ITEM_SPRITE_MAP = {
@@ -114,7 +112,6 @@ function abilityAtBarSlot(entity, slot) {
 }
 
 // Trait sprites from traits.png, 32x32 sprites on a 6x4 grid. Row 3 = abilities.
-const TRAIT_SPRITE_SIZE = 32;
 const TRAIT_GRID_COLS = 6;
 const TRAIT_GRID_ROWS = 4;
 // Overlays on traits.png, drawn over trait icons. Not part of the trait grid.
@@ -157,7 +154,6 @@ function traitAtSlot(slot) {
 
 // Entity sprites from entities.png, 32x32 sprites on a 3x3 grid.
 // Row 0 = player, Row 1 = enemies (default, defensive, aggressive), Row 2 = death anim, grave
-const ENTITY_SPRITE_SIZE = 32;
 const ENTITY_SPRITE_MAP = {
 	player:     { row: 0, col: 0 },
 	enemy:      { row: 1, col: 0 },
@@ -172,7 +168,7 @@ var bloodTiles = new Map();
 // A tile takes blood if it isn't water or fire and isn't already bloodied.
 function canBleedOn(x, y) {
 	const t = wallAt(x, y)?.type;
-	return t !== 'water' && t !== 'fire' && t !== 'pit' && !bloodTiles.has(x + ',' + y);
+	return !FLOOR_TILES.has(t) && !bloodTiles.has(x + ',' + y);
 }
 
 function addBlood(x, y) {
@@ -201,27 +197,31 @@ function entitySpriteId(e) {
 	return "enemy";
 }
 
-function drawEntitySprite(key, sx, sy, size) {
-	const img = document.getElementById("entities");
-	const sp = ENTITY_SPRITE_MAP[key];
-	if (!img || !img.complete || !img.naturalWidth || !sp) return;
-	ctx.drawImage(img, sp.col * ENTITY_SPRITE_SIZE, sp.row * ENTITY_SPRITE_SIZE,
-		ENTITY_SPRITE_SIZE, ENTITY_SPRITE_SIZE, sx, sy, size, size);
+function drawSprite(sheet, sp, sx, sy, size = tileSize) {
+	const img = document.getElementById(sheet);
+	if (!sp || !img || !img.complete || !img.naturalWidth) return false;
+	ctx.drawImage(img, sp.col * SPRITE_SIZE, sp.row * SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE, sx, sy, size, size);
+	return true;
 }
 
-function drawTileSprite(key, sx, sy, size = tileSize) {
-	const img = document.getElementById("tiles");
-	const sp = TILE_SPRITE_MAP[key];
-	if (!img || !img.complete || !img.naturalWidth || !sp) return;
-	ctx.drawImage(img, sp.col * TILE_SIZE, sp.row * TILE_SIZE, TILE_SIZE, TILE_SIZE, sx, sy, size, size);
+function toScreenX(x) {
+	return (x - camera.x) * tileSize;
+}
+
+function toScreenY(y) {
+	return (y - camera.y) * tileSize;
+}
+
+function fillTile(x, y) {
+	ctx.fillRect(toScreenX(x), toScreenY(y), tileSize, tileSize);
 }
 
 function drawWall(wall, sx, sy, size = tileSize) {
 	if (wall.type === 'shield') drawTraitSprite('shield', sx, sy, true, size);
-	else drawTileSprite(wall.type === 'door' && wall.open ? 'doorOpen' : TILE_SPRITE_MAP[wall.type] ? wall.type : 'wall', sx, sy, size);
+	else drawSprite('tiles', TILE_SPRITE_MAP[wall.type === 'door' && wall.open ? 'doorOpen' : TILE_SPRITE_MAP[wall.type] ? wall.type : 'wall'], sx, sy, size);
 	if (wall.damaged) {
 		if (wall.type !== 'glass') ctx.filter = 'invert(1)';
-		drawTileSprite('damage', sx, sy, size);
+		drawSprite('tiles', TILE_SPRITE_MAP.damage, sx, sy, size);
 		ctx.filter = 'none';
 	}
 	canvas.drawStatusSprites(wall, sx, sy, size);
@@ -240,17 +240,13 @@ function stepAnims() {
 }
 
 function drawTraitSprite(key, sx, sy, active = true, size = tileSize) {
-	const img = document.getElementById("traits");
-	const sp = TRAIT_SPRITE_MAP[key] || TRAIT_OVERLAY_MAP[key];
-	if (!img || !img.complete || !img.naturalWidth || !sp) {
+	if (!active) ctx.filter = "grayscale(100%)";
+	const drawn = drawSprite('traits', TRAIT_SPRITE_MAP[key] || TRAIT_OVERLAY_MAP[key], sx, sy, size);
+	ctx.filter = "none";
+	if (!drawn) {
 		ctx.fillStyle = "#FF00FF";
 		ctx.fillRect(sx, sy, size, size);
-		return;
 	}
-	if (!active) ctx.filter = "grayscale(100%)";
-	ctx.drawImage(img, sp.col * TRAIT_SPRITE_SIZE, sp.row * TRAIT_SPRITE_SIZE,
-		TRAIT_SPRITE_SIZE, TRAIT_SPRITE_SIZE, sx, sy, size, size);
-	ctx.filter = "none";
 }
 
 // Slot i -> cell; col counts leftward from the inventory.
@@ -310,7 +306,7 @@ var canvas = {
 				const worldY = camera.y + j;
 				const screenX = i * tileSize;
 				const screenY = j * tileSize;
-				if (worldX < 0 || worldY < 0 || worldX >= size || worldY >= size) {
+				if (!helper.inBounds(worldX, worldY)) {
 					ctx.strokeStyle = "rgba(255, 0, 0, 0.2)";
 					ctx.lineWidth = 1;
 					ctx.beginPath();
@@ -320,7 +316,7 @@ var canvas = {
 					ctx.lineTo(screenX, screenY + tileSize);
 					ctx.stroke();
 				} else {
-					drawTileSprite("floor", screenX, screenY);
+					drawSprite('tiles', TILE_SPRITE_MAP.floor, screenX, screenY);
 				}
 			}
 		}
@@ -342,7 +338,7 @@ var canvas = {
 	},
 
 	walls: () => {
-		walls.forEach(wall => drawWall(wall, (wall.x - camera.x) * tileSize, (wall.y - camera.y) * tileSize));
+		walls.forEach(wall => drawWall(wall, toScreenX(wall.x), toScreenY(wall.y)));
 	},
 
 	// Drawn after walls: sits on floor and wall tiles, under entities and items
@@ -350,11 +346,11 @@ var canvas = {
 		bloodTiles.forEach((rot, key) => {
 			const [x, y] = key.split(',').map(Number);
 			const t = wallAt(x, y)?.type;
-			if (t === 'water' || t === 'fire' || t === 'pit' || t === 'shield') return;
+			if (FLOOR_TILES.has(t) || t === 'shield') return;
 			ctx.save();
-			ctx.translate((x - camera.x + 0.5) * tileSize, (y - camera.y + 0.5) * tileSize);
+			ctx.translate(toScreenX(x + 0.5), toScreenY(y + 0.5));
 			ctx.rotate(rot * Math.PI / 2);
-			drawTileSprite("blood", -tileSize / 2, -tileSize / 2);
+			drawSprite('tiles', TILE_SPRITE_MAP.blood, -tileSize / 2, -tileSize / 2);
 			ctx.restore();
 		});
 	},
@@ -363,8 +359,6 @@ var canvas = {
 	items: (onlyTiles = null) => {
 		if (!mapItems) return;
 
-		const itemsImg = document.getElementById("items");
-		const hasItemSprites = itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0;
 		const occupied = getOccupiedTiles();
 
 		// Group items by tile position
@@ -380,26 +374,13 @@ var canvas = {
 		tileMap.forEach((tileItems, key) => {
 			if (onlyTiles && !onlyTiles.has(key)) return;
 			const topItem = tileItems[tileItems.length - 1];
-			const screenX = (topItem.x - camera.x) * tileSize;
-			const screenY = (topItem.y - camera.y) * tileSize;
+			const screenX = toScreenX(topItem.x);
+			const screenY = toScreenY(topItem.y);
 			const hasStack = tileItems.length > 1;
 
 			if (occupied.has(key)) ctx.globalAlpha = 0.5;
 
-			const spriteInfo = ITEM_SPRITE_MAP[topItem.itemType];
-			if (hasItemSprites && spriteInfo) {
-				ctx.drawImage(
-					itemsImg,
-					spriteInfo.col * ITEM_SPRITE_SIZE,
-					spriteInfo.row * ITEM_SPRITE_SIZE,
-					ITEM_SPRITE_SIZE,
-					ITEM_SPRITE_SIZE,
-					screenX,
-					screenY,
-					tileSize,
-					tileSize
-				);
-			}
+			drawSprite('items', ITEM_SPRITE_MAP[topItem.itemType], screenX, screenY);
 
 			// Draw "+" indicator for stacks
 			if (hasStack) {
@@ -424,7 +405,7 @@ var canvas = {
 				valid.push(coord);
 			}
 			ctx.fillStyle = "rgba(0, 255, 0, 0.5)";
-			ctx.fillRect((coord.x - camera.x) * tileSize, (coord.y - camera.y) * tileSize, tileSize, tileSize);
+			fillTile(coord.x, coord.y);
 		}
 	},
 
@@ -434,45 +415,34 @@ var canvas = {
 	//             excluding the travel path). When null, all tiles in 'path' are eligible.
 	los: (path, directOnly = false, hitTiles = null) => {
 		if (!path || path.length === 0) return;
-		const movesImg = document.getElementById("moves");
 		ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
+		path.forEach(point => fillTile(point.x, point.y));
+		// Build a fast lookup for the crosshair-eligible tiles.
+		const crosshairSet = hitTiles
+			? new Set(hitTiles.map(t => t.x + ',' + t.y))
+			: null;
+
 		path.forEach(point => {
-			ctx.fillRect((point.x - camera.x) * tileSize, (point.y - camera.y) * tileSize, tileSize, tileSize);
+			// Skip this tile for crosshair purposes if it's outside the hit area.
+			if (crosshairSet && !crosshairSet.has(point.x + ',' + point.y)) return;
+
+			const isCursor = window.cursorWorldPos && point.x === window.cursorWorldPos.x && point.y === window.cursorWorldPos.y;
+			const w = wallAt(point.x, point.y);
+			const hasTarget = !directOnly && (
+				helper.entityAt(point.x, point.y) ||
+				(w && !FLOOR_TILES.has(w.type) && !w.open)
+			);
+			if (isCursor || hasTarget) canvas.crosshair(point.x, point.y);
 		});
-		if (movesImg && movesImg.complete && movesImg.naturalWidth > 0) {
-			// Build a fast lookup for the crosshair-eligible tiles.
-			const crosshairSet = hitTiles
-				? new Set(hitTiles.map(t => t.x + ',' + t.y))
-				: null;
-
-			path.forEach(point => {
-				// Skip this tile for crosshair purposes if it's outside the hit area.
-				if (crosshairSet && !crosshairSet.has(point.x + ',' + point.y)) return;
-
-				const isCursor = window.cursorWorldPos && point.x === window.cursorWorldPos.x && point.y === window.cursorWorldPos.y;
-				const w = wallAt(point.x, point.y);
-				const hasTarget = !directOnly && (
-					entities.some(e => e.hp > 0 && e.x === point.x && e.y === point.y) ||
-					(w && w.type !== 'water' && w.type !== 'fire' && w.type !== 'pit' && !w.open)
-				);
-				if (isCursor || hasTarget) canvas.crosshair(point.x, point.y);
-			});
-		}
 	},
 
 	path: (path, startX, startY, entity) => {
 		if (!path || path.length === 0) return;
 
-		const moveImg = document.getElementById("moves");
-		const useSprites = moveImg && moveImg.complete && moveImg.naturalWidth > 0
-			&& startX !== undefined && startY !== undefined;
-
 		ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
-		path.forEach(point => {
-			ctx.fillRect((point.x - camera.x) * tileSize, (point.y - camera.y) * tileSize, tileSize, tileSize);
-		});
+		path.forEach(point => fillTile(point.x, point.y));
 
-		if (useSprites) {
+		if (startX !== undefined && startY !== undefined) {
 			path.forEach((point, i) => {
 				if (i === path.length - 1) return;
 				const prevX = i === 0 ? startX : path[i - 1].x;
@@ -480,27 +450,21 @@ var canvas = {
 				const dx = Math.sign(point.x - prevX);
 				const dy = Math.sign(point.y - prevY);
 				const spriteIndex = DIR_TO_SPRITE[dx + ',' + dy];
-				if (spriteIndex !== undefined) {
-					ctx.drawImage(moveImg, spriteIndex * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-						(point.x - camera.x) * tileSize, (point.y - camera.y) * tileSize, tileSize, tileSize);
-				}
+				if (spriteIndex !== undefined) drawSprite('moves', {col: spriteIndex, row: 0}, toScreenX(point.x), toScreenY(point.y));
 			});
 		}
 
 		if (entity) {
 			const last = path[path.length - 1];
 			ctx.globalAlpha = 0.4;
-			drawEntitySprite(entitySpriteId(entity), (last.x - camera.x) * tileSize, (last.y - camera.y) * tileSize, tileSize);
+			drawSprite('entities', ENTITY_SPRITE_MAP[entitySpriteId(entity)], toScreenX(last.x), toScreenY(last.y));
 			ctx.globalAlpha = 1.0;
 		}
 	},
 
 	// Sprite overlays for entities and walls; shared by the map and the examine window.
 	drawStatusSprites: (entity, screenX, screenY, size = tileSize) => {
-		const movesImg = document.getElementById("moves");
-		if (!movesImg || !movesImg.complete || !movesImg.naturalWidth) return;
-		const sprite = (i, ox = 0) => ctx.drawImage(movesImg, i * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-			screenX + ox, screenY, size, size);
+		const sprite = (i, ox = 0) => drawSprite('moves', {col: i, row: 0}, screenX + ox, screenY, size);
 
 		if (!isPlayerControlled(entity) && entity.seenX === 0 && entity.seenY === 0) sprite(SPRITE_UNAWARE);
 		if (helper.hasTrait(entity, 'fire')) sprite(SPRITE_FIRE_STATUS);
@@ -512,19 +476,13 @@ var canvas = {
 
 	// Turn-order overlays: remaining action points, and markers over this entity's followers.
 	drawTurnIndicators: (entity, screenX, screenY) => {
-		const movesImg = document.getElementById("moves");
-		if (!movesImg || !movesImg.complete || !movesImg.naturalWidth) return;
 		if (entities[currentEntityIndex] !== entity) return;
 
 		for (let i = 0; i < currentEntityTurnsRemaining; i++) {
-			ctx.drawImage(movesImg, SPRITE_ACTIVE * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-				screenX - (i * 3), screenY, tileSize, tileSize);
+			drawSprite('moves', {col: SPRITE_ACTIVE, row: 0}, screenX - (i * 3), screenY);
 		}
 		entities.forEach(e => {
-			if (e.following === entity) {
-				ctx.drawImage(movesImg, SPRITE_FOLLOWER * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-					(e.x - camera.x) * tileSize, (e.y - camera.y) * tileSize, tileSize, tileSize);
-			}
+			if (e.following === entity) drawSprite('moves', {col: SPRITE_FOLLOWER, row: 0}, toScreenX(e.x), toScreenY(e.y));
 		});
 	},
 
@@ -532,13 +490,13 @@ var canvas = {
 		const entityIdx = entities.indexOf(entity);
 		const hasActed = isPlayerControlled(entity) && !entity.following && entityIdx >= 0 && entityIdx < currentEntityIndex;
 		ctx.fillStyle = color;
-		const screenX = (entity.x - camera.x) * tileSize;
-		const screenY = (entity.y - camera.y) * tileSize;
+		const screenX = toScreenX(entity.x);
+		const screenY = toScreenY(entity.y);
 
 		if (hasActed) ctx.filter = "grayscale(75%)";
 		ctx.fillRect(screenX, screenY, tileSize, tileSize);
 		if (hasActed) ctx.filter = "brightness(75%)";
-		drawEntitySprite(imgId, screenX, screenY, tileSize);
+		drawSprite('entities', ENTITY_SPRITE_MAP[imgId], screenX, screenY);
 		canvas.drawStatusSprites(entity, screenX, screenY);
 
 		if (!isZoomedOut) {
@@ -564,7 +522,7 @@ var canvas = {
 		const x = entity.x, y = entity.y;
 		canvas.addAnim(750, t => {
 			ctx.globalAlpha = 1 - t;
-			drawEntitySprite("death", (x - camera.x) * tileSize, (y - camera.y - 2 * t) * tileSize, tileSize);
+			drawSprite('entities', ENTITY_SPRITE_MAP.death, toScreenX(x), toScreenY(y - 2 * t));
 			ctx.globalAlpha = 1.0;
 		});
 	},
@@ -577,7 +535,7 @@ var canvas = {
 			const img = document.getElementById("explode");
 			if (!img || !img.complete || !img.naturalWidth) return;
 			ctx.globalAlpha = 1 - t;
-			ctx.drawImage(img, (x - camera.x + 0.5) * tileSize - size / 2, (y - camera.y + 0.5) * tileSize - size / 2, size, size);
+			ctx.drawImage(img, toScreenX(x + 0.5) - size / 2, toScreenY(y + 0.5) - size / 2, size, size);
 			ctx.globalAlpha = 1.0;
 		});
 	},
@@ -589,12 +547,10 @@ var canvas = {
 
 	drawOnionskin: () => {
 		if (specialMode === 'peek' && peekStep > 0) {
-			const screenX = (peekStartX - camera.x) * tileSize;
-			const screenY = (peekStartY - camera.y) * tileSize;
 			ctx.fillStyle = "rgba(0, 0, 255, 0.2)";
-			ctx.fillRect(screenX, screenY, tileSize, tileSize);
+			fillTile(peekStartX, peekStartY);
 			ctx.globalAlpha = 0.3;
-			drawEntitySprite("player", screenX, screenY, tileSize);
+			drawSprite('entities', ENTITY_SPRITE_MAP.player, toScreenX(peekStartX), toScreenY(peekStartY));
 			ctx.globalAlpha = 1.0;
 		}
 	},
@@ -602,11 +558,7 @@ var canvas = {
 	selectedEditTiles: () => {
 		if (!edit.checked || !selectedEditTiles || selectedEditTiles.length === 0) return;
 		ctx.fillStyle = "rgba(0, 220, 255, 0.45)";
-		selectedEditTiles.forEach(t => {
-			const sx = (t.x - camera.x) * tileSize;
-			const sy = (t.y - camera.y) * tileSize;
-			ctx.fillRect(sx, sy, tileSize, tileSize);
-		});
+		selectedEditTiles.forEach(t => fillTile(t.x, t.y));
 	},
 
 	drawAdjacentSelect: () => {
@@ -620,16 +572,12 @@ var canvas = {
 				...helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
 			];
 			for (const tile of grabTiles) {
-				if (helper.hasGrabbableAt(tile.x, tile.y)) {
-					ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
-				}
+				if (helper.hasGrabbableAt(tile.x, tile.y)) fillTile(tile.x, tile.y);
 			}
 		} else if (adjacentSelect.mode === 'door') {
 			const doorTiles = helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
 				.filter(tile => wallAt(tile.x, tile.y)?.type === 'door');
-			for (const tile of doorTiles) {
-				ctx.fillRect((tile.x - camera.x) * tileSize, (tile.y - camera.y) * tileSize, tileSize, tileSize);
-			}
+			for (const tile of doorTiles) fillTile(tile.x, tile.y);
 		}
 	},
 
@@ -637,8 +585,8 @@ var canvas = {
 		if (!cursorVisible || !window.cursorWorldPos) return;
 		// Hide the world cursor while mousing over the inventory panel or an ability tile
 		if (!keyboardMode && (window.inventoryHoverSlot >= 0 || window.abilityHoverSlot >= 0)) return;
-		const screenX = (window.cursorWorldPos.x - camera.x) * tileSize;
-		const screenY = (window.cursorWorldPos.y - camera.y) * tileSize;
+		const screenX = toScreenX(window.cursorWorldPos.x);
+		const screenY = toScreenY(window.cursorWorldPos.y);
 		if (screenX >= 0 && screenX < c.width && screenY >= 0 && screenY < c.height) {
 			ctx.strokeStyle = "rgba(255, 0, 0, 1)";
 			ctx.lineWidth = 2;
@@ -697,7 +645,7 @@ var canvas = {
 
 		const savedArray = array ? new Uint8Array(array) : null;
 		circle(grenade.y, grenade.x, r);
-		const inBlast = (x, y) => x >= 0 && y >= 0 && x < size && y < size && array[x * size + y] === 1;
+		const inBlast = (x, y) => helper.inBounds(x, y) && array[x * size + y] === 1;
 
 		ctx.strokeStyle = "rgba(255, 0, 0, 0.8)";
 		ctx.lineWidth = 1;
@@ -705,7 +653,7 @@ var canvas = {
 		for (let wx = Math.max(0, grenade.x - r - 1); wx <= Math.min(size - 1, grenade.x + r + 1); wx++) {
 			for (let wy = Math.max(0, grenade.y - r - 1); wy <= Math.min(size - 1, grenade.y + r + 1); wy++) {
 				if (!inBlast(wx, wy)) continue;
-				const bx = (wx - camera.x) * tileSize, by = (wy - camera.y) * tileSize;
+				const bx = toScreenX(wx), by = toScreenY(wy);
 				if (bx < -tileSize || bx >= c.width || by < -tileSize || by >= c.height) continue;
 				if (!inBlast(wx, wy - 1)) { ctx.moveTo(bx, by + 0.5); ctx.lineTo(bx + tileSize, by + 0.5); }
 				if (!inBlast(wx, wy + 1)) { ctx.moveTo(bx, by + tileSize - 0.5); ctx.lineTo(bx + tileSize, by + tileSize - 0.5); }
@@ -720,27 +668,18 @@ var canvas = {
 	},
 
 	enemy: () => {
-		const itemsImg = document.getElementById("items");
-		const hasItemSprites = itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0;
-		const liveGrenadeSprite = ITEM_SPRITE_MAP.grenadeLive;
-
 		allEnemies.forEach(entity => {
 			// Draw grenades (entities with explode trait)
 			if (helper.hasTrait(entity, 'explode') && entity.hp > 0 && entity.turnsRemaining) {
-				const screenX = (entity.x - camera.x) * tileSize;
-				const screenY = (entity.y - camera.y) * tileSize;
+				const screenX = toScreenX(entity.x);
+				const screenY = toScreenY(entity.y);
 				if (screenX >= -tileSize && screenX < c.width && screenY >= -tileSize && screenY < c.height) {
 					// If another living entity (e.g. the player) is on this tile, match
 					// canvas.items: draw at half opacity so the entity beneath stays visible.
-					const isOccupied = entities.some(e => e !== entity && e.hp > 0 && e.x === entity.x && e.y === entity.y);
+					const isOccupied = helper.entityAt(entity.x, entity.y, e => e !== entity);
 					if (isOccupied) ctx.globalAlpha = 0.5;
 					// Draw live grenade sprite
-					if (hasItemSprites && liveGrenadeSprite) {
-						ctx.drawImage(itemsImg,
-							liveGrenadeSprite.col * ITEM_SPRITE_SIZE, liveGrenadeSprite.row * ITEM_SPRITE_SIZE,
-							ITEM_SPRITE_SIZE, ITEM_SPRITE_SIZE,
-							screenX, screenY, tileSize, tileSize);
-					}
+					drawSprite('items', ITEM_SPRITE_MAP.grenadeLive, screenX, screenY);
 					// Red countdown number — only while active
 					if (helper.hasTrait(entity, 'active')) {
 						ctx.fillStyle = "#FF0000";
@@ -763,10 +702,7 @@ var canvas = {
 	},
 
 	crosshair: (x, y) => {
-		const movesImg = document.getElementById("moves");
-		if (!movesImg || !movesImg.complete || !movesImg.naturalWidth) return;
-		ctx.drawImage(movesImg, SPRITE_CROSSHAIR * MOVE_SPRITE_SIZE, 0, MOVE_SPRITE_SIZE, MOVE_SPRITE_SIZE,
-			(x - camera.x) * tileSize, (y - camera.y) * tileSize, tileSize, tileSize);
+		drawSprite('moves', {col: SPRITE_CROSSHAIR, row: 0}, toScreenX(x), toScreenY(y));
 	},
 
 	attackRangeDim: (entity) => {
@@ -799,8 +735,6 @@ var canvas = {
 		const w = cols * slot;
 		const h = rows * slot;
 
-		const itemsImg = document.getElementById("items");
-		const hasItemSprites = itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0;
 		const drag = window.inventoryDrag;
 
 		// Translucent dark backdrop — covers the hover-name strip above the grid
@@ -831,12 +765,7 @@ var canvas = {
 					const isDragSource = drag.isDragging && drag.startSlot === i;
 					if (isDragSource) ctx.globalAlpha = 0.3;
 
-					if (hasItemSprites && sp) {
-						ctx.drawImage(itemsImg,
-							sp.col * ITEM_SPRITE_SIZE, sp.row * ITEM_SPRITE_SIZE,
-							ITEM_SPRITE_SIZE, ITEM_SPRITE_SIZE,
-							sx, sy, slot, slot);
-					}
+					drawSprite('items', sp, sx, sy, slot);
 
 					// Faint yellow overlay on equipped items
 					if (isItemEquipped(entity, item)) {
@@ -941,14 +870,9 @@ var canvas = {
 			let spriteKey = drag.item.itemType;
 			if (drag.item.isLive && def?.effect === "grenade") spriteKey = "grenadeLive";
 			const sp = ITEM_SPRITE_MAP[spriteKey];
-			if (hasItemSprites && sp) {
-				ctx.globalAlpha = 0.75;
-				ctx.drawImage(itemsImg,
-					sp.col * ITEM_SPRITE_SIZE, sp.row * ITEM_SPRITE_SIZE,
-					ITEM_SPRITE_SIZE, ITEM_SPRITE_SIZE,
-					drag.mouse.x - slot / 2, drag.mouse.y - slot / 2, slot, slot);
-				ctx.globalAlpha = 1.0;
-			}
+			ctx.globalAlpha = 0.75;
+			drawSprite('items', sp, drag.mouse.x - slot / 2, drag.mouse.y - slot / 2, slot);
+			ctx.globalAlpha = 1.0;
 		}
 	},
 

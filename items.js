@@ -303,11 +303,12 @@ function calculateEntityTargeting(entity, endX, endY) {
 
 	if (path.length === 0) {
 		if (canDestroy) {
-			const isWall = walls.find(w => w.x === endX && w.y === endY);
+			const isWall = wallAt(endX, endY);
 			if (calc.distance(entity.x, endX, entity.y, endY) <= range && isWall) return [{x: endX, y: endY}];
 		}
 		if (canBreach) {
-			const isWall = walls.find(w => w.x === endX && w.y === endY && w.type !== 'glass' && w.type !== 'water' && w.type !== 'fire' && w.type !== 'pit' && w.type !== 'door');
+			const w = wallAt(endX, endY);
+			const isWall = w && w.type !== 'glass' && !FLOOR_TILES.has(w.type) && w.type !== 'door';
 			if (calc.distance(entity.x, endX, entity.y, endY) <= range && isWall) return [{x: endX, y: endY}];
 		}
 		return [];
@@ -339,7 +340,7 @@ function getTargetedEntities(attacker, endX, endY) {
 
 	if (aimStyle === "default" || aimStyle === "standard") {
 		for (const tile of tiles) {
-			const found = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
+			const found = helper.entityAt(tile.x, tile.y);
 			if (found) return [found];
 		}
 		return [];
@@ -347,10 +348,10 @@ function getTargetedEntities(attacker, endX, endY) {
 
 	if (aimStyle === "direct") {
 		const cursorInPath = tiles.some(t => t.x === endX && t.y === endY);
-		const atCursor = cursorInPath ? entities.find(e => e.hp > 0 && e.x === endX && e.y === endY) : null;
+		const atCursor = cursorInPath ? helper.entityAt(endX, endY) : null;
 		if (atCursor) return [atCursor];
 		for (const tile of tiles) {
-			const found = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
+			const found = helper.entityAt(tile.x, tile.y);
 			if (found) return [found];
 		}
 		return [];
@@ -391,10 +392,10 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 
 	// Damage or destroy glass in path
 	for (let i = 1; i < path.length; i++) {
-		const wallIndex = walls.findIndex(w => w.x === path[i].x && w.y === path[i].y);
-		if (wallIndex >= 0 && walls[wallIndex].type === 'glass') {
-			if (walls[wallIndex].damaged) walls.splice(wallIndex, 1);
-			else walls[wallIndex].damaged = true;
+		const w = wallAt(path[i].x, path[i].y);
+		if (w?.type === 'glass') {
+			if (w.damaged) removeWall(w.x, w.y);
+			else w.damaged = true;
 		}
 	}
 
@@ -436,9 +437,9 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 function spawnItem(itemType, x, y) {
 	x = x || player.x;
 	y = y || player.y;
-	if (x < 0 || x >= size || y < 0 || y >= size) return false;
+	if (!helper.inBounds(x, y)) return false;
 
-	const hasWall   = walls.find(w => w.x === x && w.y === y);
+	const hasWall   = wallAt(x, y);
 	const hasEntity = allEnemies.find(e => e.hp > 0 && e.x === x && e.y === y) ||
 	                  allPlayers.find(e => e.hp > 0 && e.x === x && e.y === y) ||
 	                  (player.x === x && player.y === y ? player : null);
@@ -521,7 +522,7 @@ function pickupItem(entity, x, y) {
 	const inv = getInventory(entity);
 
 	if (isPlayerControlled(entity)) {
-		const itemsAtLocation = mapItems.filter(item => item.x === x && item.y === y);
+		const itemsAtLocation = helper.itemsAt(x, y);
 		const grenadesAtLocation = allEnemies.filter(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === x && e.y === y);
 		if (itemsAtLocation.length > 0 || grenadesAtLocation.length > 0) {
 			if (typeof showItemPickupWindow !== 'undefined') showItemPickupWindow(x, y);
@@ -530,7 +531,7 @@ function pickupItem(entity, x, y) {
 		return false;
 	}
 
-	const itemsAtLocation = mapItems.filter(item => item.x === x && item.y === y);
+	const itemsAtLocation = helper.itemsAt(x, y);
 	if (itemsAtLocation.length === 0) return false;
 
 	const mostRecent = itemsAtLocation[itemsAtLocation.length - 1];

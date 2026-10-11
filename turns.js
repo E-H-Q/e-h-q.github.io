@@ -313,7 +313,7 @@ var turns = {
                 const endY = window.cursorWorldPos.y;
                 const isValid = valid.find(v => v.x === endX && v.y === endY);
 
-                if (isValid && endX >= 0 && endX < size && endY >= 0 && endY < size) {
+                if (isValid && helper.inBounds(endX, endY)) {
                     const validGrid = createAndFillTwoDArray({rows: size, columns: size, defaultValue: 0});
                     valid.forEach(v => {
                         if (validGrid[v.x] && validGrid[v.x][v.y] !== undefined) validGrid[v.x][v.y] = 1;
@@ -342,13 +342,13 @@ var turns = {
                         canvas.los(targetingTiles, !isBreach);
                         const cursorInPath = targetingTiles.some(t => t.x === cursorX && t.y === cursorY);
                         const atCursor = cursorInPath ?
-                            entities.find(e => e.hp > 0 && e.x === cursorX && e.y === cursorY) : null;
+                            helper.entityAt(cursorX, cursorY) : null;
                         if (atCursor) {
                             canvas.crosshair(atCursor.x, atCursor.y);
                         } else {
                             for (const tile of targetingTiles) {
-                                const wallHere = walls.find(w => w.x === tile.x && w.y === tile.y);
-                                const found = entities.find(e => e.hp > 0 && e.x === tile.x && e.y === tile.y);
+                                const wallHere = wallAt(tile.x, tile.y);
+                                const found = helper.entityAt(tile.x, tile.y);
                                 if (found) { canvas.crosshair(found.x, found.y); break; }
                                 if (isBreach && wallHere) { canvas.crosshair(tile.x, tile.y); break; }
                             }
@@ -410,7 +410,7 @@ var turns = {
 
                 // Dissolve every visible squad whose chain is still intact.
                 visiblePlayers.forEach(seen => {
-                    const allPlayerTrait = [...allPlayers, ...allEnemies].filter(isPlayerControlled);
+                    const allPlayerTrait = allEntities().filter(isPlayerControlled);
                     const squadIntact = !!seen.following || allPlayerTrait.some(p => p.following === seen);
                     if (!squadIntact) return;
                     const spottedRoot = seen.following || seen;
@@ -444,7 +444,7 @@ var turns = {
 
         if (spottedSquadMembers.size > 0) {
             const activeEntity = (currentEntityIndex >= 0) ? entities[currentEntityIndex] : null;
-            const allPlayerTrait = [...allPlayers, ...allEnemies].filter(isPlayerControlled);
+            const allPlayerTrait = allEntities().filter(isPlayerControlled);
             // Still-in-cover players: those whose chain is still intact AND not in the newly-spotted set
             const inCover = allPlayerTrait.filter(p =>
                 !spottedSquadMembers.has(p) &&
@@ -596,7 +596,7 @@ var turns = {
 
             if (key === 'dashAttack' && dist === 1) {
                 const dx = target.x + (target.x - entity.x), dy = target.y + (target.y - entity.y);
-                if (dx >= 0 && dx < size && dy >= 0 && dy < size &&
+                if (helper.inBounds(dx, dy) &&
                     !helper.tileBlocked(dx, dy) && computeDashPath(entity, dx, dy)) {
                     useSpecialMode(entity, key);
                     executeAbility(key, entity, dx, dy);
@@ -690,8 +690,8 @@ var turns = {
             // Close an adjacent door that breaks LOS first — no grenade needed
             if (EntitySystem.hasLOS(entity, attackerPos.x, attackerPos.y)) {
                 const doorToClose = helper.getAdjacentTiles(entity.x, entity.y, false)
-                    .map(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'door' && w.open))
-                    .filter(Boolean)
+                    .map(t => wallAt(t.x, t.y))
+                    .filter(w => w?.type === 'door' && w.open)
                     .find(door => {
                         door.open = false;
                         const blocks = !EntitySystem.hasLOS(entity, attackerPos.x, attackerPos.y);
@@ -805,8 +805,8 @@ var turns = {
                 if (entity.x === entity.seenX && entity.y === entity.seenY) {
                     // Check for an adjacent closed door — player may have ducked behind it
                     const adjacentDoor = helper.getAdjacentTiles(entity.seenX, entity.seenY, false) // uses seenX/Y? seems to work though...
-                        .map(t => walls.find(w => w.x === t.x && w.y === t.y && w.type === 'door' && !w.open))
-                        .find(Boolean);
+                        .map(t => wallAt(t.x, t.y))
+                        .find(w => w?.type === 'door' && !w.open);
                     if (adjacentDoor) {
                         tryOpenDoor(entity, adjacentDoor);
                         return;
@@ -842,9 +842,7 @@ var turns = {
                     // Aggressive: check if a closed door is blocking the path to seenX/seenY
                     if (helper.hasTrait(entity, 'aggressive')) {
                         const pathToTarget = line({x: entity.x, y: entity.y}, {x: entity.seenX, y: entity.seenY});
-                        const blockingDoor = pathToTarget.slice(1).map(t =>
-                            walls.find(w => w.x === t.x && w.y === t.y && w.type === 'door' && !w.open)
-                        ).find(Boolean);
+                        const blockingDoor = pathToTarget.slice(1).map(t => wallAt(t.x, t.y)).find(w => w?.type === 'door' && !w.open);
                         if (blockingDoor) {
                             this.enemyMoveToward(entity, blockingDoor.x, blockingDoor.y, [], true);
                             if (entity.x === blockingDoor.x && entity.y === blockingDoor.y ||
@@ -872,10 +870,10 @@ var turns = {
         for (let [dx, dy] of moves) {
             const newX = entity.x + dx;
             const newY = entity.y + dy;
-            if (newX < 0 || newY < 0 || newX >= size || newY >= size) continue;
+            if (!helper.inBounds(newX, newY)) continue;
             const w = wallAt(newX, newY);
             const isWall = w && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open);
-            const isOccupied = entities.some(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === newX && e.y === newY);
+            const isOccupied = helper.entityAt(newX, newY, e => e !== entity && !helper.isGrenadeEntity(e));
             if (!isWall && !isOccupied && entity.range > 0) {
                 entity.x = newX;
                 entity.y = newY;
@@ -910,7 +908,7 @@ var turns = {
     },
 
     computeEnemyPath: function(entity, targetX, targetY) {
-        if (!pts || targetX < 0 || targetX >= size || targetY < 0 || targetY >= size) return [];
+        if (!pts || !helper.inBounds(targetX, targetY)) return [];
 
         const graph = this.enemyGraph(entity, targetX, targetY);
 
@@ -931,7 +929,7 @@ var turns = {
             const w = wallAt(step.x, step.y);
             const stepCost = w?.type === 'water' ? 2 : 1;
             if (distanceMoved + stepCost <= entity.range) {
-                const occupied = entities.some(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y);
+                const occupied = helper.entityAt(step.x, step.y, e => e !== entity && !helper.isGrenadeEntity(e));
                 const isWall = w && w.type !== 'water' && w.type !== 'fire' && w.type !== 'door';
                 if (!occupied && !isWall) { trimmed.push(step); distanceMoved += stepCost; }
                 else break;
@@ -943,7 +941,7 @@ var turns = {
 
     enemyMoveToward: function(entity, targetX, targetY, passable = [], avoidGrenades = false, excludeGrenade = null) {
         if (!pts) { currentEntityTurnsRemaining--; return; }
-        if (targetX < 0 || targetX >= size || targetY < 0 || targetY >= size) {
+        if (!helper.inBounds(targetX, targetY)) {
             entity.seenX = 0; entity.seenY = 0;
             currentEntityTurnsRemaining--;
             return;
@@ -997,7 +995,7 @@ var turns = {
             const stepCost = w?.type === 'water' ? 2 : 1;
             if (distanceMoved + stepCost > entity.range) break;
 
-            const occupied = entities.some(e => e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y);
+            const occupied = helper.entityAt(step.x, step.y, e => e !== entity && !helper.isGrenadeEntity(e));
             if (!occupied && w?.type === 'door' && !w.open) {
                 if (tryOpenDoor(entity, w) && !w.open) tryOpenDoor(entity, w);
                 break;

@@ -131,10 +131,6 @@ function setCursorFromCanvas(canvasX, canvasY) {
 	};
 }
 
-function getDoorBlocker(x, y) {
-	return entities.find(e => e.hp > 0 && e.x === x && e.y === y && !helper.isGrenadeEntity(e));
-}
-
 function placeWallTile(x, y, tileType) {
 	walls.push(tileType === 'doorLocked' ? {x, y, type: 'door', locked: true} : {x, y, type: tileType});
 	helper.tileEffects(helper.entityAt(x, y), x, y);
@@ -152,7 +148,7 @@ function consumeKey(entity) {
 
 function tryOpenDoor(entity, door) {
 	if (door.open) {
-		const blocker = getDoorBlocker(door.x, door.y);
+		const blocker = helper.entityAt(door.x, door.y, e => !helper.isGrenadeEntity(e));
 		if (blocker) {
 			console.log("Door is blocked by " + blocker.name + "!");
 			return false;
@@ -226,14 +222,14 @@ function activateDoorMode(useKey = false) {
 	if (currentEntityIndex < 0 || !isPlayerControlled(entities[currentEntityIndex])) return;
 	const activeEnt = getActivePlayerEntity();
 	const adjacentDoors = helper.getAdjacentTiles(activeEnt.x, activeEnt.y, true)
-		.filter(tile => walls.some(w => w.x === tile.x && w.y === tile.y && w.type === 'door'));
+		.filter(tile => wallAt(tile.x, tile.y)?.type === 'door');
 
 	if (adjacentDoors.length === 0) {
 		return;
     }
 
 	if (adjacentDoors.length === 1) {
-		const door = walls.find(w => w.x === adjacentDoors[0].x && w.y === adjacentDoors[0].y && w.type === 'door');
+		const door = wallAt(adjacentDoors[0].x, adjacentDoors[0].y);
 		if (useKey) lockDoorWithKey(activeEnt, door); else tryOpenDoor(activeEnt, door);
 		update();
 		return;
@@ -518,8 +514,8 @@ var input = {
                 const rect = c.getBoundingClientRect();
                 const syntheticEvent = {
                     preventDefault: () => {},
-                    clientX: rect.left + (window.cursorWorldPos.x - camera.x) * tileSize + tileSize / 2,
-                    clientY: rect.top  + (window.cursorWorldPos.y - camera.y) * tileSize + tileSize / 2
+                    clientX: rect.left + toScreenX(window.cursorWorldPos.x) + tileSize / 2,
+                    clientY: rect.top  + toScreenY(window.cursorWorldPos.y) + tileSize / 2
                 };
                 input.right_click(syntheticEvent);
             }
@@ -836,11 +832,10 @@ var input = {
                 x: camera.x + gridX,
                 y: camera.y + gridY
             };
-            if (click_pos.x < 0 || click_pos.y < 0 || click_pos.x >= size || click_pos.y >= size) return;
+            if (!helper.inBounds(click_pos.x, click_pos.y)) return;
             // Shift held — selection drag, only wall tiles
             if (event.shiftKey) {
-                const hasWall = walls.some(w => w.x === click_pos.x && w.y === click_pos.y);
-                if (hasWall) {
+                if (wallAt(click_pos.x, click_pos.y)) {
                     const alreadySelected = selectedEditTiles.some(t => t.x === click_pos.x && t.y === click_pos.y);
                     if (!alreadySelected) {
                         selectedEditTiles.push({x: click_pos.x, y: click_pos.y});
@@ -852,9 +847,7 @@ var input = {
             if (!lastTile || lastTile.x !== click_pos.x || lastTile.y !== click_pos.y) {
                 lastTile = {x: click_pos.x, y: click_pos.y};
                 const tileType = document.getElementById('tile-type').value;
-                const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
-                if (dup < 0) placeWallTile(click_pos.x, click_pos.y, tileType);
-                else walls.splice(dup, 1);
+                if (!removeWall(click_pos.x, click_pos.y)) placeWallTile(click_pos.x, click_pos.y, tileType);
                 update();
             }
             return;
@@ -915,8 +908,8 @@ var input = {
                     update();
                 }
             } else if (adjacentSelect.mode === 'door') {
-                const door = walls.find(w => w.x === click_pos.x && w.y === click_pos.y && w.type === 'door');
-                if (dist <= 1 && door) {
+                const door = wallAt(click_pos.x, click_pos.y);
+                if (dist <= 1 && door?.type === 'door') {
                     if (adjacentSelect.useKey) lockDoorWithKey(activeEnt, door); else tryOpenDoor(activeEnt, door);
                     adjacentSelect = null;
                     update();
@@ -1002,9 +995,9 @@ var input = {
                 const enemies = targetsInArea.filter(e => e !== activeEnt && e.hp > 0);
                 const hasWalls = (canDestroy || canBreach) && targetingTiles.some(t => {
                     const w = wallAt(t.x, t.y);
-                    return w && w.type !== 'glass' && w.type !== 'water' && w.type !== 'fire' && w.type !== 'pit';
+                    return w && w.type !== 'glass' && !FLOOR_TILES.has(w.type);
                 });
-                const hasBreakable = targetingTiles.some(t => walls.find(w => w.x === t.x && w.y === t.y && (w.type === 'glass' || w.type === 'door')));
+                const hasBreakable = targetingTiles.some(t => ['glass', 'door'].includes(wallAt(t.x, t.y)?.type));
                 const hasTargets = targetingTiles.length > 0 && (enemies.length > 0 || hasWalls || hasBreakable);
 
 
@@ -1097,15 +1090,15 @@ var input = {
 
         // Edit mode: if there are selected tiles OR right-clicking a wall, show the selection context menu
         if (edit.checked) {
-            const clickedWallForMenu = walls.find(w => w.x === window.cursorWorldPos.x && w.y === window.cursorWorldPos.y);
-            const clickedEntityForMenu = entities.find(e => e.x === window.cursorWorldPos.x && e.y === window.cursorWorldPos.y);
+            const clickedWallForMenu = wallAt(window.cursorWorldPos.x, window.cursorWorldPos.y);
+            const clickedEntityForMenu = helper.entityAt(window.cursorWorldPos.x, window.cursorWorldPos.y);
             // If an entity is clicked and there's no active multi-tile selection, fall through to normal entity options
             const hasMulitSelection = selectedEditTiles.length > 0;
             let menuTiles = hasMulitSelection ? selectedEditTiles : (!clickedEntityForMenu && clickedWallForMenu ? [{x: window.cursorWorldPos.x, y: window.cursorWorldPos.y}] : null);
 
             if (menuTiles && menuTiles.length > 0) {
                 // Filter to only tiles that actually have walls (selection may include stale coords)
-                menuTiles = menuTiles.filter(t => walls.some(w => w.x === t.x && w.y === t.y));
+                menuTiles = menuTiles.filter(t => wallAt(t.x, t.y));
                 if (menuTiles.length === 0) {
                     selectedEditTiles = [];
                     update();
@@ -1117,13 +1110,10 @@ var input = {
                 options.push({ text: count + " TILE" + (count > 1 ? "S" : "") + " SELECTED" });
 
                 // Examine: only show if all tiles share the same wall type
-                const firstType = walls.find(w => w.x === menuTiles[0].x && w.y === menuTiles[0].y)?.type;
-                const allSameType = menuTiles.every(t => {
-                    const w = walls.find(w => w.x === t.x && w.y === t.y);
-                    return w && w.type === firstType;
-                });
+                const representativeWall = wallAt(menuTiles[0].x, menuTiles[0].y);
+                const firstType = representativeWall?.type;
+                const allSameType = menuTiles.every(t => wallAt(t.x, t.y)?.type === firstType);
                 if (allSameType && firstType) {
-                    const representativeWall = walls.find(w => w.x === menuTiles[0].x && w.y === menuTiles[0].y);
                     options.push({
                         text: "(e) Examine",
                         key: "e",
@@ -1138,7 +1128,7 @@ var input = {
                     key: "m",
                     action: function() {
                         menuTiles.forEach(t => {
-                            const wall = walls.find(w => w.x === t.x && w.y === t.y);
+                            const wall = wallAt(t.x, t.y);
                             if (wall) wall.permanent = true;
                         });
                         console.log("Made " + menuTiles.length + " tile(s) permanent.");
@@ -1153,8 +1143,7 @@ var input = {
                     danger: true,
                     action: function() {
                         menuTiles.forEach(t => {
-                            const idx = walls.findIndex(w => w.x === t.x && w.y === t.y);
-                            if (idx >= 0) walls.splice(idx, 1);
+                            removeWall(t.x, t.y);
                         });
                         console.log("Removed " + menuTiles.length + " tile(s).");
                         selectedEditTiles = [];
@@ -1175,18 +1164,10 @@ var input = {
             }
         }
 
-        const clickedEntity = entities.find(e =>
-            e.x === window.cursorWorldPos.x &&
-            e.y === window.cursorWorldPos.y
-        );
-        const clickedItem = mapItems.find(e =>
-            e.x === window.cursorWorldPos.x &&
-            e.y === window.cursorWorldPos.y
-        );
-        const clickedWall = walls.find(e =>
-            e.x === window.cursorWorldPos.x &&
-            e.y === window.cursorWorldPos.y
-        );
+        const clickedEntity = helper.entityAt(window.cursorWorldPos.x, window.cursorWorldPos.y);
+        const itemsHere = helper.itemsAt(window.cursorWorldPos.x, window.cursorWorldPos.y);
+        const clickedItem = itemsHere[0];
+        const clickedWall = wallAt(window.cursorWorldPos.x, window.cursorWorldPos.y);
 
         if (!clickedEntity && !clickedItem && !clickedWall) return;
 
@@ -1199,7 +1180,6 @@ var input = {
         if (clickedEntity) displayName = clickedEntity.name || "Entity";
         else if (clickedWall) displayName = clickedWall.graveName || clickedWall.type || "Wall";
         else if (clickedItem) {
-            const itemsHere = mapItems.filter(m => m.x === window.cursorWorldPos.x && m.y === window.cursorWorldPos.y);
             const distinctTypes = new Set(itemsHere.map(m => m.itemType));
             displayName = distinctTypes.size === 1 ? getItemLabel(clickedItem) : "Items";
         }
@@ -1440,12 +1420,11 @@ var input = {
                 x: window.cursorWorldPos.x,
                 y: window.cursorWorldPos.y
             };
-            if (click_pos.x < 0 || click_pos.y < 0 || click_pos.x >= size || click_pos.y >= size) return;
+            if (!helper.inBounds(click_pos.x, click_pos.y)) return;
 
             // Shift held — add wall tiles to selection only
             if (event.shiftKey) {
-                const hasWall = walls.some(w => w.x === click_pos.x && w.y === click_pos.y);
-                if (hasWall) toggleEditTileSelection(click_pos.x, click_pos.y);
+                if (wallAt(click_pos.x, click_pos.y)) toggleEditTileSelection(click_pos.x, click_pos.y);
                 update();
                 return;
             }
@@ -1460,9 +1439,7 @@ var input = {
             // Normal click — toggle wall
             lastTile = {x: click_pos.x, y: click_pos.y};
             const tileType = document.getElementById('tile-type').value;
-            const dup = walls.findIndex(el => el.x === click_pos.x && el.y === click_pos.y);
-            if (dup < 0) placeWallTile(click_pos.x, click_pos.y, tileType);
-            else walls.splice(dup, 1);
+            if (!removeWall(click_pos.x, click_pos.y)) placeWallTile(click_pos.x, click_pos.y, tileType);
             update();
         }
     },

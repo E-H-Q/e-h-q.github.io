@@ -103,6 +103,10 @@ function reindexEntityCursor() {
 	}
 }
 
+function allEntities() {
+	return [...allPlayers, ...allEnemies];
+}
+
 function rebuildEntities() {
 	entities = [
 		...allPlayers,
@@ -252,10 +256,10 @@ var abilityTypes = {
 			return null;
 		},
 		validate: function(entity, x, y) {
-			return entity.hp > donorAmount && entities.some(e => canDonateTo(entity, e) && e.x === x && e.y === y);
+			return entity.hp > donorAmount && helper.entityAt(x, y, e => canDonateTo(entity, e));
 		},
 		execute: function(entity, x, y) {
-			const target = entities.find(e => canDonateTo(entity, e) && e.x === x && e.y === y);
+			const target = helper.entityAt(x, y, e => canDonateTo(entity, e));
 			entity.hp -= donorAmount;
 			target.hp += donorAmount;
 			console.log(entity.name + " gave " + donorAmount + " HP to " + target.name + "!");
@@ -273,11 +277,10 @@ var abilityTypes = {
 		},
 		validate: function(entity, x, y) {
 			const w = wallAt(x, y);
-			return (!w || w.type === 'fire' || w.type === 'water' || w.type === 'pit') && !entities.some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === x && e.y === y);
+			return (!w || FLOOR_TILES.has(w.type)) && !helper.entityAt(x, y, e => !helper.isGrenadeEntity(e));
 		},
 		execute: function(entity, x, y) {
-			const fi = walls.findIndex(w => w.x === x && w.y === y && w.type === 'fire');
-			if (fi >= 0) walls.splice(fi, 1);
+			removeWall(x, y, w => w.type === 'fire');
 
 			walls.push({x: x, y: y, type: 'shield', owner: entity});
 			console.log(entity.name + " put up their Shield!");
@@ -400,6 +403,12 @@ function wallAt(x, y) {
 	if (_wallSrc !== walls || _wallMap._stale) _indexWalls();
 	return _wallMap.get(x + ',' + y);
 }
+function removeWall(x, y, pred) {
+	const i = walls.findIndex(w => w.x === x && w.y === y && (!pred || pred(w)));
+	if (i >= 0) walls.splice(i, 1);
+	return i >= 0;
+}
+const FLOOR_TILES = new Set(['water', 'fire', 'pit']);
 var turns_taken = 0;
 var enemyChainDepth = 0; // >0 while synchronously resolving enemy actions; rendering deferred to chain end
 var camera = {x: 0, y: 0};
@@ -487,7 +496,7 @@ function updatePlayer() {
 	if (playerX !== "" && playerY !== "") {
 		const x = parseInt(playerX);
 		const y = parseInt(playerY);
-		if (x >= 0 && x < size && y >= 0 && y < size) {
+		if (helper.inBounds(x, y)) {
 			target.x = x;
 			target.y = y;
 		}
@@ -514,7 +523,7 @@ function spawnEnemy() {
 	if (manualX !== "" && manualY !== "") {
 		const x = parseInt(manualX);
 		const y = parseInt(manualY);
-		if (x >= 0 && x < size && y >= 0 && y < size && !helper.tileBlocked(x, y)) {
+		if (helper.inBounds(x, y) && !helper.tileBlocked(x, y)) {
 			spawnX = x;
 			spawnY = y;
 		}
@@ -527,7 +536,7 @@ function spawnEnemy() {
 			for (let e of allEnemies) {
 				const testX = e.x + offset[0];
 				const testY = e.y + offset[1];
-				if (testX >= 0 && testX < size && testY >= 0 && testY < size && !helper.tileBlocked(testX, testY)) {
+				if (helper.inBounds(testX, testY) && !helper.tileBlocked(testX, testY)) {
 					spawnX = testX;
 					spawnY = testY;
 					break outerLoop;
@@ -622,7 +631,7 @@ var helper = {
 
 	isGrenadeEntity: (e) => !!e && helper.hasTrait(e, 'explode') && e.turnsRemaining !== undefined,
 
-	hasGrabbableAt: (x, y) => mapItems.some(i => i.x === x && i.y === y) ||
+	hasGrabbableAt: (x, y) => helper.itemsAt(x, y).length > 0 ||
 	                         allEnemies.some(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === x && e.y === y),
 
 	tileBlocked: (x, y, passThroughPlayers = false) => {
@@ -638,7 +647,7 @@ var helper = {
 			[[0,-1],[-1,0],[1,0],[0,1]];
 		return offsets
 			.map(([dx, dy]) => ({x: x + dx, y: y + dy}))
-			.filter(tile => tile.x >= 0 && tile.x < size && tile.y >= 0 && tile.y < size);
+			.filter(tile => helper.inBounds(tile.x, tile.y));
 	},
 
 	hasTrait: (entity, trait) => {
@@ -688,7 +697,9 @@ var helper = {
 		}
 	},
 
-	entityAt: (x, y) => entities.find(e => e.hp > 0 && e.x === x && e.y === y),
+	entityAt: (x, y, pred) => entities.find(e => e.hp > 0 && e.x === x && e.y === y && (!pred || pred(e))),
+	itemsAt: (x, y) => mapItems.filter(i => i.x === x && i.y === y),
+	inBounds: (x, y) => x >= 0 && y >= 0 && x < size && y < size,
 
 	// Fire/water trait changes for an entity on a tile. Defaults to the tile it stands on.
 	tileEffects: function(entity, x, y) {

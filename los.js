@@ -1,4 +1,4 @@
-// LOS.JS: LINE OF SIGHT CALCULATIONS USING BRESENHAM/LERP
+// LOS.JS: LINE OF SIGHT (LERP) + MOVEMENT RANGE (BRESENHAM CIRCLE)
 
 function lerp(start, end, t) {
 	return start + t * (end - start);
@@ -8,19 +8,13 @@ function lerp_point(p0, p1, t) {
 	return new calc.coordinate(lerp(p0.x, p1.x, t), lerp(p0.y, p1.y, t));
 }
 
-function chebyshev_distance(p0, p1) {
-	const dx = p1.x - p0.x;
-	const dy = p1.y - p0.y;
-	return Math.max(Math.abs(dx), Math.abs(dy));
-}
-
 function round_point(p) {
 	return new calc.coordinate(Math.round(p.x), Math.round(p.y));
 }
 
 function line(p0, p1) {
 	const points = [];
-	const N = chebyshev_distance(p0, p1);
+	const N = calc.distance(p0.x, p1.x, p0.y, p1.y);
 	for (let step = 0; step <= N; step++) {
 		const t = N === 0 ? 0.0 : step / N;
 		points.push(round_point(lerp_point(p0, p1, t)));
@@ -30,7 +24,7 @@ function line(p0, p1) {
 
 function wallBlocksLOS(wall, ignoreShields = false) {
 	if (!wall) return false;
-	if (wall.type === 'glass' || wall.type === 'water' || wall.type === 'fire' || wall.type === 'pit') return false;
+	if (wall.type === 'glass' || FLOOR_TILES.has(wall.type)) return false;
 	if (ignoreShields && wall.type === 'shield') return false;
 	if (wall.type === 'door' && wall.open) return false;
 	return true;
@@ -124,4 +118,63 @@ function calculateCone(path, startX, startY, endX, endY, maxRange, spread) {
 	}
 
 	return Array.from(coneTiles).map(s => { const [x, y] = s.split(',').map(Number); return {x, y}; });
+}
+
+function circle(xc, yc, r) {
+	if (!array || array.length !== size * size) array = new Uint8Array(size * size);
+	else array.fill(0);
+	if (r < 1) return;
+
+	let xoff = 0;
+	let yoff = r;
+	let b = -r;
+
+	while (xoff <= yoff) {
+		const p0 = xc - xoff;
+		const p1 = xc - yoff;
+		const w0 = xoff + xoff;
+		const w1 = yoff + yoff;
+
+		hl(p0, yc - yoff, yc + yoff, w0);
+		hl(p1, yc - xoff, yc + xoff, w1);
+
+		if ((b += xoff++ + xoff) >= 0) {
+			b -= --yoff + yoff;
+		}
+	}
+
+	function hl(x, y1, y2, w) {
+		w++;
+		while (w--) {
+			const xw = x + w;
+			if (helper.inBounds(xw, y1)) {
+				array[y1 * size + xw] = 1;
+			}
+			if (helper.inBounds(xw, y2)) {
+				array[y2 * size + xw] = 1;
+			}
+		}
+	}
+}
+
+function convert() {
+	if (!pts || pts.length !== size || pts[0]?.length !== size) resizePtsArray();
+	for (let i = 0; i < size; i++) {
+		const row = pts[i];
+		for (let j = 0; j < size; j++) row[j] = array[i * size + j];
+	}
+	
+	walls.forEach(wall => {
+		if (pts[wall.x]?.[wall.y] !== undefined) {
+			if (wall.type === 'water') {
+				pts[wall.x][wall.y] = 2;
+			} else if (wall.type === 'fire') {
+				pts[wall.x][wall.y] = 3;
+			} else if (wall.type === 'door' && wall.open == true) {
+				pts[wall.x][wall.y] = 1;
+			} else {
+				pts[wall.x][wall.y] = 0;
+			}
+		}
+	});
 }

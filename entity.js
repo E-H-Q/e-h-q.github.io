@@ -17,7 +17,7 @@ const EntitySystem = {
 		if (entity.range === 1) {
 			return helper.getAdjacentTiles(entity.x, entity.y, true)
 				.filter(tile => !helper.tileBlocked(tile.x, tile.y, playerMover) &&
-					!(playerMover && entities.some(e => e !== entity && isPlayerControlled(e) && e.hp > 0 && e.x === tile.x && e.y === tile.y)))
+					!(playerMover && helper.entityAt(tile.x, tile.y, e => e !== entity && isPlayerControlled(e))))
 				.map(tile => ({x: tile.x, y: tile.y, path: [tile]}));
 		}
 
@@ -49,7 +49,7 @@ const EntitySystem = {
 				const cx = (idx / size) | 0, cy = idx % size;
 				for (const [dx, dy] of offs) {
 					const nx = cx + dx, ny = cy + dy;
-					if (nx < 0 || ny < 0 || nx >= size || ny >= size || pts[nx][ny] <= 0) continue;
+					if (!helper.inBounds(nx, ny) || pts[nx][ny] <= 0) continue;
 					const diag = dx !== 0 && dy !== 0;
 					const nCost = cost + (diag && parity ? 2 : 1) + (pts[nx][ny] === 2 ? 1 : 0);
 					if (nCost > range) continue;
@@ -68,7 +68,7 @@ const EntitySystem = {
 			if (idx === start >> 1 || seen.has(idx)) continue;
 			seen.add(idx);
 			const mx = (idx / size) | 0, my = idx % size;
-			if (playerMover && entities.some(e => e !== entity && isPlayerControlled(e) && e.hp > 0 && e.x === mx && e.y === my)) continue;
+			if (playerMover && helper.entityAt(mx, my, e => e !== entity && isPlayerControlled(e))) continue;
 			validMoves.push({x: mx, y: my});
 		}
 		return validMoves;
@@ -80,7 +80,7 @@ const EntitySystem = {
 		moves.forEach(move => {
 			const coord = new calc.coordinate(move.x, move.y);
 			if (isPlayerControlled(entity) && !valid.find(v => v.x === coord.x && v.y === coord.y)) valid.push(coord);
-			ctx.fillRect((coord.x - camera.x) * tileSize, (coord.y - camera.y) * tileSize, tileSize, tileSize);
+			fillTile(coord.x, coord.y);
 		});
 		canvas.items(new Set(moves.map(m => m.x + ',' + m.y)));
 	},
@@ -175,7 +175,7 @@ const EntitySystem = {
 			if (idx < 0) continue;
 			const wall = walls[idx];
 			if (wall.permanent) continue;
-			if (wall.type === 'water' || wall.type === 'fire' || wall.type === 'pit') continue;
+			if (FLOOR_TILES.has(wall.type)) continue;
 			if (wall.type === 'door' && wall.open) continue;
 			if (wall.type === 'glass') {
 				if (canDestroy || canBreach || wall.damaged) {
@@ -227,8 +227,7 @@ const EntitySystem = {
 		if (!helper.isGrenadeEntity(entity)) canvas.deathAnim(entity);
 		// Players leave a destructible grave tile; entitySpriteId keys off pre-charm allegiance
 		if (entitySpriteId(entity) === "player") {
-			const wi = walls.findIndex(w => w.x === entity.x && w.y === entity.y);
-			if (wi >= 0) walls.splice(wi, 1);
+			removeWall(entity.x, entity.y);
 			walls.push({x: entity.x, y: entity.y, type: 'grave', graveName: entity.name});
 			bloodTiles.delete(entity.x + ',' + entity.y);
 		}
@@ -277,8 +276,7 @@ const EntitySystem = {
 
 		if (helper.hasTrait(grenade, 'canDestroy')) {
 			for (const tile of blastTiles) {
-				const wi = walls.findIndex(w => w.x === tile.x && w.y === tile.y && w.type !== 'water' && w.type !== 'fire' && w.type !== 'pit' && !w.permanent);
-				if (wi >= 0) walls.splice(wi, 1);
+				removeWall(tile.x, tile.y, w => !FLOOR_TILES.has(w.type) && !w.permanent);
 			}
 		}
 

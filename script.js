@@ -91,7 +91,7 @@ function spawnExtraPlayer() {
 
 	if (fieldX !== "" && fieldY !== "") {
 		const x = parseInt(fieldX), y = parseInt(fieldY);
-		if (x >= 0 && x < size && y >= 0 && y < size && !helper.tileBlocked(x, y)) {
+		if (helper.inBounds(x, y) && !helper.tileBlocked(x, y)) {
 			spawnX = x;
 			spawnY = y;
 		}
@@ -104,7 +104,7 @@ function spawnExtraPlayer() {
 		for (let [dx, dy] of offsets) {
 			const testX = player.x + dx;
 			const testY = player.y + dy;
-			if (testX >= 0 && testX < size && testY >= 0 && testY < size && !helper.tileBlocked(testX, testY)) {
+			if (helper.inBounds(testX, testY) && !helper.tileBlocked(testX, testY)) {
 				spawnX = testX;
 				spawnY = testY;
 				break;
@@ -299,8 +299,7 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 	for (let room of rooms) {
 		for (let x = room.x; x < room.x + room.w; x++) {
 			for (let y = room.y; y < room.y + room.h; y++) {
-				const idx = walls.findIndex(w => w.x === x && w.y === y);
-				if (idx >= 0) walls.splice(idx, 1);
+				removeWall(x, y);
 			}
 		}
 	}
@@ -315,21 +314,17 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 		const c2y = Math.floor(r2.y + r2.h / 2);
 		if (Math.random() > 0.5) {
 			for (let x = Math.min(c1x, c2x); x <= Math.max(c1x, c2x); x++) {
-				let idx = walls.findIndex(w => w.x === x && w.y === c1y);
-				if (idx >= 0) walls.splice(idx, 1);
+				removeWall(x, c1y);
 			}
 			for (let y = Math.min(c1y, c2y); y <= Math.max(c1y, c2y); y++) {
-				let idx = walls.findIndex(w => w.x === c2x && w.y === y);
-				if (idx >= 0) walls.splice(idx, 1);
+				removeWall(c2x, y);
 			}
 		} else {
 			for (let y = Math.min(c1y, c2y); y <= Math.max(c1y, c2y); y++) {
-				let idx = walls.findIndex(w => w.x === c1x && w.y === y);
-				if (idx >= 0) walls.splice(idx, 1);
+				removeWall(c1x, y);
 			}
 			for (let x = Math.min(c1x, c2x); x <= Math.max(c1x, c2x); x++) {
-				let idx = walls.findIndex(w => w.x === x && w.y === c2y);
-				if (idx >= 0) walls.splice(idx, 1);
+				removeWall(x, c2y);
 			}
 		}
 	}
@@ -342,7 +337,7 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 				if (Math.random() > 0.5) {
 					const px = room.x + 1 + Math.floor(Math.random() * (room.w - 2));
 					const py = room.y + 1 + Math.floor(Math.random() * (room.h - 2));
-					if (!walls.find(w => w.x === px && w.y === py)) {
+					if (!wallAt(px, py)) {
 						walls.push({x: px, y: py, type: 'wall'});
 					}
 				} else {
@@ -361,7 +356,7 @@ function randomFloor(numRooms, numHallways, minRoomSize, maxRoomSize, coverPerce
 						const wy = py + tile.y;
 						if (wx >= room.x + 1 && wx < room.x + room.w - 1 &&
 							wy >= room.y + 1 && wy < room.y + room.h - 1 &&
-							!walls.find(w => w.x === wx && w.y === wy)) {
+							!wallAt(wx, wy)) {
 							walls.push({x: wx, y: wy, type: 'wall'});
 						}
 					}
@@ -407,8 +402,8 @@ function update() {
 
 	if (allPlayers.length > 0) player = allPlayers[0];
 
-	[...allPlayers, ...allEnemies].forEach(syncCharm);
-	[...allPlayers, ...allEnemies].forEach(e => helper.isGrenadeEntity(e) || helper.tileEffects(e));
+	allEntities().forEach(syncCharm);
+	allEntities().forEach(e => helper.isGrenadeEntity(e) || helper.tileEffects(e));
 
 	rebuildEntities();
 
@@ -641,7 +636,7 @@ if (selection._grenadeEntity) {
 
 function showItemPickupWindow(x, y) {
 	const activeEnt = getActivePlayerEntity();
-	const itemsAtLocation = mapItems.filter(item => item.x === x && item.y === y);
+	const itemsAtLocation = helper.itemsAt(x, y);
 	const grenadesAtLocation = allEnemies.filter(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === x && e.y === y);
 	if (itemsAtLocation.length === 0 && grenadesAtLocation.length === 0) return;
 
@@ -838,4 +833,165 @@ function updateTileSize() {
 	tileSize = isZoomedOut ? newSize / 2 : newSize;
 	if (document.getElementById('fullscreen').checked) applyFullscreen();
 	else { canvas.init(); update(); }
+}
+
+function save_map() {
+	// player is allPlayers[0]; serialize all together
+	const ents = allEntities();
+
+	function serializeEntities(arr) {
+		return arr.map(e => {
+			const out = Object.assign({}, e);
+			if (out.following) out.following = ents.indexOf(out.following);
+			else delete out.following;
+			return out;
+		});
+	}
+
+	const save_walls   = JSON.stringify(walls);
+	const save_enemies = JSON.stringify(serializeEntities(allEnemies));
+	const save_players = JSON.stringify(serializeEntities(allPlayers));
+	const save_items   = JSON.stringify(mapItems);
+	const name = "map";
+	const type = "text/plain";
+
+	const file = new Blob(
+		[size + "\n" + save_walls + "\n" + save_enemies + "\n" + save_players + "\n" + save_items],
+		{type: type}
+	);
+	save_button.href = URL.createObjectURL(file);
+	save_button.download = name;
+}
+
+function load_map() {
+	const file_input = document.getElementById("file");
+	if (file_input.files.length == 0) return false;
+	const load = file_input.files[0];
+	const reader = new FileReader();
+
+	reader.onload = (event) => {
+		const load = event.target.result;
+		const lines = load.split('\n');
+
+		size = JSON.parse(lines[0]);
+		resizePtsArray();
+		bloodTiles.clear();
+
+        const loaded_walls   = lines[1];
+        const loaded_enemies = lines[2];
+
+        const line3 = lines[3] ? lines[3].trim() : '';
+        const isLegacy = line3.startsWith('{');
+        const legacy_player  = isLegacy ? line3 : null;
+        const loaded_players = isLegacy ? lines[5] : lines[3];
+        const loaded_items   = lines[4];
+
+        if (!loaded_walls) {
+            console.log("Failed to load map!");
+            return;
+        }
+
+        walls = JSON.parse(loaded_walls);
+        walls = walls.map(wall => wall.type ? wall : {x: wall.x, y: wall.y, type: 'wall'});
+
+        allEnemies = loaded_enemies ? JSON.parse(loaded_enemies) : [];
+		allEnemies.forEach(e => {
+			e.seenX = 0;
+			e.seenY = 0;
+			normalizeEntityInventory(e);
+		});
+
+        if (legacy_player) {
+            try {
+                const p = JSON.parse(legacy_player);
+                if (!p.traits) p.traits = [];
+                if (!p.traits.includes('player')) p.traits.push('player');
+                if (!p.playerColor) p.playerColor = "rgba(0, 0, 255, 0.5)";
+
+                if (loaded_players) {
+                    // if legacy player and line 5 players exist, append legacy player to allPlayers[]
+                    allPlayers = JSON.parse(loaded_players);
+                    allPlayers.push(p);
+                } else {
+                    allPlayers = [p];
+                }
+                player = allPlayers[0];
+
+                // restore equipment + traits for every player (including the appended one)
+                allPlayers.forEach(pp => {
+                    if (pp.equipment) {
+                        pp.attack_range = pp.attack_range || 4;
+                        pp.damage = 0;
+                        pp.armor = 0;
+                        for (let slot in pp.equipment) {
+                            if (pp.equipment[slot]) {
+                                const itemDef = getItemDef(pp.equipment[slot]);
+                                if (itemDef) applyEquipmentEffects(pp, itemDef, true);
+                            }
+                        }
+                    }
+                    if (!pp.traits) pp.traits = [];
+                    if (!pp.traits.includes('player')) pp.traits.push('player');
+                    normalizeEntityInventory(pp);
+                });
+            } catch(e) { console.log("Failed to load legacy player."); }
+        }
+
+        if (loaded_players && !legacy_player) {
+            try {
+                allPlayers = JSON.parse(loaded_players);
+                allPlayers.forEach(p => {
+                    if (p.equipment) {
+                        p.attack_range = player.attack_range; // Uses DEFAULT PLAYER from main.js (Stops bug of map loading increasing attack_ranges)
+                        p.damage = 0;
+                        p.armor = 0;
+                        for (let slot in p.equipment) {
+                            if (p.equipment[slot]) {
+                                const itemDef = getItemDef(p.equipment[slot]);
+                                if (itemDef) applyEquipmentEffects(p, itemDef, true);
+                            }
+                        }
+                    }
+                    if (!p.traits) p.traits = [];
+                    if (!p.traits.includes('player')) p.traits.push('player');
+                    normalizeEntityInventory(p);
+                });
+                if (allPlayers.length > 0) player = allPlayers[0];
+                else updatePlayer();
+            } catch(e) {
+                console.log("Failed to load players, using default.");
+            }
+        } else if (!legacy_player) {
+            updatePlayer();
+        }
+
+		if (loaded_items) {
+			try {
+				mapItems = JSON.parse(loaded_items);
+				if (mapItems.length > 0) {
+					const maxId = Math.max(...mapItems.map(item => item.id));
+					nextItemId = maxId + 1;
+				}
+				console.log("Loaded " + mapItems.length + " items");
+			} catch (e) {
+				mapItems = [];
+			}
+		} else {
+			mapItems = [];
+		}
+
+		// Restore following references from saved indices
+		const ents = allEntities();
+		ents.forEach(e => {
+			if (typeof e.following === 'number') {
+				e.following = ents[e.following] || null;
+			} else {
+				e.following = null;
+			}
+		});
+
+		if (typeof updatePlayerSelect === 'function') updatePlayerSelect();
+		update();
+	};
+	reader.readAsText(load);
 }

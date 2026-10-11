@@ -639,17 +639,7 @@ var WindowSystem = {
     // Draws an item sprite from items.png into the examine window header area.
     // Falls back to a coloured box if the spritesheet isn't loaded yet.
     _drawItemSprite: function(itemType, destX, destY, destSize) {
-        const itemsImg = document.getElementById("items");
-        const spriteInfo = typeof ITEM_SPRITE_MAP !== 'undefined' ? ITEM_SPRITE_MAP[itemType] : null;
-        if (itemsImg && itemsImg.complete && itemsImg.naturalWidth > 0 && spriteInfo) {
-            ctx.drawImage(
-                itemsImg,
-                spriteInfo.col * 32,
-                spriteInfo.row * 32,
-                32, 32,
-                destX, destY, destSize, destSize
-            );
-        } else {
+        if (!drawSprite('items', ITEM_SPRITE_MAP[itemType], destX, destY, destSize)) {
             // Fallback coloured box
             const itemDef = itemTypes[itemType];
             ctx.fillStyle = itemDef?.type === "equipment" ? "rgba(255,165,0,0.8)" : "rgba(255,255,255,0.8)";
@@ -711,7 +701,7 @@ var WindowSystem = {
             if (entity.locked) win.items.push({ danger: true, text: "It is locked." });
         } else if (entity.itemType) {
             win.items = [];
-            const itemsAtLocation = entity._fromInventory ? [entity] : mapItems.filter(item => item.x === entity.x && item.y === entity.y);
+            const itemsAtLocation = entity._fromInventory ? [entity] : helper.itemsAt(entity.x, entity.y);
             const grouped = {};
             itemsAtLocation.forEach(item => {
                 const name = getItemLabel(item);
@@ -801,7 +791,7 @@ var WindowSystem = {
             if (helper.hasTrait(entity, 'explode') && entity.turnsRemaining) {
                 this._drawItemSprite('grenadeLive', spriteX, spriteY, spriteSize);
             } else {
-                drawEntitySprite(entitySpriteId(entity), spriteX, spriteY, spriteSize);
+                drawSprite('entities', ENTITY_SPRITE_MAP[entitySpriteId(entity)], spriteX, spriteY, spriteSize);
                 canvas.drawStatusSprites(entity, spriteX, spriteY, spriteSize);
             }
 
@@ -822,7 +812,7 @@ var WindowSystem = {
             ctx.fillText("(X: " + entity.x + ", Y: " + entity.y + ")", spriteX + spriteSize / 2, spriteY + spriteSize + 35);
 
         } else if (entity.itemType) {
-            const itemsAtLocation = entity._fromInventory ? [entity] : mapItems.filter(item => item.x === entity.x && item.y === entity.y);
+            const itemsAtLocation = entity._fromInventory ? [entity] : helper.itemsAt(entity.x, entity.y);
             const distinctTypes = [...new Set(itemsAtLocation.map(i => i.itemType))];
             if (distinctTypes.length > 1) {
                 const smallSize = Math.ceil(spriteSize * 0.75);
