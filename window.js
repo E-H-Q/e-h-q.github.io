@@ -675,9 +675,9 @@ var WindowSystem = {
                     win.items.push({ danger: true, text: "Movement range -50%" });
                     break;
                 case "pit":
-                    win.items.push({ text: "A deep pit in the ground." });
+                    win.items.push({ text: "A deep pit in the ground, cannot be walked over." });
                     win.items.push({ text: ""});
-                    win.items.push({ danger: true, text: "Cannot be moved through." });
+                    win.items.push({ danger: true, text: "Items dropped into pits disappear!" });
                     break;
                 case "fire":
                     win.items.push({ text: "Blazing flames, walk carefully!" });
@@ -693,9 +693,17 @@ var WindowSystem = {
                 case "door":
                     win.items.push({ text: "A wooden door. It is " + (entity.open ? "open." : "closed.") });
                     win.items.push({ text: ""});
-                    win.items.push({ text: "Right Click to open. Blocks sight when closed." });
+                    win.items.push({ text: "Blocks sight when closed." });
                     if (!entity.permanent) win.items.push({ text: "Becomes damaged, then breaks."});
                     break;
+				case "grave":
+					win.items.push({ text: "The gravestone of a fallen player..." });
+					win.items.push({ text: ""});
+					if (!entity.permanent) win.items.push({ text: "It can be destroyed by explosions." });
+				case "shield":
+					win.items.push({ text: "An entity's shield. blocks sight & attacks."});
+					win.items.push({ text: ""});
+					win.items.push({ text: "It can be destroyed by explosions." });
             }
             if (entity.permanent) win.items.push({ danger: true, text: "It is permanent and cannot be destroyed." });
             if (entity.locked) win.items.push({ danger: true, text: "It is locked." });

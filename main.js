@@ -70,6 +70,7 @@ var entityTraits = {
 	active: 	{ name: "Active", 	  description: "Countdown has been activated"},
 	fire:       { name: "On Fire",    description: "(Status) " + fireDamage + "DMG per turn" },
 	charmed:   { name: "Charmed",     description: "(Status) Swaps allegiance" },
+	flying:   { name: "Flying",       description: "Flies over tiles and entities" },
 	immolate:   { name: "Immolate",   description: "Attacks spread fire tiles" },
 	lifesteal:  { name: "Life Steal", description: "Heals for damage dealt by attacks" },
 	canBreach:  { name: "Breach",     description: "Attacks damage walls. Shoot through 1 tile." },
@@ -574,10 +575,13 @@ var populate = {
 		if (pts.length !== size || pts[0]?.length !== size) resizePtsArray();
 		else pts.forEach(r => r.fill(1));
 	},
-	walls: () => {
+	walls: (entity) => {
+		const fly = helper.hasTrait(entity, 'flying');
 		walls.forEach(w => {
 			if (pts[w.x]?.[w.y] !== undefined) {
-				if (w.type === 'water') {
+				if (fly && (w.type === 'water' || w.type === 'pit')) {
+					pts[w.x][w.y] = 1;
+				} else if (w.type === 'water') {
 					pts[w.x][w.y] = 2;
 				} else if (w.type === 'fire') {
 					pts[w.x][w.y] = 3;
@@ -634,9 +638,11 @@ var helper = {
 	hasGrabbableAt: (x, y) => helper.itemsAt(x, y).length > 0 ||
 	                         allEnemies.some(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === x && e.y === y),
 
-	tileBlocked: (x, y, passThroughPlayers = false) => {
-		const w = wallAt(x, y);
-		return (w && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open)) ||
+	wallBlocks: (w, entity) => !!w && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open) &&
+		!(w.type === 'pit' && helper.hasTrait(entity, 'flying')),
+
+	tileBlocked: (x, y, passThroughPlayers = false, entity) => {
+		return helper.wallBlocks(wallAt(x, y), entity) ||
 		       allEnemies.some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === x && e.y === y) ||
 		       (!passThroughPlayers && (allPlayers.some(e => e.hp > 0 && e.x === x && e.y === y) || (player.x === x && player.y === y)));
 	},
@@ -661,7 +667,7 @@ var helper = {
 		const coverTiles = [];
 		for (let x = Math.max(0, entity.x - searchRadius); x <= Math.min(size - 1, entity.x + searchRadius); x++) {
 			for (let y = Math.max(0, entity.y - searchRadius); y <= Math.min(size - 1, entity.y + searchRadius); y++) {
-				if (helper.tileBlocked(x, y)) continue;
+				if (helper.tileBlocked(x, y, false, entity)) continue;
 				if (x === entity.x && y === entity.y) continue;
 				if (!EntitySystem.hasLOS({x, y}, fromX, fromY)) {
 					coverTiles.push({ x, y, distance: calc.distance(entity.x, x, entity.y, y) });

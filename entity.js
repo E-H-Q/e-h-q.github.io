@@ -16,18 +16,19 @@ const EntitySystem = {
 		const playerMover = isPlayerControlled(entity);
 		if (entity.range === 1) {
 			return helper.getAdjacentTiles(entity.x, entity.y, true)
-				.filter(tile => !helper.tileBlocked(tile.x, tile.y, playerMover) &&
+				.filter(tile => !helper.tileBlocked(tile.x, tile.y, playerMover, entity) &&
 					!(playerMover && helper.entityAt(tile.x, tile.y, e => e !== entity && isPlayerControlled(e))))
 				.map(tile => ({x: tile.x, y: tile.y, path: [tile]}));
 		}
 
 		circle(entity.y, entity.x, entity.range);
-		convert();
+		convert(entity);
 		if (!pts) return [];
 
+		const fly = helper.hasTrait(entity, 'flying');
 		entities.forEach(e => {
 			if (e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && pts[e.x]?.[e.y] !== undefined) {
-				if (playerMover && isPlayerControlled(e)) return;
+				if (fly || (playerMover && isPlayerControlled(e))) return;
 				pts[e.x][e.y] = 0;
 			}
 		});
@@ -68,7 +69,7 @@ const EntitySystem = {
 			if (idx === start >> 1 || seen.has(idx)) continue;
 			seen.add(idx);
 			const mx = (idx / size) | 0, my = idx % size;
-			if (playerMover && helper.entityAt(mx, my, e => e !== entity && isPlayerControlled(e))) continue;
+			if (helper.entityAt(mx, my, e => e !== entity && !helper.isGrenadeEntity(e) && (fly || (playerMover && isPlayerControlled(e))))) continue;
 			validMoves.push({x: mx, y: my});
 		}
 		return validMoves;

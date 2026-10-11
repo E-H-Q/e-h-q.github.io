@@ -345,7 +345,7 @@ function applyPathTileEffects(entity, destX, destY) {
 	const validGrid = createAndFillTwoDArray({rows: size, columns: size, defaultValue: 0});
 	valid.forEach(v => { if (validGrid[v.x]?.[v.y] !== undefined) validGrid[v.x][v.y] = 1; });
 	validGrid[entity.x][entity.y] = 1;
-	allPlayers.forEach(p => { if (p !== entity && p.hp > 0 && validGrid[p.x]?.[p.y] !== undefined) validGrid[p.x][p.y] = 1; });
+	(helper.hasTrait(entity, 'flying') ? entities : allPlayers).forEach(p => { if (p !== entity && p.hp > 0 && validGrid[p.x]?.[p.y] !== undefined) validGrid[p.x][p.y] = 1; });
 	const moveGraph = new Graph(validGrid, {diagonal: true});
 	const movePath = astar.search(moveGraph, moveGraph.grid[entity.x][entity.y], moveGraph.grid[destX][destY]);
 	applyTileEffects(entity, movePath);
@@ -358,10 +358,10 @@ function applyTileEffects(entity, movePath) {
 // Valid Dash Attack path or null. Walls block, entities are passable; the walked
 // path itself must fit within movement range so corners can't be cheesed.
 function computeDashPath(entity, destX, destY) {
-	if (calc.distance(entity.x, destX, entity.y, destY) > entity.range || helper.tileBlocked(destX, destY)) return null;
+	if (calc.distance(entity.x, destX, entity.y, destY) > entity.range || helper.tileBlocked(destX, destY, false, entity)) return null;
 	const grid = createAndFillTwoDArray({rows: size, columns: size, defaultValue: 1});
 	walls.forEach(w => {
-		if (w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open)) grid[w.x][w.y] = 0;
+		if (helper.wallBlocks(w, entity)) grid[w.x][w.y] = 0;
 	});
 	const g = new Graph(grid, {diagonal: true});
 	const path = astar.search(g, g.grid[entity.x][entity.y], g.grid[destX][destY]);

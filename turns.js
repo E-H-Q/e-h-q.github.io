@@ -319,7 +319,7 @@ var turns = {
                         if (validGrid[v.x] && validGrid[v.x][v.y] !== undefined) validGrid[v.x][v.y] = 1;
                     });
                     validGrid[currentEntity.x][currentEntity.y] = 1;
-                    allPlayers.forEach(p => {
+                    (helper.hasTrait(currentEntity, 'flying') ? entities : allPlayers).forEach(p => {
                         if (p !== currentEntity && p.hp > 0 && validGrid[p.x]?.[p.y] !== undefined) validGrid[p.x][p.y] = 1;
                     });
 
@@ -597,7 +597,7 @@ var turns = {
             if (key === 'dashAttack' && dist === 1) {
                 const dx = target.x + (target.x - entity.x), dy = target.y + (target.y - entity.y);
                 if (helper.inBounds(dx, dy) &&
-                    !helper.tileBlocked(dx, dy) && computeDashPath(entity, dx, dy)) {
+                    !helper.tileBlocked(dx, dy, false, entity) && computeDashPath(entity, dx, dy)) {
                     useSpecialMode(entity, key);
                     executeAbility(key, entity, dx, dy);
                     return true;
@@ -718,7 +718,7 @@ var turns = {
             let cover = null, coverDist = Infinity;
             for (let x = Math.max(0, entity.x - searchRadius); x <= Math.min(size - 1, entity.x + searchRadius); x++) {
                 for (let y = Math.max(0, entity.y - searchRadius); y <= Math.min(size - 1, entity.y + searchRadius); y++) {
-                    if (helper.tileBlocked(x, y) || (x === entity.x && y === entity.y)) continue;
+                    if (helper.tileBlocked(x, y, false, entity) || (x === entity.x && y === entity.y)) continue;
                     if (EntitySystem.hasLOS({x, y}, attackerPos.x, attackerPos.y)) continue;
                     if (activeGrenades.some(g => calc.distance(x, g.x, y, g.y) <= blastRadius)) continue;
                     const d = calc.distance(entity.x, x, entity.y, y);
@@ -818,7 +818,7 @@ var turns = {
                             const hidingSpots = [];
                             for (let x = Math.max(0, entity.x - searchRadius); x <= Math.min(size - 1, entity.x + searchRadius); x++) {
                                 for (let y = Math.max(0, entity.y - searchRadius); y <= Math.min(size - 1, entity.y + searchRadius); y++) {
-                                    if (helper.tileBlocked(x, y)) continue;
+                                    if (helper.tileBlocked(x, y, false, entity)) continue;
                                     if (x === entity.x && y === entity.y) continue;
                                     if (!EntitySystem.hasLOS({x: entity.x, y: entity.y}, x, y)) {
                                         hidingSpots.push({ x, y, distance: calc.distance(entity.x, x, entity.y, y) });
@@ -871,8 +871,7 @@ var turns = {
             const newX = entity.x + dx;
             const newY = entity.y + dy;
             if (!helper.inBounds(newX, newY)) continue;
-            const w = wallAt(newX, newY);
-            const isWall = w && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open);
+            const isWall = helper.wallBlocks(wallAt(newX, newY), entity);
             const isOccupied = helper.entityAt(newX, newY, e => e !== entity && !helper.isGrenadeEntity(e));
             if (!isWall && !isOccupied && entity.range > 0) {
                 entity.x = newX;
@@ -890,8 +889,9 @@ var turns = {
 
     enemyGraph: function(entity, targetX, targetY, passable = []) {
         populate.reset();
-        populate.walls();
+        populate.walls(entity);
         const graph = new Graph(pts, { diagonal: true });
+        const fly = helper.hasTrait(entity, 'flying');
         const hasKey = getInventory(entity).some(i => i && i.itemType === 'key');
         walls.forEach(w => {
             if (w.type === 'door' && !w.open && (!w.locked || hasKey) && graph.grid[w.x]?.[w.y]) graph.grid[w.x][w.y].weight = 1;
@@ -899,7 +899,7 @@ var turns = {
         const tw = wallAt(targetX, targetY);
         if (!tw || ['water', 'fire', 'door'].includes(tw.type)) graph.grid[targetX][targetY].weight ||= 1;
         entities.forEach(e => {
-            if (e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && !(e.x === targetX && e.y === targetY)) {
+            if (!fly && e !== entity && e.hp > 0 && !helper.isGrenadeEntity(e) && !(e.x === targetX && e.y === targetY)) {
                 if (passable.some(p => p.x === e.x && p.y === e.y)) return;
                 if (graph.grid[e.x]?.[e.y]) graph.grid[e.x][e.y].weight = 0;
             }
@@ -923,20 +923,23 @@ var turns = {
 
         if (!path || path.length === 0) return [];
 
-        let distanceMoved = 0;
+        let distanceMoved = 0, end = 0;
         const trimmed = [];
+        const fly = helper.hasTrait(entity, 'flying');
         for (let step of path) {
             const w = wallAt(step.x, step.y);
-            const stepCost = w?.type === 'water' ? 2 : 1;
+            const stepCost = w?.type === 'water' && !fly ? 2 : 1;
             if (distanceMoved + stepCost <= entity.range) {
                 const occupied = helper.entityAt(step.x, step.y, e => e !== entity && !helper.isGrenadeEntity(e));
-                const isWall = w && w.type !== 'water' && w.type !== 'fire' && w.type !== 'door';
-                if (!occupied && !isWall) { trimmed.push(step); distanceMoved += stepCost; }
-                else break;
+                const isWall = w?.type !== 'door' && helper.wallBlocks(w, entity);
+                if (isWall || (occupied && !fly)) break;
+                trimmed.push(step);
+                distanceMoved += stepCost;
+                if (!occupied) end = trimmed.length;
                 if (w?.type === 'door' && !w.open) break;
             } else break;
         }
-        return trimmed;
+        return trimmed.slice(0, end);
     },
 
     enemyMoveToward: function(entity, targetX, targetY, passable = [], avoidGrenades = false, excludeGrenade = null) {
@@ -988,11 +991,12 @@ var turns = {
         let distanceMoved = 0;
         let currentX = entity.x;
         let currentY = entity.y;
+        const fly = helper.hasTrait(entity, 'flying');
 
         // Walk the path tile by tile, applying tile effects at every step
         for (let step of path) {
             const w = wallAt(step.x, step.y);
-            const stepCost = w?.type === 'water' ? 2 : 1;
+            const stepCost = w?.type === 'water' && !fly ? 2 : 1;
             if (distanceMoved + stepCost > entity.range) break;
 
             const occupied = helper.entityAt(step.x, step.y, e => e !== entity && !helper.isGrenadeEntity(e));
@@ -1000,17 +1004,18 @@ var turns = {
                 if (tryOpenDoor(entity, w) && !w.open) tryOpenDoor(entity, w);
                 break;
             }
-            const isWall = w && w.type !== 'water' && w.type !== 'fire' && !(w.type === 'door' && w.open);
+            const isWall = helper.wallBlocks(w, entity);
 
-            if (occupied || isWall) break;
+            if (isWall || (occupied && !fly)) break;
 
             if (avoidGrenades && blastTileSet.has(step.x + ',' + step.y)) break;
 
             helper.tileEffects(entity, step.x, step.y);
 
+            distanceMoved += stepCost;
+            if (occupied) continue;
             currentX = step.x;
             currentY = step.y;
-            distanceMoved += stepCost;
         }
 
         // Apply final position only if not landing in a blast zone

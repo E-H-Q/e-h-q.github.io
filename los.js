@@ -157,24 +157,12 @@ function circle(xc, yc, r) {
 	}
 }
 
-function convert() {
+function convert(entity) {
 	if (!pts || pts.length !== size || pts[0]?.length !== size) resizePtsArray();
 	for (let i = 0; i < size; i++) {
 		const row = pts[i];
 		for (let j = 0; j < size; j++) row[j] = array[i * size + j];
 	}
 	
-	walls.forEach(wall => {
-		if (pts[wall.x]?.[wall.y] !== undefined) {
-			if (wall.type === 'water') {
-				pts[wall.x][wall.y] = 2;
-			} else if (wall.type === 'fire') {
-				pts[wall.x][wall.y] = 3;
-			} else if (wall.type === 'door' && wall.open == true) {
-				pts[wall.x][wall.y] = 1;
-			} else {
-				pts[wall.x][wall.y] = 0;
-			}
-		}
-	});
+	populate.walls(entity);
 }

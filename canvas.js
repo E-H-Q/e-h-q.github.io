@@ -18,6 +18,7 @@ const SPRITE_FIRE_STATUS = 11;
 const SPRITE_LOCKED = 12;
 const SPRITE_CHARM_STATUS = 13;
 const SPRITE_UNAWARE = 14;
+const SPRITE_FLYING = 15;
 
 const TILE_SPRITE_MAP = {
 	wall:     { row: 0, col: 0 },
@@ -129,6 +130,7 @@ const TRAIT_SPRITE_MAP = {
 	explode:    { row: 1, col: 2 },
 	active:     { row: 1, col: 3 },
 	fireDef:    { row: 1, col: 4 },
+	flying:     { row: 1, col: 5 },
 	immolate:   { row: 2, col: 0 },
 	lifesteal:  { row: 2, col: 1 },
 	canBreach:  { row: 2, col: 2 },
@@ -469,6 +471,7 @@ var canvas = {
 		if (!isPlayerControlled(entity) && entity.seenX === 0 && entity.seenY === 0) sprite(SPRITE_UNAWARE);
 		if (helper.hasTrait(entity, 'fire')) sprite(SPRITE_FIRE_STATUS);
 		if (entity.locked) sprite(SPRITE_LOCKED);
+		if (helper.hasTrait(entity, 'flying')) sprite(SPRITE_FLYING);
 		if (helper.hasTrait(entity, 'charmed')) {
 			for (let i = 0; i < entity.charmRounds; i++) sprite(SPRITE_CHARM_STATUS, i * 3);
 		}
