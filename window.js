@@ -700,10 +700,12 @@ var WindowSystem = {
 					win.items.push({ text: "The gravestone of a fallen player..." });
 					win.items.push({ text: ""});
 					if (!entity.permanent) win.items.push({ text: "It can be destroyed by explosions." });
+					break;
 				case "shield":
 					win.items.push({ text: "An entity's shield. blocks sight & attacks."});
 					win.items.push({ text: ""});
 					win.items.push({ text: "It can be destroyed by explosions." });
+					break;
             }
             if (entity.permanent) win.items.push({ danger: true, text: "It is permanent and cannot be destroyed." });
             if (entity.locked) win.items.push({ danger: true, text: "It is locked." });
