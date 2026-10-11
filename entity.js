@@ -219,43 +219,7 @@ const EntitySystem = {
 	},
 
 	dropAllItems: function(entity) {
-		if (typeof mapItems === 'undefined' || typeof nextItemId === 'undefined') return;
-
-		if (entity.equipment) {
-			for (const slot in entity.equipment) {
-				if (entity.equipment[slot]) {
-					const def = getItemDef(entity.equipment[slot]);
-					if (def) applyEquipmentEffects(entity, def, false);
-					entity.equipment[slot] = null;
-				}
-			}
-		}
-
-		if (!entity.inventory) return;
-		for (let i = 0; i < entity.inventory.length; i++) {
-			const item = entity.inventory[i];
-			if (!item) continue;
-			const itemDef = getItemDef(item);
-			if (item.isLive && itemDef.effect === "grenade") {
-				allEnemies.push({
-					name: "Grenade", hp: 1,
-					x: entity.x, y: entity.y,
-					range: 0, attack_range: 0, turns: 1,
-					turnsRemaining: item.turnsRemaining,
-					_damage: itemDef.damage, _radius: itemDef.damageRadius,
-					inventory: [], traits: ['explode', 'active', ...itemDef.traits]
-				});
-				console.log(entity.name + " dropped a LIVE grenade with " + item.turnsRemaining + " turns remaining!");
-				entity.inventory[i] = null;
-				continue;
-			}
-			const qty = (itemDef.type === "consumable" && item.quantity > 1) ? item.quantity : 1;
-			item.x = entity.x;
-			item.y = entity.y;
-			for (let j = 0; j < qty; j++) mapItems.push(item);
-			console.log(entity.name + " dropped " + (qty > 1 ? qty + " " : "") + itemDef.name + (qty > 1 ? "s" : ""));
-			entity.inventory[i] = null;
-		}
+		getInventory(entity).forEach((item, i) => dropInventoryItemAtSlot(entity, i));
 	},
 
 	death: function(entity) {

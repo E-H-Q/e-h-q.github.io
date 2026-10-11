@@ -537,19 +537,14 @@ function pickupItem(entity, x, y) {
 	const itemDef    = getItemDef(mostRecent);
 
 	if (itemDef.type === "equipment" && shouldEnemyEquip(entity, itemDef)) {
-		if (!entity.equipment) entity.equipment = {};
-		if (entity.equipment[itemDef.slot]) unequipItem(entity, itemDef.slot);
 		const emptySlot = findFirstEmptySlot(entity);
 		if (emptySlot < 0) return false;
 		if (itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined && mostRecent.currentAmmo === undefined) {
 			mostRecent.currentAmmo = itemDef.maxAmmo;
 		}
 		inv[emptySlot] = mostRecent;
-		entity.equipment[itemDef.slot] = mostRecent;
-		applyEquipmentEffects(entity, itemDef, true);
-		console.log(entity.name + " equipped " + itemDef.name);
 		mapItems.splice(mapItems.indexOf(mostRecent), 1);
-		return true;
+		return equipItem(entity, emptySlot);
 	}
 
 	if (itemDef.type === "consumable") {
@@ -716,7 +711,7 @@ function dropInventoryItemAtSlot(entity, slotIdx) {
 		item.x = entity.x;
 		item.y = entity.y;
 		for (let i = 0; i < quantity; i++) mapItems.push(item);
-		console.log(entity.name + " dropped " + quantity + " " + itemDef.name + (quantity > 1 ? "s" : ""));
+		console.log(entity.name + " dropped " + (quantity > 1 ? quantity + " " : "") + itemDef.name + (quantity > 1 ? "s" : ""));
 	}
 	inv[slotIdx] = null;
 	// cancels throw mode on drop
@@ -724,7 +719,6 @@ function dropInventoryItemAtSlot(entity, slotIdx) {
 		window.throwingGrenadeIndex = undefined;
 		action.value = window.lastUsedAction || "move";
 	}
-	update();
 	return true;
 }
 

@@ -610,16 +610,12 @@ if (selection._grenadeEntity) {
 					break;
 				}
 			}
-			if (!stacked) {
-				const emptySlot = findFirstEmptySlot(activeEnt);
-				if (emptySlot < 0) {
-					console.log("Inventory full! Couldn't pick up " + itemDef.name);
-					selection.items.forEach(item => mapItems.push(item));
-				} else {
-					inv[emptySlot] = Object.assign(selection.items[0], {quantity: selection.count});
-					console.log("Picked up " + selection.count + " " + itemDef.name + (selection.count > 1 ? "s" : ""));
-				}
+			const emptySlot = stacked ? 0 : findFirstEmptySlot(activeEnt);
+			if (emptySlot < 0) {
+				console.log("Inventory full! Couldn't pick up " + itemDef.name);
+				selection.items.forEach(item => mapItems.push(item));
 			} else {
+				if (!stacked) inv[emptySlot] = Object.assign(selection.items[0], {quantity: selection.count});
 				console.log("Picked up " + selection.count + " " + itemDef.name + (selection.count > 1 ? "s" : ""));
 			}
 		} else {
@@ -749,6 +745,7 @@ function showInventoryContextMenu(slotIdx, event) {
 			danger: true,
 			action: function() {
 				dropInventoryItemAtSlot(activeEnt, slotIdx);
+				update();
 			}
 		},
 		{

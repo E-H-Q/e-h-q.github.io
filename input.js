@@ -146,6 +146,7 @@ function consumeKey(entity) {
 	if (keySlot < 0) return false;
 	if (inv[keySlot].quantity > 1) inv[keySlot].quantity--;
 	else inv[keySlot] = null;
+	console.log(entity.name + " used a key.");
 	return true;
 }
 
@@ -166,7 +167,6 @@ function tryOpenDoor(entity, door) {
 			return false;
 		}
 		door.locked = false;
-		console.log(entity.name + " used a key.");
 		return true;
 	}
 	door.open = true;
@@ -182,7 +182,6 @@ function lockDoorWithKey(entity, door) {
 	}
 	if (!consumeKey(entity)) return false;
 	door.locked = true;
-	console.log(entity.name + " used a key.");
 	console.log(entity.name + " locked a door.");
 	return true;
 }
