@@ -1211,28 +1211,14 @@ var input = {
         }
 
         if (edit.checked) { // EDIT MODE ONLY OPTIONS
-            
-            if (clickedEntity) { // TRAITS & KILL options (entities only, not items or walls)
-                options.push({
+            if (clickedEntity || clickedItem) { // TRAITS + REMOVE option (entities & items)
+				options.push({
                     text: "(t) Traits",
                     key: "t",
                     action: function() {
-                        WindowSystem.openTraitsWindow(clickedEntity);
+                        WindowSystem.openTraitsWindow(clickedEntity || clickedItem);
                     }
                 });
-                options.push({
-                    text: "(k) Kill",
-                    key: "k",
-                    danger: true,
-                    action: function() {
-                        clickedEntity.hp = 0;
-                        EntitySystem.death(clickedEntity);
-                        update();
-                    }
-                });
-            }
-            
-            if (clickedEntity || clickedItem) { // REMOVE option (entities & items)
                 options.push({
                     text: "(r) Remove",
                     key: "r",
@@ -1266,6 +1252,19 @@ var input = {
                         update();
                     }
                 });
+
+				if (clickedEntity) { // KILL option (entities only, not items or walls)
+					options.push({
+						text: "(k) Kill",
+						key: "k",
+						danger: true,
+						action: function() {
+							clickedEntity.hp = 0;
+							EntitySystem.death(clickedEntity);
+							update();
+						}
+					});
+				}
             }
         } else { // REGULAR OPTIONS
             // Grab option
