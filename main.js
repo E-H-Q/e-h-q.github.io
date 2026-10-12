@@ -417,7 +417,7 @@ var mouse_pos = {x: 0, y: 0};
 var array;
 var graph;
 
-// 30-slot sparse inventory (length stays fixed, nulls = empty slots)
+// 20-slot sparse inventory (length stays fixed, nulls = empty slots)
 var player = {
 	name: "player",
 	hp: 20,
@@ -426,7 +426,7 @@ var player = {
 	range: 3,
 	attack_range: 4,
 	turns: 2,
-	inventory: new Array(30).fill(null),
+	inventory: new Array(20).fill(null),
 	equipment: {},
 	traits: ['player'],
 	playerColor: "rgba(0, 0, 255, 0.5)"
@@ -442,7 +442,7 @@ var enemy = {
 	turns: 2,
 	seenX: 0,
 	seenY: 0,
-	inventory: new Array(30).fill(null),
+	inventory: new Array(20).fill(null),
 	traits: []
 };
 

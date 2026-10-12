@@ -131,9 +131,15 @@ function setCursorFromCanvas(canvasX, canvasY) {
 	};
 }
 
-function placeWallTile(x, y, tileType) {
-	walls.push(tileType === 'doorLocked' ? {x, y, type: 'door', locked: true} : {x, y, type: tileType});
-	helper.tileEffects(helper.entityAt(x, y), x, y);
+// Edit mode: toggles the selected tile type. Blood is independent of walls.
+function toggleEditTile(x, y) {
+	const type = document.getElementById('tile-type').value;
+	if (type === 'blood') {
+		if (!bloodTiles.delete(x + ',' + y)) addBlood(x, y);
+	} else if (!removeWall(x, y)) {
+		walls.push(type === 'doorLocked' ? {x, y, type: 'door', locked: true} : {x, y, type});
+		helper.tileEffects(helper.entityAt(x, y), x, y);
+	}
 }
 
 function consumeKey(entity) {
@@ -846,8 +852,7 @@ var input = {
             }
             if (!lastTile || lastTile.x !== click_pos.x || lastTile.y !== click_pos.y) {
                 lastTile = {x: click_pos.x, y: click_pos.y};
-                const tileType = document.getElementById('tile-type').value;
-                if (!removeWall(click_pos.x, click_pos.y)) placeWallTile(click_pos.x, click_pos.y, tileType);
+                toggleEditTile(click_pos.x, click_pos.y);
                 update();
             }
             return;
@@ -1435,10 +1440,8 @@ var input = {
                 return;
             }
 
-            // Normal click — toggle wall
             lastTile = {x: click_pos.x, y: click_pos.y};
-            const tileType = document.getElementById('tile-type').value;
-            if (!removeWall(click_pos.x, click_pos.y)) placeWallTile(click_pos.x, click_pos.y, tileType);
+            toggleEditTile(click_pos.x, click_pos.y);
             update();
         }
     },
