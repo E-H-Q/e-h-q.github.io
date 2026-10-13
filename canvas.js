@@ -164,7 +164,7 @@ const ENTITY_SPRITE_MAP = {
 	death:      { row: 2, col: 0 }
 };
 
-// Cosmetic blood splatter, "x,y" -> quarter-turn rotation. Session only — cleared on map load / regen.
+// Cosmetic blood splatter, "x,y" -> quarter-turn rotation. Saved with map, rotation re-rolled on load. Cleared on regen.
 var bloodTiles = new Map();
 
 // A tile takes blood if it isn't water or fire and isn't already bloodied.

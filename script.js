@@ -852,11 +852,12 @@ function save_map() {
 	const save_enemies = JSON.stringify(serializeEntities(allEnemies));
 	const save_players = JSON.stringify(serializeEntities(allPlayers));
 	const save_items   = JSON.stringify(mapItems);
+	const save_blood   = JSON.stringify([...bloodTiles.keys()]);
 	const name = "map";
 	const type = "text/plain";
 
 	const file = new Blob(
-		[size + "\n" + save_walls + "\n" + save_enemies + "\n" + save_players + "\n" + save_items],
+		[size + "\n" + save_walls + "\n" + save_enemies + "\n" + save_players + "\n" + save_items + "\n" + save_blood],
 		{type: type}
 	);
 	save_button.href = URL.createObjectURL(file);
@@ -978,6 +979,14 @@ function load_map() {
 			}
 		} else {
 			mapItems = [];
+		}
+
+		if (!isLegacy && lines[5]) {
+			try {
+				JSON.parse(lines[5]).forEach(k => addBlood(...k.split(',').map(Number)));
+			} catch (e) {
+				console.log("Failed to load blood.");
+			}
 		}
 
 		// Restore following references from saved indices
