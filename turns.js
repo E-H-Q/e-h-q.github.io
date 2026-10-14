@@ -555,6 +555,7 @@ var turns = {
             const weaponDef = getItemDef(weapon);
             if (weaponDef.maxAmmo !== undefined) {
                 const currentAmmo = weapon.currentAmmo !== undefined ? weapon.currentAmmo : weaponDef.maxAmmo;
+				if (currentAmmo == Infinity) return -1;
                 if (currentAmmo < weaponDef.maxAmmo) return -2;
             }
         }
@@ -839,8 +840,9 @@ var turns = {
                     entity.huntingTurns = 0;
                     this.enemyRandomMove(entity);
                 } else {
+					// COMMENTED OUT BECAUSE IT WAS CAUSING A BUG
                     // Aggressive: check if a closed door is blocking the path to seenX/seenY
-                    if (helper.hasTrait(entity, 'aggressive')) {
+                    /*if (helper.hasTrait(entity, 'aggressive')) {
                         const pathToTarget = line({x: entity.x, y: entity.y}, {x: entity.seenX, y: entity.seenY});
                         const blockingDoor = pathToTarget.slice(1).map(t => wallAt(t.x, t.y)).find(w => w?.type === 'door' && !w.open);
                         if (blockingDoor) {
@@ -852,7 +854,7 @@ var turns = {
                             }
                             return;
                         }
-                    }
+                    } */
                     this.enemyMoveToward(entity, entity.seenX, entity.seenY, [], !helper.hasTrait(entity, 'default'));
                 }
             } else {
