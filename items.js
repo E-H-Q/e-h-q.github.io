@@ -409,9 +409,16 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 
 	const landingSpot = path[Math.min(path.length - 1, entity.attack_range)];
 	if (isItemEquipped(entity, item)) unequipItem(entity, itemDef.slot);
-	
+
+	//console.log(entity.name + " threw a grenade to (" + landingSpot.x + ", " + landingSpot.y + ")!");
+	if (item.quantity && item.quantity > 1) {
+		console.log(entity.name + " threw " + item.quantity + " " + itemDef.name + "s!");
+	} else {
+		console.log(entity.name + " threw a " + itemDef.name + "!");
+	}
+
 	if (wallAt(landingSpot.x, landingSpot.y)?.type === 'pit') {
-		//console.log(itemDef.name + " fell into the pit!");
+		console.log(itemDef.name + " fell into the pit!");
 	} else if (item.isLive && itemDef.effect == "grenade") {
 		allEnemies.push({
 			name: "Grenade", hp: 1,
@@ -430,13 +437,7 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 		}
 	}
 	inv[inventoryIndex] = null;
-	//console.log(entity.name + " threw a grenade to (" + landingSpot.x + ", " + landingSpot.y + ")!");
-	if (item.quantity && item.quantity > 1) {
-		console.log(entity.name + " threw " + item.quantity + " " + itemDef.name + "s!");
-	} else {
-		console.log(entity.name + " threw a " + itemDef.name + "!");
-	}
-	
+
 	return true;
 }
 
@@ -698,7 +699,9 @@ function dropInventoryItemAtSlot(entity, slotIdx) {
 
 	if (isItemEquipped(entity, item)) unequipItem(entity, itemDef.slot);
 
-	if (item.isLive && itemDef.effect === "grenade") {
+	if (wallAt(entity.x, entity.y)?.type === 'pit') {
+		console.log(itemDef.name + " fell into the pit!");
+	} else if (item.isLive && itemDef.effect === "grenade") {
 		const grenadeEntity = {
 			name: "Grenade", hp: 1,
 			x: entity.x, y: entity.y,
