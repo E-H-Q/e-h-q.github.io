@@ -880,8 +880,10 @@ var WindowSystem = {
         stats.push({ text: `Movement: ${entity.range}` });
         stats.push({ text: `Attack Range: ${entity.attack_range}` });
 
-        if (entity.damage) stats.push({ text: `Damage: +${entity.damage}` });
-        if (entity.armor) stats.push({ text: `Armor: ${entity.armor}` });
+        const damage = getEntityStat(entity, "damage");
+        const armor = getEntityStat(entity, "armor");
+        if (damage) stats.push({ text: `Damage: +${damage}` });
+        if (armor) stats.push({ text: `Armor: ${armor}` });
 
         if (entity.equipment && (entity.equipment.weapon || entity.equipment.armor || entity.equipment.accessory)) {
             stats.push({ text: "" });

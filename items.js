@@ -91,6 +91,12 @@ function getItemLabel(item) {
 	return (dmg ? "+" + dmg + " " : "") + def.displayName;
 }
 
+// Innate stat + live equipped item effects.
+function getEntityStat(entity, stat) {
+	return (entity[stat] || 0) + Object.values(entity.equipment || {})
+		.reduce((sum, item) => sum + (getItemDef(item)?.effects?.find(e => e.stat === stat)?.value || 0), 0);
+}
+
 // === SPARSE INVENTORY HELPERS ============================================
 
 // Lazily ensures entity.inventory is a fixed-length sparse array of size maxInventorySlots.
@@ -594,12 +600,8 @@ function shouldEnemyEquip(entity, itemDef) {
 
 function applyEquipmentEffects(entity, itemDef, equip) {
 	const m = equip ? 1 : -1;
-	if (itemDef.effects) {
-		for (let effect of itemDef.effects) {
-			if      (effect.stat === "attack_range") entity.attack_range += effect.value * m;
-			else if (effect.stat === "damage")       entity.damage = (entity.damage || 0) + effect.value * m;
-			else if (effect.stat === "armor")        entity.armor  = (entity.armor  || 0) + effect.value * m;
-		}
+	for (const effect of itemDef.effects || []) {
+		if (effect.stat === "attack_range") entity.attack_range += effect.value * m;
 	}
 }
 

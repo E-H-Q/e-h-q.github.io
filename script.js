@@ -899,6 +899,8 @@ function load_map() {
 		allEnemies.forEach(e => {
 			e.seenX = 0;
 			e.seenY = 0;
+			e.damage = 0;
+			e.armor = 0;
 			normalizeEntityInventory(e);
 		});
 

@@ -553,9 +553,9 @@ var turns = {
         if (entity.equipment?.weapon) {
             const weapon = entity.equipment.weapon;
             const weaponDef = getItemDef(weapon);
+            if (weaponDef.maxAmmo === Infinity) return -1;
             if (weaponDef.maxAmmo !== undefined) {
                 const currentAmmo = weapon.currentAmmo !== undefined ? weapon.currentAmmo : weaponDef.maxAmmo;
-				if (currentAmmo == Infinity) return -1;
                 if (currentAmmo < weaponDef.maxAmmo) return -2;
             }
         }
@@ -563,7 +563,7 @@ var turns = {
             const item = entity.inventory[i];
             if (!item) continue;
             const itemDef = getItemDef(item);
-            if (itemDef && itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined) {
+            if (itemDef && itemDef.type === "equipment" && itemDef.slot === "weapon" && itemDef.maxAmmo !== undefined && itemDef.maxAmmo !== Infinity) {
                 const currentAmmo = item.currentAmmo !== undefined ? item.currentAmmo : itemDef.maxAmmo;
                 if (currentAmmo < itemDef.maxAmmo) return i;
             }

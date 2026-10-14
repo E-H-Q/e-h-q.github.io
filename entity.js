@@ -116,7 +116,7 @@ const EntitySystem = {
 				name: attacker.name,
 				x: targetX, y: targetY,
 				traits: ['explode', ...['canDestroy', 'immolate'].filter(t => helper.hasTrait(attacker, t))],
-				_damage: attacker.damage || 0,
+				_damage: getEntityStat(attacker, 'damage'),
 				_radius: weaponDef.areaRadius
 			});
 			if (!this._explosionPending) this._processBatchExplosions();
@@ -132,7 +132,7 @@ const EntitySystem = {
 			for (const enemy of targets) {
 				if (enemy.hp <= 0) continue;
 				if (calc.roll(6) >= 4) {
-					let dmg = Math.max(1, calc.roll(6) + (attacker.damage || 0) - (enemy.armor || 0));
+					let dmg = Math.max(1, calc.roll(6) + getEntityStat(attacker, 'damage') - getEntityStat(enemy, 'armor'));
 					enemy.hp -= dmg;
 					spillBlood(enemy, dmg);
 					if (enemy.lastAttacker !== undefined) enemy.lastAttacker = attacker;
@@ -283,7 +283,7 @@ const EntitySystem = {
 
 		for (const entity of getEntitiesInTiles(blastTiles)) {
 			if (entity === grenade) continue;
-			const dmg = Math.max(1, damage - (entity.armor || 0));
+			const dmg = Math.max(1, damage - getEntityStat(entity, 'armor'));
 			console.log(entity.name + " takes " + dmg + " explosion damage!");
 			entity.hp -= dmg;
 			spillBlood(entity, dmg);
