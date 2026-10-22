@@ -196,7 +196,7 @@ var turns = {
 
                 const currentEntity = entities[currentEntityIndex];
                 helper.tileEffects(currentEntity);
-                if (!EntitySystem._explosionPending) camera = {
+                if (!EntitySystem._explosionPending && isPlayerControlled(currentEntity)) camera = {
                     x: currentEntity.x - Math.round(viewportWidth / 2) + 1,
                     y: currentEntity.y - Math.round(viewportHeight / 2) + 1
                 };
@@ -267,6 +267,13 @@ var turns = {
             const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
             const shouldProcess = this.shouldProcessEntity(currentEntity);
             const isInCombat = enemyHasSeenPlayer || canSeeTarget;
+
+            if (this._panPending) return;
+            if (isInCombat && shouldProcess && !this.isInViewport(currentEntity)) {
+                this._panPending = true;
+                canvas.panTo(currentEntity.x, currentEntity.y, () => this._panPending = false);
+                return;
+            }
 
             if (!willAttack && isInCombat && shouldProcess) {
                 calc.move(currentEntity);

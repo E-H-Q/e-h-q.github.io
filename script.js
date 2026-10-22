@@ -423,7 +423,7 @@ function update() {
 	if (!EntitySystem._explosionPending) {
 		if (net.owns(currentEntity) || isAiming) {
 			updateCamera();
-		} else {
+		} else if (isPlayerControlled(currentEntity)) {
 			camera = {
 				x: currentEntity.x - Math.round((viewportWidth / 2)) + 1,
 				y: currentEntity.y - Math.round((viewportHeight / 2)) + 1

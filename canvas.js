@@ -530,6 +530,24 @@ var canvas = {
 		});
 	},
 
+	centerOn: (x, y) => {
+		camera = {x: x - Math.round(viewportWidth / 2) + 1, y: y - Math.round(viewportHeight / 2) + 1};
+	},
+
+	// Pans the camera until (x, y) is 1 tile inside the view, over the turn delay.
+	panTo: (x, y, done) => {
+		const delay = parseInt(document.getElementById("turn-delay").value) || 0;
+		const from = {x: camera.x, y: camera.y};
+		const to = {
+			x: Math.min(Math.max(camera.x, x - viewportWidth + 2), x - 1),
+			y: Math.min(Math.max(camera.y, y - viewportHeight + 2), y - 1)
+		};
+		canvas.addAnim(delay, t => {
+			camera = {x: Math.round(from.x + (to.x - from.x) * t), y: Math.round(from.y + (to.y - from.y) * t)};
+		});
+		setTimeout(() => { camera = to; if (done) done(); update(); }, delay);
+	},
+
 	explosionAnim: (x, y) => {
 		//const duration = parseInt(document.getElementById("turn-delay").value) || 0;
 		const size = 5 * tileSize; // explode radius of 2 = 5 tiles across. +1 for explode sprite margins.
@@ -804,7 +822,7 @@ var canvas = {
 					if (def?.slot === "weapon" && def.maxAmmo !== undefined && def.maxAmmo !== Infinity) {
 						const ammo = item.currentAmmo !== undefined ? item.currentAmmo : def.maxAmmo;
 						ctx.fillStyle = ammo === 0 ? "#FF0000" : "#FFFF00";
-						ctx.font = '10px monospace';
+						ctx.font = '12px monospace';
 						ctx.textAlign = 'right';
 						ctx.fillText(ammo + "/" + def.maxAmmo, sx + slot - 2, sy + slot - 2);
 					}
