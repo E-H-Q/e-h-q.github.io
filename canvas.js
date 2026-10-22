@@ -708,6 +708,14 @@ var canvas = {
 		drawSprite('moves', {col: SPRITE_CROSSHAIR, row: 0}, toScreenX(x), toScreenY(y));
 	},
 
+	hitLabel: (x, y, pct) => {
+		ctx.font = 'bold 16px monospace';
+		ctx.fillStyle = 'red';
+		ctx.textAlign = 'center';
+		//ctx.fillText('HIT: ' + pct + '%', toScreenX(x) + tileSize / 2, toScreenY(y) - 2);
+		ctx.fillText(pct + '%', toScreenX(x) + tileSize / 2, toScreenY(y) - 2);
+	},
+
 	attackRangeDim: (entity) => {
 		const range = getEntityAttackRange(entity);
 		ctx.fillStyle = "rgba(0, 0, 0, 0.5)";

@@ -41,6 +41,8 @@ function populatePlayerFields(target) {
     document.getElementById('player_hp').value = target.hp;
     document.getElementById('player_range').value = target.range;
     document.getElementById('player_attack_range').value = target.attack_range;
+    document.getElementById('player_hit_near').value = target.hit_near;
+    document.getElementById('player_hit_far').value = target.hit_far;
     document.getElementById('player_turns').value = target.turns;
     // Re-apply equipment
     if (target.equipment) {
@@ -82,6 +84,8 @@ function spawnExtraPlayer() {
 	const hp           = parseInt(document.getElementById('player_hp').value) || 20;
 	const range        = parseInt(document.getElementById('player_range').value) || 3;
 	const attack_range = parseInt(document.getElementById('player_attack_range').value) || 4;
+	const hit_near     = parseInt(document.getElementById('player_hit_near').value) || 80;
+	const hit_far      = parseInt(document.getElementById('player_hit_far').value) || 40;
 	const turns        = parseInt(document.getElementById('player_turns').value) || 2;
 
 	const fieldX = document.getElementById('player_x').value;
@@ -121,7 +125,7 @@ function spawnExtraPlayer() {
 		name, hp,
 		x: spawnX,
 		y: spawnY,
-		range, attack_range, turns,
+		range, attack_range, hit_near, hit_far, turns,
 		inventory: new Array(maxInventorySlots).fill(null),
 		equipment: {},
 		traits: ['player'],
@@ -463,6 +467,7 @@ function update() {
 			dashPath.forEach(step => {
 				if (allEnemies.some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y)) {
 					canvas.crosshair(step.x, step.y);
+					canvas.hitLabel(step.x, step.y, getEntityStat(specialModeEntity, 'hit_near'));
 				}
 			});
 		}
@@ -901,6 +906,8 @@ function load_map() {
 			e.seenY = 0;
 			e.damage = 0;
 			e.armor = 0;
+			e.hit_near ??= 80;
+			e.hit_far ??= 40;
 			normalizeEntityInventory(e);
 		});
 
@@ -935,6 +942,8 @@ function load_map() {
                     }
                     if (!pp.traits) pp.traits = [];
                     if (!pp.traits.includes('player')) pp.traits.push('player');
+                    pp.hit_near ??= 80;
+                    pp.hit_far ??= 40;
                     normalizeEntityInventory(pp);
                 });
             } catch(e) { console.log("Failed to load legacy player."); }
@@ -957,6 +966,8 @@ function load_map() {
                     }
                     if (!p.traits) p.traits = [];
                     if (!p.traits.includes('player')) p.traits.push('player');
+                    p.hit_near ??= 80;
+                    p.hit_far ??= 40;
                     normalizeEntityInventory(p);
                 });
                 if (allPlayers.length > 0) player = allPlayers[0];

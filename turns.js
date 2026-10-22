@@ -374,6 +374,9 @@ var turns = {
                     } else {
                         canvas.los(targetingTiles, false);
                     }
+                    if (getWeaponAimStyle(currentEntity) !== 'area' && !['donor', 'shield', 'detonate'].includes(specialMode))
+                        getTargetedEntities(currentEntity, cursorX, cursorY).filter(e => e !== currentEntity && e.hp > 0)
+                            .forEach(e => canvas.hitLabel(e.x, e.y, calc.hitChance(currentEntity, e)));
                 }
             }
         }
