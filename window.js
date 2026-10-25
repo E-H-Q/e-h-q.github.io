@@ -731,8 +731,12 @@ var WindowSystem = {
 
                 if (weaponItem) {
                     singleItemDef = getItemDef(weaponItem);
-                    effectsStr = singleItemDef.effects.map(e => `+${e.value} ${e.stat.replace('_', ' ')}`).join(', ');
-                } else if (consumeItem) {
+					
+					effectsStr = singleItemDef.effects.filter(e => !e.stat.startsWith('hit_')).map(e => (e.value <= 0 ? '' : '+') + e.value + ' ' + e.stat.replace('_', ' ')).join(', ');
+					
+					if (effectsStr) win.items.push({ text: effectsStr });
+					effectsStr = singleItemDef.effects.filter(e => e.stat.startsWith('hit_')).map(e => (e.value <= 0 ? '' : '+') + e.value + '% Hit(' + e.stat.replace('hit_', '') + ')').join(', ');
+				} else if (consumeItem) {
                     singleItemDef = getItemDef(consumeItem);
                     if (singleItemDef.effect === "grenade") {
                         effectsStr = `Damage: ${singleItemDef.damage}, Radius: ${singleItemDef.damageRadius}, Fuse: ${singleItemDef.fuse} turns`;
@@ -744,8 +748,12 @@ var WindowSystem = {
                 } else if (equipItem_) {
                     singleItemDef = getItemDef(equipItem_);
                     if (singleItemDef.effects) {
-                        effectsStr = singleItemDef.effects.map(e => `+${e.value} ${e.stat.replace('_', ' ')}`).join(', ');
-                    }
+						//effectsStr = singleItemDef.effects.map(e => (e.stat.startsWith('hit_') ? '' : '+') + e.value + ' ' + e.stat.replace('_', ' ')).join(', ');                    
+						effectsStr = singleItemDef.effects.filter(e => !e.stat.startsWith('hit_')).map(e => (e.value <= 0 ? '' : '+') + e.value + ' ' + e.stat.replace('_', ' ')).join(', ');
+
+						if (effectsStr) win.items.push({ text: effectsStr });
+						effectsStr = singleItemDef.effects.filter(e => e.stat.startsWith('hit_')).map(e => (e.value <= 0 ? '' : '+') + e.value + '% Hit(' + e.stat.replace('hit_', '') + ')').join(', ');
+					}
                 }
 
                 if (effectsStr) win.items.push({ text: effectsStr });
@@ -879,6 +887,7 @@ var WindowSystem = {
         stats.push({ text: `HP: ${entity.hp}${entity.maxHp ? '/' + entity.maxHp : ''}` });
         stats.push({ text: `Movement: ${entity.range}` });
         stats.push({ text: `Attack Range: ${entity.attack_range}` });
+        stats.push({ text: 'Hit Chance: ' + getEntityStat(entity, 'hit_near') + '-' + getEntityStat(entity, 'hit_far') + '%' });
 
         const damage = getEntityStat(entity, "damage");
         const armor = getEntityStat(entity, "armor");

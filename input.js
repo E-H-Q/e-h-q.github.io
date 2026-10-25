@@ -306,7 +306,7 @@ function updateCamera() {
         lastCameraUpdateCursorY = null;
         const currentEntity = entities[currentEntityIndex] || player;
 
-        camera = {
+        if (isPlayerControlled(currentEntity)) camera = {
             x: currentEntity.x - Math.round(viewportWidth / 2) + 1,
             y: currentEntity.y - Math.round(viewportHeight / 2) + 1
         };
@@ -315,15 +315,18 @@ function updateCamera() {
 }
 
 function handleZoom(zoomOut) {
+    const currentEntity = entities[currentEntityIndex] || player;
+    const focus = isPlayerControlled(currentEntity) ? currentEntity :
+        {x: camera.x + Math.round(viewportWidth / 2) - 1, y: camera.y + Math.round(viewportHeight / 2) - 1};
+
     isZoomedOut = zoomOut;
     tileSize = zoomOut ? tileSize / 2 : tileSize * 2;
     viewportWidth = zoomOut ? viewportWidth * 2 : viewportWidth / 2;
     viewportHeight = zoomOut ? viewportHeight * 2 : viewportHeight / 2;
 
-    const currentEntity = entities[currentEntityIndex] || player;
     camera = {
-        x: currentEntity.x - Math.round((viewportWidth / 2)) + 1,
-        y: currentEntity.y - Math.round((viewportHeight / 2)) + 1
+        x: focus.x - Math.round((viewportWidth / 2)) + 1,
+        y: focus.y - Math.round((viewportHeight / 2)) + 1
     };
 
     canvas.init();

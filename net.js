@@ -285,10 +285,10 @@ var net = {
 	};
 }
 
-['deathAnim', 'explosionAnim'].forEach(k => {
+['deathAnim', 'explosionAnim', 'panTo', 'centerOn'].forEach(k => {
 	const f = canvas[k];
 	canvas[k] = (...a) => {
-		if (net.peer) net.anims.push({k, by: net.from, a: k === 'deathAnim' ? [{x: a[0].x, y: a[0].y}] : a});
+		if (net.peer) net.anims.push({k, by: net.from, a: k === 'deathAnim' ? [{x: a[0].x, y: a[0].y}] : k === 'panTo' ? a.slice(0, 2) : a});
 		f(...a);
 	};
 });

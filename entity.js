@@ -131,10 +131,11 @@ const EntitySystem = {
 
 			for (const enemy of targets) {
 				if (enemy.hp <= 0) continue;
-				if (calc.roll(6) >= 4) {
+				if (calc.random(100) <= calc.hitChance(attacker, enemy)) {
 					let dmg = Math.max(1, calc.roll(6) + getEntityStat(attacker, 'damage') - getEntityStat(enemy, 'armor'));
 					enemy.hp -= dmg;
 					spillBlood(enemy, dmg);
+					if (!isPlayerControlled(attacker) && isPlayerControlled(enemy)) canvas.centerOn(enemy.x, enemy.y);
 					if (enemy.lastAttacker !== undefined) enemy.lastAttacker = attacker;
 					if (enemy.seenX !== undefined) { enemy.seenX = attacker.x; enemy.seenY = attacker.y; }
 					console.log(attacker.name + " hits " + enemy.name + " for " + dmg + " DMG!");
