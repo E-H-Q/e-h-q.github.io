@@ -84,7 +84,7 @@ var UI_GRIDS = {
 };
 
 function openUIGridSelect(grid, startSlot) {
-	if (inventoryHidden) return;
+	if (inventoryHidden || !isPlayerControlled(entities[currentEntityIndex])) return;
 	if (uiGridSelect && uiGridSelect.grid === grid) { closeUIGridSelect(); return; }
 	const wasVisible = uiGridSelect ? uiGridSelect.cursorWasVisible : cursorVisible;
 	if (uiGridSelect) UI_GRIDS[uiGridSelect.grid].clearHover();

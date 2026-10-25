@@ -190,6 +190,11 @@ var turns = {
                     for (let i = walls.length - 1; i >= 0; i--) {
                         if (walls[i].type === 'shield' && isPlayerControlled(walls[i].owner) === side) walls.splice(i, 1);
                     }
+                    if (!side) {
+                        resetInventoryDrag();
+                        resetAbilityDrag();
+                        closeUIGridSelect();
+                    }
                 }
                 if (entities[currentEntityIndex]) entities[currentEntityIndex]._droppedGrenadeThisRound = false;
 

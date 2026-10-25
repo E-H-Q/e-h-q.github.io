@@ -73,7 +73,7 @@ function getInventoryOrigin() {
 // Returns the slot index (0..29) under a canvas-pixel position, or -1 if outside
 // (or if the inventory is currently hidden — treat the area as empty space).
 function getInventorySlotAt(canvasX, canvasY) {
-	if (typeof inventoryHidden !== 'undefined' && inventoryHidden) return -1;
+	if ((typeof inventoryHidden !== 'undefined' && inventoryHidden) || !isPlayerControlled(entities[currentEntityIndex])) return -1;
 	const o = getInventoryOrigin();
 	const w = INVENTORY_COLS * tileSize;
 	const h = INVENTORY_ROWS * tileSize;
@@ -274,7 +274,7 @@ function abilitySlotPos(i) {
 
 // Returns the ability slot under a canvas-pixel position, or -1.
 function getAbilitySlotAt(canvasX, canvasY) {
-	if (typeof inventoryHidden !== 'undefined' && inventoryHidden) return -1;
+	if ((typeof inventoryHidden !== 'undefined' && inventoryHidden) || !isPlayerControlled(entities[currentEntityIndex])) return -1;
 	const o = getInventoryOrigin();
 	const col = Math.floor((o.x - canvasX) / tileSize);
 	const row = Math.floor((canvasY - o.y) / tileSize);
@@ -750,7 +750,7 @@ var canvas = {
 	// Equipped items get a faint yellow overlay. Hovered slot's item name renders below the grid.
 	// While dragging, the source slot is dimmed and a ghost sprite follows the cursor.
 	inventory: () => {
-		if (typeof inventoryHidden !== 'undefined' && inventoryHidden) return;
+		if ((typeof inventoryHidden !== 'undefined' && inventoryHidden) || !isPlayerControlled(entities[currentEntityIndex])) return;
 		if (allPlayers.length === 0) return;
 		const entity = getActivePlayerEntity();
 		if (!entity) return;
@@ -916,7 +916,7 @@ var canvas = {
 
 	// Ability tiles: the bar, drop-target highlight and the drag ghost.
 	abilityBar: () => {
-		if (typeof inventoryHidden !== 'undefined' && inventoryHidden) return;
+		if ((typeof inventoryHidden !== 'undefined' && inventoryHidden) || !isPlayerControlled(entities[currentEntityIndex])) return;
 		const entity = getActivePlayerEntity();
 		if (!entity) return;
 		const myTurn = entities[currentEntityIndex] === entity;
