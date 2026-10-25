@@ -276,11 +276,11 @@ const EntitySystem = {
 
 		const blastTiles = collectAreaTiles(ex, ey, r);
 
-		if (helper.hasTrait(grenade, 'canDestroy')) {
+		//if (helper.hasTrait(grenade, 'canDestroy')) {
 			for (const tile of blastTiles) {
 				removeWall(tile.x, tile.y, w => !FLOOR_TILES.has(w.type) && !w.permanent);
 			}
-		}
+		//}
 
 		for (const entity of getEntitiesInTiles(blastTiles)) {
 			if (entity === grenade) continue;

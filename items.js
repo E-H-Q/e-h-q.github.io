@@ -650,9 +650,18 @@ function useItem(entity, inventoryIndex) {
 			else inv[inventoryIndex] = null;
 		};
 		if (itemDef.effect === "heal") {
-			entity.hp += itemDef.value;
-			console.log(entity.name + " heals for " + itemDef.value + "HP!");
-			consume();
+			//entity.hp += itemDef.value;
+			if (entity.hp >= entity.maxHp) {
+				console.log(entity.name + "'s HP is already full!");
+				return false;
+			}
+			// finds the amount actually healed for if value would be above maxHP.
+			const before = entity.hp;
+			entity.hp = Math.min(entity.maxHp || Infinity, entity.hp += itemDef.value);
+			const delta = entity.hp - before;
+			console.log(entity.name + " heals for " + delta + "HP!");
+		
+			consume(); // uses item
 		} else if (itemDef.effect === "speed") {
 			entity.range += itemDef.value;
 			console.log(entity.name + " feels themselves moving faster!");

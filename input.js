@@ -220,7 +220,7 @@ function activateGrabMode() {
 
 // Valid donor recipient: living, non-grenade, same side as the donor.
 function canDonateTo(donor, e) {
-	return e !== donor && e.hp > 0 && !helper.isGrenadeEntity(e) &&
+	return e !== donor && e.hp > 0 && e.hp !== e.maxHp && !helper.isGrenadeEntity(e) &&
 		isPlayerControlled(e) === isPlayerControlled(donor);
 }
 

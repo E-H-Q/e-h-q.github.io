@@ -39,6 +39,7 @@ function populatePlayerFields(target) {
     }
     document.getElementById('player_name').value = target.name;
     document.getElementById('player_hp').value = target.hp;
+    document.getElementById('player_maxHp').value = target.maxHp;
     document.getElementById('player_range').value = target.range;
     document.getElementById('player_attack_range').value = target.attack_range;
     document.getElementById('player_hit_near').value = target.hit_near;
@@ -82,6 +83,7 @@ function spawnExtraPlayer() {
 		? ("player" + (allPlayers.length + 1))
 		: nameField;
 	const hp           = parseInt(document.getElementById('player_hp').value) || 20;
+	const maxHp        = parseInt(document.getElementById('player_maxHp').value) || 20;
 	const range        = parseInt(document.getElementById('player_range').value) || 3;
 	const attack_range = parseInt(document.getElementById('player_attack_range').value) || 4;
 	const hit_near     = parseInt(document.getElementById('player_hit_near').value) || 80;
@@ -122,7 +124,7 @@ function spawnExtraPlayer() {
 	}
 
 	const newPlayer = {
-		name, hp,
+		name, hp, maxHp,
 		x: spawnX,
 		y: spawnY,
 		range, attack_range, hit_near, hit_far, turns,

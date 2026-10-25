@@ -249,11 +249,11 @@ var abilityTypes = {
 		type: "defensive",
 		ap: 1,
 		aimStyle: "standard",
-		description: "Give " + donorAmount + "HP to an adjacent entity.",
+		description: "Give " + donorAmount + "HP to an adjacent ally.",
 		canUse: function(entity) {
 			if (entity.hp <= donorAmount) return "Requires more than " + donorAmount + " HP";
 			if (!entities.some(e => canDonateTo(entity, e) && calc.distance(entity.x, e.x, entity.y, e.y) === 1))
-				return "Requires an adjacent ally";
+				return "No valid targets.";
 			return null;
 		},
 		validate: function(entity, x, y) {
@@ -421,6 +421,7 @@ var graph;
 var player = {
 	name: "player",
 	hp: 20,
+	maxHp: 20,
 	x: Math.floor(viewportWidth / 2),
 	y: Math.floor(viewportHeight / 2),
 	range: 3,
@@ -481,6 +482,7 @@ function updatePlayer() {
 	// Apply new base stats from fields
 	target.name = document.getElementById('player_name').value || target.name;
 	target.hp = parseInt(document.getElementById('player_hp').value) || target.hp;
+	target.maxHp = parseInt(document.getElementById('player_maxHp').value) || target.maxHp;
 	target.range = parseInt(document.getElementById('player_range').value) || target.range;
 	target.attack_range = parseInt(document.getElementById('player_attack_range').value) || target.attack_range;
 	target.hit_near = parseInt(document.getElementById('player_hit_near').value) || target.hit_near;
