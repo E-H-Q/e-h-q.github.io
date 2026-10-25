@@ -490,8 +490,7 @@ var canvas = {
 	},
 
 	drawEntity: (entity, color, imgId) => {
-		const entityIdx = entities.indexOf(entity);
-		const hasActed = isPlayerControlled(entity) && !entity.following && entityIdx >= 0 && entityIdx < currentEntityIndex;
+		const hasActed = !entity.following && entity.has_acted;
 		ctx.fillStyle = color;
 		const screenX = toScreenX(entity.x);
 		const screenY = toScreenY(entity.y);

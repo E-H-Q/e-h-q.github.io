@@ -131,7 +131,8 @@ function spawnExtraPlayer() {
 		inventory: new Array(maxInventorySlots).fill(null),
 		equipment: {},
 		traits: ['player'],
-		playerColor: color
+		playerColor: color,
+		has_acted: false
 	};
 
 	allPlayers.push(newPlayer);
@@ -851,6 +852,7 @@ function save_map() {
 			const out = Object.assign({}, e);
 			if (out.following) out.following = ents.indexOf(out.following);
 			else delete out.following;
+			delete out.has_acted;
 			return out;
 		});
 	}
@@ -1007,6 +1009,7 @@ function load_map() {
 		// Restore following references from saved indices
 		const ents = allEntities();
 		ents.forEach(e => {
+			e.has_acted = false;
 			if (typeof e.following === 'number') {
 				e.following = ents[e.following] || null;
 			} else {

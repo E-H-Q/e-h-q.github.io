@@ -140,7 +140,6 @@ function charmEntity(target, charmer) {
 		target.traits = target.traits.filter(t => t !== 'player' && t !== 'charmed' && t !== behavior);
 		target.traits.push(behavior, 'charmed');
 		if (target.seenX === undefined) { target.seenX = 0; target.seenY = 0; }
-		if (target.maxHp === undefined) target.maxHp = target.hp;
 		if (target.lastAttacker === undefined) target.lastAttacker = null;
 		delete target.playerColor;
 		moveEntityList(allPlayers, allEnemies, target);
@@ -432,7 +431,8 @@ var player = {
 	inventory: new Array(20).fill(null),
 	equipment: {},
 	traits: ['player'],
-	playerColor: "rgba(0, 0, 255, 0.5)"
+	playerColor: "rgba(0, 0, 255, 0.5)",
+	has_acted: false
 };
 
 var enemy = {
@@ -569,7 +569,8 @@ function spawnEnemy() {
 			traits: [trait],
 			maxHp: hp,
 			lastAttacker: null,
-			following: null
+			following: null,
+			has_acted: false
 		};
 		allEnemies.push(newEnemy);
 		if (EntitySystem.hasLOS(newEnemy, player.x, player.y)) {

@@ -1293,6 +1293,7 @@ var input = {
 
             // Follow / Transfer options for player entities
             if (isPlayerControlled(clickedEntity) && clickedEntity !== activeEnt) {
+                const isActiveTurn = entities[currentEntityIndex] === activeEnt && isPlayerControlled(activeEnt);
                 if (clickedEntity.following === activeEnt) {
                     options.push({
                         text: "(f) remove Follower",
@@ -1304,7 +1305,7 @@ var input = {
                             update();
                         }
                     });
-                } else if (!activeEnt.following) {
+                } else if (isActiveTurn && !activeEnt.following) {
                     options.push({
                         text: "(f) Follow",
                         key: "f",
@@ -1315,19 +1316,23 @@ var input = {
                     });
                 }
 
-                const clickedIdx = entities.indexOf(clickedEntity);
-                const isActiveTurn = isPlayerControlled(entities[currentEntityIndex]) && entities[currentEntityIndex] === activeEnt;
-                const turnAvailable = clickedIdx > currentEntityIndex;
-
-                if (isActiveTurn && turnAvailable && currentEntityTurnsRemaining >= activeEnt.turns && !clickedEntity.following) {
+                if (isActiveTurn && !clickedEntity.has_acted && !clickedEntity.following) {
+                    const ending = currentEntityTurnsRemaining < activeEnt.turns;
                     options.push({
-                        text: "(t) Transfer Turn",
+                        text: ending ? "(t) End & Pass Turn" : "(t) Transfer Turn",
                         key: "t",
+                        danger: ending,
                         action: function() {
                             const giverIdx    = allPlayers.indexOf(activeEnt);
                             const receiverIdx = allPlayers.indexOf(clickedEntity);
                             const receiverEnemyIdx = allEnemies.indexOf(clickedEntity);
-                            if (giverIdx >= 0 && receiverIdx >= 0) {
+                            if (ending) {
+                                if (receiverIdx >= 0) {
+                                    allPlayers.splice(receiverIdx, 1);
+                                    allPlayers.splice(allPlayers.indexOf(activeEnt) + 1, 0, clickedEntity);
+                                }
+                                currentEntityTurnsRemaining = 0;
+                            } else if (giverIdx >= 0 && receiverIdx >= 0) {
                                 allPlayers[giverIdx]    = clickedEntity;
                                 allPlayers[receiverIdx] = activeEnt;
                             } else if (giverIdx >= 0 && receiverEnemyIdx >= 0) {

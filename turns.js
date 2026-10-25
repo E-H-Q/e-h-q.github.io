@@ -45,6 +45,8 @@ function startFollowing(follower, followed) {
     while (root.following) root = root.following;
     follower.following = root;
     groupLeadsWithFollowers();
+    if (currentEntityTurnsRemaining >= follower.turns) currentEntityIndex = -1;
+    currentEntityTurnsRemaining = 0;
     console.log(follower.name + " is following " + root.name + ".");
 }
 
@@ -170,18 +172,15 @@ var turns = {
                 }
 
                 // Advance to next entity
-                let wrapped = false;
-                do {
-                    currentEntityIndex++;
-                    if (currentEntityIndex >= entities.length) {
-                        currentEntityIndex = 0;
-                        wrapped = true;
-                        this._roundReset();
-                    }
-
-                    const currentEntity = entities[currentEntityIndex];
-                    if (this.shouldProcessEntity(currentEntity)) break;
-                } while (currentEntityIndex !== 0);
+                if (previousEntity) previousEntity.has_acted = true;
+                const nextIdx = () => entities.findIndex(e => !e.has_acted && this.shouldProcessEntity(e));
+                currentEntityIndex = nextIdx();
+                const wrapped = currentEntityIndex < 0;
+                if (wrapped) {
+                    entities.forEach(e => e.has_acted = false);
+                    this._roundReset();
+                    currentEntityIndex = nextIdx();
+                }
 
                 if (!entities[currentEntityIndex]) currentEntityIndex = 0;
                 currentEntityTurnsRemaining = entities[currentEntityIndex].turns;
@@ -623,7 +622,7 @@ var turns = {
             }
 
             if (key === 'donor' && entity.hp > donorAmount) {
-                const allies = entities.filter(e => canDonateTo(entity, e) && e.hp < e.maxHp && e.hp <= entity.hp)
+                const allies = entities.filter(e => canDonateTo(entity, e) && e.hp < (e.maxHp ?? Infinity) && e.hp <= entity.hp)
                     .sort((a, b) => a.hp - b.hp);
                 for (const ally of allies) {
                     if (calc.distance(entity.x, ally.x, entity.y, ally.y) === 1) {
@@ -693,7 +692,7 @@ var turns = {
         if ((canSeeTarget || entity.seenX !== 0 || entity.seenY !== 0) &&
             this.tryUseAbility(entity, ['donor', 'charm'], target, canSeeTarget, dist)) return;
 
-        if (helper.hasTrait(entity, 'defensive') && entity.lastAttacker && entity.hp < entity.maxHp) {
+        if (helper.hasTrait(entity, 'defensive') && entity.lastAttacker && entity.hp < (entity.maxHp ?? Infinity)) {
             calc.move(entity);
             const attackerPos = entity.lastAttacker;
             const blastRadius = itemTypes.grenade.damageRadius;
