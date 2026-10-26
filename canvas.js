@@ -19,6 +19,7 @@ const SPRITE_LOCKED = 12;
 const SPRITE_CHARM_STATUS = 13;
 const SPRITE_UNAWARE = 14;
 const SPRITE_FLYING = 15;
+const SPRITE_LEAD = 16;
 
 const TILE_SPRITE_MAP = {
 	wall:     { row: 0, col: 0 },
@@ -479,6 +480,9 @@ var canvas = {
 
 	// Turn-order overlays: remaining action points, and markers over this entity's followers.
 	drawTurnIndicators: (entity, screenX, screenY) => {
+		const m = activeContextMenu, c = m && helper.entityAt(m.tileX, m.tileY), lead = c && (c.following || c);
+		if (lead && entity.following === lead) drawSprite('moves', {col: SPRITE_FOLLOWER, row: 0}, screenX, screenY);
+		if (lead === entity && entities.some(e => e.following === entity)) drawSprite('moves', {col: SPRITE_LEAD, row: 0}, screenX, screenY);
 		if (entities[currentEntityIndex] !== entity) return;
 
 		for (let i = 0; i < currentEntityTurnsRemaining; i++) {

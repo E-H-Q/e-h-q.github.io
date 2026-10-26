@@ -437,6 +437,7 @@ var turns = {
                         if (p.following && (p === spottedRoot || p.following === spottedRoot || p === seen)) {
                             console.log(p.name + " stopped following " + p.following.name + ".");
                             p.following = null;
+                            p.has_acted = false;
                         }
                     });
                 });
