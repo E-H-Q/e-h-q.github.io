@@ -352,7 +352,7 @@ var turns = {
         }
 
         if (action.value === "attack") {
-            canvas.attackRangeDim(currentEntity);
+            if (isPlayerControlled(currentEntity)) canvas.attackRangeDim(currentEntity);
             if (window.throwingGrenadeIndex == undefined && specialMode !== 'dashAttack') {
                 const cursorX = window.cursorWorldPos.x;
                 const cursorY = window.cursorWorldPos.y;
