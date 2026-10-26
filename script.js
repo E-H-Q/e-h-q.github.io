@@ -233,10 +233,7 @@ function updateTurnOrder() {
 	for (let i = 0; i < entities.length; i++) {
 		const entity = entities[i];
 
-		if (!isPlayerControlled(entity)) {
-			const hasSeenPlayer = (entity.seenX !== 0 || entity.seenY !== 0);
-			if (!hasSeenPlayer || !turns.shouldProcessEntity(entity)) continue;
-		}
+		if (!isPlayerControlled(entity) && !turns.engaged(entity)) continue;
 
 		const isActive = (i === currentEntityIndex);
 		const turnsDisplay = isActive ? ` (${currentEntityTurnsRemaining}/${entity.turns})` : ` (${entity.turns})`;

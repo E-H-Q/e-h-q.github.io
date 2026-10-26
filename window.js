@@ -522,8 +522,8 @@ var WindowSystem = {
     drawContextMenu: function(menu = activeContextMenu) {
         if (!menu) return;
 
-        const g = allEnemies.find(e => helper.isGrenadeEntity(e) && e.hp > 0 && e.x === menu.tileX && e.y === menu.tileY);
-        if (g && helper.hasTrait(g, 'active')) canvas.grenadeOutline(g);
+        const g = allEnemies.find(e => e.hp > 0 && e.x === menu.tileX && e.y === menu.tileY);
+        if (g && helper.hasTrait(g, 'explode')) canvas.grenadeOutline(g);
 
         const height = menu.options.length * menu.itemHeight + menu.padding * 2;
 

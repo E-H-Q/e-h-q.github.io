@@ -30,8 +30,7 @@ function groupLeadsWithFollowers() {
 }
 
 function startFollowing(follower, followed) {
-    const inCombat = allEnemies.some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && (e.seenX !== 0 || e.seenY !== 0));
-    if (inCombat) {
+    if (allEnemies.some(e => !helper.isGrenadeEntity(e) && turns.engaged(e))) {
         console.log("Cannot follow while in combat!");
         return;
     }
@@ -67,17 +66,17 @@ var turns = {
     shouldProcessEntity: function(entity) {
         if (!entity || entity.hp < 1) return false;
         if (helper.isGrenadeEntity(entity)) return helper.hasTrait(entity, 'active');
-        if (isPlayerControlled(entity)) return true;
-        if (entity.awareOfPlayer === true) return true;   // viewport override
-
-        const buffer = 5;
+        if (isPlayerControlled(entity) || entity.awareOfPlayer) return true;
+        const z = isZoomedOut ? 2 : 1, vw = viewportWidth / z, vh = viewportHeight / z, buffer = 5;
         return allPlayers.some(p => {
-            const cx = p.x - Math.round(viewportWidth / 2) + 1;
-            const cy = p.y - Math.round(viewportHeight / 2) + 1;
-            return isPlayerControlled(p) &&
-                entity.x >= cx - buffer && entity.x <= cx + viewportWidth + buffer &&
-                entity.y >= cy - buffer && entity.y <= cy + viewportHeight + buffer;
+            const cx = p.x - Math.round(vw / 2) + 1, cy = p.y - Math.round(vh / 2) + 1;
+            return entity.x >= cx - buffer && entity.x <= cx + vw + buffer &&
+                entity.y >= cy - buffer && entity.y <= cy + vh + buffer;
         });
+    },
+
+    engaged: function(e) {
+        return !isPlayerControlled(e) && (e.seenX !== 0 || e.seenY !== 0) && this.shouldProcessEntity(e);
     },
 
     _roundReset: function() {
@@ -112,7 +111,7 @@ var turns = {
 
         if (currentEntityTurnsRemaining <= 0) { // ONLY RUNS WHEN NON-PLAYER ENTITIES ARE ALSO PRESENT!? NEEDS TO TRIGGER AFTER *ALL* ENTITY TURNS!!!
             const previousEntity = entities[currentEntityIndex];
-            const hasEnemies = allEnemies.some(e => this.shouldProcessEntity(e) && (e.seenX !== 0 || e.seenY !== 0));
+            const hasEnemies = allEnemies.some(e => this.engaged(e));
             const isLastPlayer = previousEntity && isPlayerControlled(previousEntity) && !previousEntity.following && currentEntityIndex === allPlayers.length - 1;
             const needsDelay = isLastPlayer && hasEnemies && !this._playerTurnEndReady;
 
@@ -411,13 +410,16 @@ var turns = {
     checkEnemyLOS: function() {
         this.updateAwarenessCache();
 
-        const buffer = 5;
         const spottedSquadMembers = new Set(); // players whose squad was just dissolved this call
 
         allEnemies.forEach(enemy => {
             if (enemy.hp < 1 || helper.isGrenadeEntity(enemy)) return;
             if (isPlayerControlled(enemy)) return; // player-trait entities can live in allEnemies; don't treat them as observers
-            if (!this.shouldProcessEntity(enemy)) return;
+            if (!this.shouldProcessEntity(enemy)) {
+                enemy.seenX = enemy.seenY = enemy.huntingTurns = 0;
+                if (enemy.lastAttacker) enemy.lastAttacker = null;
+                return;
+            }
 
             let closestVisible = null;
             let closestDist = Infinity;
