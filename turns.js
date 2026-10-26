@@ -267,6 +267,13 @@ var turns = {
             const effectiveRange = getEntityAttackRange(currentEntity);
             const canSeeTarget = EntitySystem.hasLOS(currentEntity, target.x, target.y);
             const willAttack = canSeeTarget && dist <= effectiveRange;
+            const aggressive = canSeeTarget && helper.hasTrait(currentEntity, 'aggressive');
+            const canAbility = k => aggressive && helper.hasTrait(currentEntity, k) && !abilityTypes[k].canUse(currentEntity);
+            const dash = {x: target.x * 2 - currentEntity.x, y: target.y * 2 - currentEntity.y};
+            const willDash = dist === 1 && canAbility('dashAttack') && helper.inBounds(dash.x, dash.y) && computeDashPath(currentEntity, dash.x, dash.y);
+            const gDef = itemTypes.grenade, grenadeIdx = getInventory(currentEntity).findIndex(i => i?.itemType === 'grenade');
+            const willThrow = aggressive && !willDash && !(willAttack && canAbility('magDump') && hasAmmo(currentEntity)) && grenadeIdx >= 0 &&
+                dist > gDef.damageRadius && dist <= currentEntity.attack_range + gDef.damageRadius;
 
             const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
             const shouldProcess = this.shouldProcessEntity(currentEntity);
@@ -279,7 +286,13 @@ var turns = {
                 return;
             }
 
-            if (!willAttack && isInCombat && shouldProcess) {
+            const show = isInCombat && shouldProcess;
+            action.value = show && (willAttack || willThrow) ? 'attack' : 'move';
+            window.throwingGrenadeIndex = show && willThrow ? grenadeIdx : undefined;
+            if (show) window.cursorWorldPos = willDash ? dash : action.value === 'attack' ? {x: target.x, y: target.y} : {x: currentEntity.x, y: currentEntity.y};
+            if (show && willDash) { specialMode = 'dashAttack'; specialModeEntity = currentEntity; }
+
+            if (!willAttack && !willThrow && (canSeeTarget || this.findWeaponToReload(currentEntity) === -1) && show) {
                 calc.move(currentEntity);
                 const ptx = currentEntity.seenX || target.x, pty = currentEntity.seenY || target.y;
                 const previewPath = this.computeEnemyPath(currentEntity, ptx, pty);
@@ -289,16 +302,14 @@ var turns = {
                     pv.tx = ptx; pv.ty = pty;
                     currentEntity._previewPath = pv;
                 }
-            } else if (willAttack && shouldProcess) {
-                const targetingTiles = calculateEntityTargeting(currentEntity, target.x, target.y);
-                canvas.los(targetingTiles, getWeaponAimStyle(currentEntity) === 'direct');
-                canvas.crosshair(target.x, target.y);
             }
 
             if (isInCombat && shouldProcess) {
                 if (!this._enemyActionPending) {
                     this._enemyActionPending = true;
                     setTimeout(() => {
+                        window.throwingGrenadeIndex = undefined;
+                        if (willDash) specialMode = specialModeEntity = null;
                         try { this.enemyTurn(currentEntity, target, canSeeTarget, dist, effectiveRange); }
                         finally { this._enemyActionPending = false; }
                         update();
@@ -313,7 +324,6 @@ var turns = {
                     });
                 }
             }
-            return;
         }
 
         if (isPlayerControlled(currentEntity) && action.value === "move") {
@@ -341,7 +351,7 @@ var turns = {
             }
         }
 
-        if (isPlayerControlled(currentEntity) && action.value === "attack") {
+        if (action.value === "attack") {
             canvas.attackRangeDim(currentEntity);
             if (window.throwingGrenadeIndex == undefined && specialMode !== 'dashAttack') {
                 const cursorX = window.cursorWorldPos.x;

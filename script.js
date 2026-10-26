@@ -468,7 +468,7 @@ function update() {
 		if (dashPath) {
 			canvas.path(dashPath, specialModeEntity.x, specialModeEntity.y, specialModeEntity);
 			dashPath.forEach(step => {
-				if (allEnemies.some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y)) {
+				if ((isPlayerControlled(specialModeEntity) ? allEnemies : allPlayers).some(e => e.hp > 0 && !helper.isGrenadeEntity(e) && e.x === step.x && e.y === step.y)) {
 					canvas.crosshair(step.x, step.y);
 					canvas.hitLabel(step.x, step.y, getEntityStat(specialModeEntity, 'hit_near'));
 				}
@@ -485,7 +485,7 @@ function update() {
 		});
 		canvas.drawAdjacentSelect();
 	} else { // GRENADE THROWING! (also used for the psuedo attack mode when throwing inventory items.)
-		if (isPlayerControlled(currentEntity) && action.value === "attack" && window.cursorWorldPos && window.throwingGrenadeIndex !== undefined) {
+		if (action.value === "attack" && window.cursorWorldPos && window.throwingGrenadeIndex !== undefined) {
 			const cursorX = window.cursorWorldPos.x;
 			const cursorY = window.cursorWorldPos.y;
 			let gPath = line({x: currentEntity.x, y: currentEntity.y}, {x: cursorX, y: cursorY});
@@ -494,7 +494,7 @@ function update() {
 			
 			const item = currentEntity.inventory?.[window.throwingGrenadeIndex];
 			const itemDef = getItemDef(item);
-			if (item?.isLive && itemDef?.effect === "grenade") {
+			if ((item?.isLive || !isPlayerControlled(currentEntity)) && itemDef?.effect === "grenade") {
 				const grenadeTargeting = calculateGrenadeTargeting(currentEntity, cursorX, cursorY, itemDef);
 				if (grenadeTargeting.length > 0) {
 					// Draw crosshairs only on blast-area tiles. Path tiles that happen to

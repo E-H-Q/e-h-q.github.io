@@ -264,7 +264,9 @@ var net = {
 	const previewArgs = {
 		path: (p, x, y, e) => [xy(p), x, y, allEntities().indexOf(e)],
 		los: (p, d, h) => [xy(p), d, xy(h)],
-		crosshair: (x, y) => [x, y]
+		crosshair: (x, y) => [x, y],
+		hitLabel: (x, y, pct) => [x, y, pct],
+		grenadeOutline: g => [{x: g.x, y: g.y, _radius: g._radius}]
 	};
 	Object.keys(previewArgs).forEach(k => {
 		const f = canvas[k];
