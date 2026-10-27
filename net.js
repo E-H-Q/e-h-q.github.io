@@ -99,7 +99,7 @@ var net = {
 	})),
 
 	guestUi: on => {
-		['enemy-settings', 'player-settings', 'item-settings', 'dungeon-settings', 'edit-row', 'net-host', 'net-link']
+		['enemy-settings', 'player-settings', 'item-settings', 'edit-row', 'net-host', 'net-link']
 			.forEach(id => document.getElementById(id).classList.toggle('hidden', on));
 		['map-size', 'turn-delay'].forEach(id => document.getElementById(id).disabled = on);
 	},
