@@ -272,7 +272,7 @@ var turns = {
             const willDash = dist === 1 && canAbility('dashAttack') && helper.inBounds(dash.x, dash.y) && computeDashPath(currentEntity, dash.x, dash.y);
             const gDef = itemTypes.grenade, grenadeIdx = getInventory(currentEntity).findIndex(i => i?.itemType === 'grenade');
             const willThrow = aggressive && !willDash && !(willAttack && canAbility('magDump') && hasAmmo(currentEntity)) && grenadeIdx >= 0 &&
-                dist > gDef.damageRadius && dist <= currentEntity.attack_range + gDef.damageRadius;
+                dist > gDef.damageRadius && dist <= currentEntity.throw_range + gDef.damageRadius;
 
             const enemyHasSeenPlayer = (currentEntity.seenX !== 0 || currentEntity.seenY !== 0);
             const shouldProcess = this.shouldProcessEntity(currentEntity);
@@ -510,9 +510,9 @@ var turns = {
     tryThrowGrenade: function(entity, targetX, targetY) {
         let aimX = targetX, aimY = targetY;
         const dist = calc.distance(entity.x, targetX, entity.y, targetY);
-        if (dist > entity.attack_range) {
+        if (dist > entity.throw_range) {
             const path = line({x: entity.x, y: entity.y}, {x: targetX, y: targetY});
-            const aim = path[Math.min(path.length - 1, entity.attack_range)];
+            const aim = path[Math.min(path.length - 1, entity.throw_range)];
             aimX = aim.x; aimY = aim.y;
         }
         const liveIdx = getOrActivateGrenade(entity);
@@ -789,7 +789,7 @@ var turns = {
             if (helper.hasTrait(entity, 'aggressive')) {
                 if (this.tryUseAbility(entity, ['dashAttack', 'magDump'], target, canSeeTarget, dist)) return;
                 const gDef = itemTypes.grenade;
-                if (dist > gDef.damageRadius && dist <= entity.attack_range + gDef.damageRadius) {
+                if (dist > gDef.damageRadius && dist <= entity.throw_range + gDef.damageRadius) {
                     if (this.tryThrowGrenade(entity, target.x, target.y)) {
                         currentEntityTurnsRemaining--;
                         return;

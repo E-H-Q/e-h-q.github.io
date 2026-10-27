@@ -190,6 +190,7 @@ function getWeaponAimStyle(entity) {
 }
 
 function getEntityAttackRange(entity) {
+	if (window.throwingGrenadeIndex !== undefined && isPlayerControlled(entity)) return entity.throw_range;
 	if (entity === specialModeEntity) {
 		if (specialMode === 'donor' || specialMode === 'shield') return 1;
 		if (specialMode === 'detonate') return Infinity;
@@ -367,7 +368,7 @@ function getTargetedEntities(attacker, endX, endY) {
 }
 
 function calculateGrenadeTargeting(entity, endX, endY, itemDef) {
-	const throwRange = entity.attack_range;
+	const throwRange = entity.throw_range;
 
 	let path = line({x: entity.x, y: entity.y}, {x: endX, y: endY});
 	path = clipPathAtWall(path); // grenades stop at walls, can't destroy en route
@@ -391,7 +392,7 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 	const itemDef = getItemDef(item);
 
 	const dist = calc.distance(entity.x, targetX, entity.y, targetY);
-	if (dist > entity.attack_range) return false;
+	if (dist > entity.throw_range) return false;
 
 	let path = line({x: entity.x, y: entity.y}, {x: targetX, y: targetY});
 	path = clipPathAtWall(path);
@@ -407,7 +408,7 @@ function throwItem(entity, inventoryIndex, targetX, targetY) {
 
 	if (path.length === 0) return false;
 
-	const landingSpot = path[Math.min(path.length - 1, entity.attack_range)];
+	const landingSpot = path[Math.min(path.length - 1, entity.throw_range)];
 	if (isItemEquipped(entity, item)) unequipItem(entity, itemDef.slot);
 
 	//console.log(entity.name + " threw a grenade to (" + landingSpot.x + ", " + landingSpot.y + ")!");
@@ -680,7 +681,7 @@ function useItem(entity, inventoryIndex) {
 				window.throwingGrenadeIndex = liveIdx;
 				window.lastUsedAction = action.value;
 				action.value = "attack";
-				console.log("Select target to throw grenade (range: " + entity.attack_range + ")");
+				console.log("Select target to throw grenade (range: " + entity.throw_range + ")");
 			}
 			update();
 			return true;

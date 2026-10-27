@@ -425,6 +425,7 @@ var player = {
 	y: Math.floor(viewportHeight / 2),
 	range: 3,
 	attack_range: 4,
+	throw_range: 6,
 	hit_near: 80,
 	hit_far: 40,
 	turns: 2,
@@ -442,6 +443,7 @@ var enemy = {
 	y: 2,
 	range: 3,
 	attack_range: 3,
+	throw_range: 6,
 	hit_near: 80,
 	hit_far: 40,
 	turns: 2,
@@ -485,6 +487,7 @@ function updatePlayer() {
 	target.maxHp = parseInt(document.getElementById('player_maxHp').value) || target.maxHp;
 	target.range = parseInt(document.getElementById('player_range').value) || target.range;
 	target.attack_range = parseInt(document.getElementById('player_attack_range').value) || target.attack_range;
+	target.throw_range = parseInt(document.getElementById('player_throw_range').value) || target.throw_range;
 	target.hit_near = parseInt(document.getElementById('player_hit_near').value) || target.hit_near;
 	target.hit_far = parseInt(document.getElementById('player_hit_far').value) || target.hit_far;
 	target.turns = parseInt(document.getElementById('player_turns').value) || target.turns;
@@ -524,6 +527,7 @@ function spawnEnemy() {
 	const manualY = document.getElementById('spawn_y').value;
 	const range = parseInt(document.getElementById('spawn_range').value);
 	const attackRange = parseInt(document.getElementById('spawn_attack_range').value) || 3;
+	const throwRange = parseInt(document.getElementById('spawn_throw_range').value) || 6;
 	const hitNear = parseInt(document.getElementById('spawn_hit_near').value) || 80;
 	const hitFar = parseInt(document.getElementById('spawn_hit_far').value) || 40;
 	const turnsVal = parseInt(document.getElementById('spawn_turns').value) || 2;
@@ -561,6 +565,7 @@ function spawnEnemy() {
 			name, hp, range,
 			x: spawnX, y: spawnY,
 			attack_range: attackRange,
+			throw_range: throwRange,
 			hit_near: hitNear,
 			hit_far: hitFar,
 			turns: turnsVal,

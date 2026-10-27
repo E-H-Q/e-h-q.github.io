@@ -887,6 +887,7 @@ var WindowSystem = {
         stats.push({ text: `HP: ${entity.hp}${entity.maxHp ? '/' + entity.maxHp : ''}` });
         stats.push({ text: `Movement: ${entity.range}` });
         stats.push({ text: `Attack Range: ${entity.attack_range}` });
+        stats.push({ text: 'Throw Range: ' + entity.throw_range });
         stats.push({ text: 'Hit Chance: ' + getEntityStat(entity, 'hit_near') + '-' + getEntityStat(entity, 'hit_far') + '%' });
 
         const damage = getEntityStat(entity, "damage");

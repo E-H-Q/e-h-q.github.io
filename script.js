@@ -42,6 +42,7 @@ function populatePlayerFields(target) {
     document.getElementById('player_maxHp').value = target.maxHp;
     document.getElementById('player_range').value = target.range;
     document.getElementById('player_attack_range').value = target.attack_range;
+    document.getElementById('player_throw_range').value = target.throw_range;
     document.getElementById('player_hit_near').value = target.hit_near;
     document.getElementById('player_hit_far').value = target.hit_far;
     document.getElementById('player_turns').value = target.turns;
@@ -86,6 +87,7 @@ function spawnExtraPlayer() {
 	const maxHp        = parseInt(document.getElementById('player_maxHp').value) || 20;
 	const range        = parseInt(document.getElementById('player_range').value) || 3;
 	const attack_range = parseInt(document.getElementById('player_attack_range').value) || 4;
+	const throw_range  = parseInt(document.getElementById('player_throw_range').value) || 6;
 	const hit_near     = parseInt(document.getElementById('player_hit_near').value) || 80;
 	const hit_far      = parseInt(document.getElementById('player_hit_far').value) || 40;
 	const turns        = parseInt(document.getElementById('player_turns').value) || 2;
@@ -127,7 +129,7 @@ function spawnExtraPlayer() {
 		name, hp, maxHp,
 		x: spawnX,
 		y: spawnY,
-		range, attack_range, hit_near, hit_far, turns,
+		range, attack_range, throw_range, hit_near, hit_far, turns,
 		inventory: new Array(maxInventorySlots).fill(null),
 		equipment: {},
 		traits: ['player'],
@@ -487,7 +489,7 @@ function update() {
 			const cursorY = window.cursorWorldPos.y;
 			let gPath = line({x: currentEntity.x, y: currentEntity.y}, {x: cursorX, y: cursorY});
 			gPath = clipPathAtWall(gPath);
-			gPath = gPath.length > currentEntity.attack_range + 1 ? gPath.slice(1, currentEntity.attack_range + 1) : gPath.slice(1);
+			gPath = gPath.length > currentEntity.throw_range + 1 ? gPath.slice(1, currentEntity.throw_range + 1) : gPath.slice(1);
 			
 			const item = currentEntity.inventory?.[window.throwingGrenadeIndex];
 			const itemDef = getItemDef(item);
@@ -909,6 +911,7 @@ function load_map() {
 			e.damage = 0;
 			e.armor = 0;
 			e.hit_near ??= 80;
+			e.throw_range ??= 6;
 			e.hit_far ??= 40;
 			normalizeEntityInventory(e);
 		});
@@ -945,6 +948,7 @@ function load_map() {
                     if (!pp.traits) pp.traits = [];
                     if (!pp.traits.includes('player')) pp.traits.push('player');
                     pp.hit_near ??= 80;
+                    pp.throw_range ??= 6;
                     pp.hit_far ??= 40;
                     normalizeEntityInventory(pp);
                 });
@@ -969,6 +973,7 @@ function load_map() {
                     if (!p.traits) p.traits = [];
                     if (!p.traits.includes('player')) p.traits.push('player');
                     p.hit_near ??= 80;
+                    p.throw_range ??= 6;
                     p.hit_far ??= 40;
                     normalizeEntityInventory(p);
                 });
