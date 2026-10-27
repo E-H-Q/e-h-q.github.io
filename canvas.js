@@ -96,16 +96,12 @@ function getEntityAbilities(entity) {
 }
 
 // entity.abilityOrder: bar order, index = bar slot. New abilities append, removed ones drop out.
-// entity.abilityHotbar: {inventory hotbar slot: key}, copies of bar abilities.
 function syncAbilityBar(entity) {
 	if (!entity) return;
 	const all = getEntityAbilities(entity);
 	const order = (entity.abilityOrder || []).filter(k => all.includes(k));
 	all.forEach(k => { if (!order.includes(k)) order.push(k); });
 	entity.abilityOrder = order;
-	const hb = entity.abilityHotbar || (entity.abilityHotbar = {});
-	const inv = entity.inventory || [];
-	for (const s in hb) if (inv[s] || !all.includes(hb[s])) delete hb[s];
 }
 
 function abilityAtBarSlot(entity, slot) {
@@ -831,10 +827,6 @@ var canvas = {
 					}
 
 					if (isDragSource) ctx.globalAlpha = 1.0;
-				} else if (r === 0 && entity.abilityHotbar && entity.abilityHotbar[i] &&
-					!(window.abilityDrag.isDragging && window.abilityDrag.fromHotbar === i)) {
-					canvas.abilityTile(entity.abilityHotbar[i], entity, sx, sy,
-						entities[currentEntityIndex] === entity);
 				}
 
 				// Slot outline: green for hotbar (top row), white otherwise.
@@ -878,11 +870,6 @@ var canvas = {
 			ctx.font = "13px monospace";
 			ctx.textAlign = "left";
 			ctx.fillText(name, origin.x + 4, origin.y - 6);
-		} else if (hover >= 0 && entity.abilityHotbar && entity.abilityHotbar[hover]) {
-			ctx.fillStyle = "#FFFFFF";
-			ctx.font = "13px monospace";
-			ctx.textAlign = "left";
-			ctx.fillText(abilityTypes[entity.abilityHotbar[hover]].name, origin.x + 4, origin.y - 6);
 		} else if (window.abilityHoverSlot >= 0 && abilityAtBarSlot(entity, window.abilityHoverSlot)) {
 			const key = abilityAtBarSlot(entity, window.abilityHoverSlot);
 			ctx.fillStyle = "#FFFFFF";
@@ -908,10 +895,10 @@ var canvas = {
 		}
 	},
 
-	abilityTile: (key, entity, sx, sy, myTurn) => {
+	abilityTile: (key, entity, sx, sy, myTurn, highlight = key === specialMode) => {
 		const usable = myTurn && !abilityTypes[key].canUse(entity);
 		drawTraitSprite(key, sx, sy, usable);
-		if (key === specialMode) {
+		if (highlight) {
 			ctx.strokeStyle = "rgba(255, 255, 0, 1)";
 			ctx.lineWidth = 1;
 			ctx.strokeRect(sx + 0.5, sy + 0.5, tileSize - 1, tileSize - 1);
@@ -946,15 +933,10 @@ var canvas = {
 			canvas.abilityTile(key, entity, p.x, p.y, myTurn);
 		});
 
-		const hb = entity.abilityHotbar;
 		if (ad.isDragging && ad.key && ad.mouse) {
-			const t = getInventorySlotAt(ad.mouse.x, ad.mouse.y);
 			const b = getAbilitySlotAt(ad.mouse.x, ad.mouse.y);
 			ctx.fillStyle = "rgba(255, 255, 0, 0.25)";
-			if (t >= 0 && t < INVENTORY_COLS && !entity.inventory[t] && (!hb[t] || t === ad.fromHotbar)) {
-				const io = getInventoryOrigin();
-				ctx.fillRect(io.x + t * tileSize, io.y, tileSize, tileSize);
-			} else if (b >= 0 && b < order.length && ad.fromBar !== null) {
+			if (b >= 0 && b < order.length) {
 				const p = abilitySlotPos(b);
 				ctx.fillRect(p.x, p.y, tileSize, tileSize);
 			}
@@ -970,6 +952,13 @@ var canvas = {
 			ctx.strokeRect(go.x + (gridSel.slot % cols) * tileSize + 1,
 				go.y + ((gridSel.slot / cols) | 0) * tileSize + 1, tileSize - 2, tileSize - 2);
 		}
+	},
+
+	abilityPopup: () => {
+		const p = abilityPopup;
+		if (!p) return;
+		WindowSystem.drawContextMenu(p);
+		p.keys.forEach((k, i) => canvas.abilityTile(k, getActivePlayerEntity(), p.x + p.padding + i * tileSize, p.y + p.padding, true, k === p.hover));
 	},
 
 	// Top layer, drawn last in update() so nothing can cover it

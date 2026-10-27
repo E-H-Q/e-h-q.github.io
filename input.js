@@ -18,6 +18,7 @@ var adjacentSelect = null;
 // Keyboard grid-select mode: cursor locked to a UI grid. { grid, slot }
 var uiGridSelect = null;
 
+var abilityPopup = null;
 var UI_GRIDS = {
 	ability: {
 		cols: () => getAbilityBarCols(getActivePlayerEntity()),
@@ -62,23 +63,13 @@ var UI_GRIDS = {
 		activate: s => {
 			const ent = getActivePlayerEntity();
 			if (getInventory(ent)[s]) { closeUIGridSelect(); useItem(ent, s); return true; }
-			if (ent.abilityHotbar && ent.abilityHotbar[s]) { closeUIGridSelect(); handleAbilityClick(ent.abilityHotbar[s]); return true; }
 			return false;
 		},
 		contextMenu: s => {
-			const ent = getActivePlayerEntity();
-			if (getInventory(ent)[s]) {
-				closeUIGridSelect();
-				showInventoryContextMenu(s, null);
-				return true;
-			}
-			if (ent.abilityHotbar && ent.abilityHotbar[s]) {
-				const o = getInventoryOrigin();
-				closeUIGridSelect();
-				showAbilityContextMenu(ent.abilityHotbar[s], o.x + (s % INVENTORY_COLS) * tileSize, o.y);
-				return true;
-			}
-			return false;
+			if (!getInventory(getActivePlayerEntity())[s]) return false;
+			closeUIGridSelect();
+			showInventoryContextMenu(s, null);
+			return true;
 		}
 	}
 };
@@ -253,7 +244,7 @@ function grabItemsFromTile(x, y) {
 }
 
 function resetAbilityDrag() {
-	window.abilityDrag = { key: null, startMouse: null, isDragging: false, mouse: null, fromBar: null, fromHotbar: null };
+	window.abilityDrag = { key: null, startMouse: null, isDragging: false, mouse: null, fromBar: null };
 }
 
 function resetInventoryDrag() {
@@ -417,6 +408,7 @@ var input = {
     keyboard: function(event) {
         // Hands off if the user is typing in a text input — let the browser handle it.
         if (isTypingInTextField()) return;
+        if (abilityPopup && event.type === 'keyup' && event.keyCode === 65) { abilityPopup = null; update(); return; }
         if (EntitySystem._explosionPending) return;
         if (turns._playerTurnEndPending) return;
 
@@ -441,7 +433,7 @@ var input = {
                 UI_GRIDS[uiGridSelect.grid].contextMenu(uiGridSelect.slot);
             } else if (event.keyCode === 27) {
                 closeUIGridSelect();
-            } else if (event.keyCode === 65) {
+            } else if (event.keyCode === 65 && event.shiftKey) {
                 openAbilityGridSelect();
             } else if (event.keyCode === 73 && !event.shiftKey) {
                 openUIGridSelect('inventory', INVENTORY_COLS);
@@ -704,12 +696,7 @@ var input = {
                 let slotIndex = event.keyCode - 49;
                 if (event.keyCode === 48) slotIndex = 9;
                 const activeEnt = getActivePlayerEntity();
-                const inv = getInventory(activeEnt);
-                if (activeEnt.abilityHotbar && activeEnt.abilityHotbar[slotIndex]) {
-                    handleAbilityClick(activeEnt.abilityHotbar[slotIndex]);
-                } else if (slotIndex >= 0 && slotIndex < INVENTORY_COLS && inv[slotIndex]) {
-                    useItem(activeEnt, slotIndex);
-                }
+                if (getInventory(activeEnt)[slotIndex]) useItem(activeEnt, slotIndex);
             }
             return;
         }
@@ -749,7 +736,17 @@ var input = {
             if (currentEntityIndex >= 0 && isPlayerControlled(entities[currentEntityIndex]) &&
                 !specialMode &&
                 !adjacentSelect && window.throwingGrenadeIndex === undefined) {
-                if (!event.shiftKey) openAbilityGridSelect();
+                if (event.shiftKey) openAbilityGridSelect();
+                else if (!event.repeat) {
+                    const ent = getActivePlayerEntity();
+                    syncAbilityBar(ent);
+                    const keys = ent.abilityOrder.filter(k => !abilityTypes[k].canUse(ent));
+                    const kb = keyboardMode || mouse_pos.canvasX === undefined, padding = 4, width = keys.length * tileSize + padding * 2;
+                    if (keys.length) abilityPopup = WindowSystem.clampContextMenu({width, padding, keys, options: [{text: ''}], itemHeight: tileSize,
+                        x: (kb ? toScreenX(window.cursorWorldPos.x) + tileSize / 2 : mouse_pos.canvasX) - width / 2,
+                        y: (kb ? toScreenY(window.cursorWorldPos.y) : mouse_pos.canvasY) - tileSize - padding * 2});
+                    update();
+                }
             }
             return;
         }
@@ -768,6 +765,15 @@ var input = {
             clientX: event.clientX,
             clientY: event.clientY
         };
+
+        if (abilityPopup) {
+            const p = abilityPopup, dy = canvasY - p.y - p.padding, cw = window.cursorWorldPos;
+            const inBox = canvasX >= p.x && canvasX <= p.x + p.width && dy >= -p.padding && dy <= tileSize + p.padding;
+            if (!inBox && (camera.x + Math.floor(canvasX / tileSize) !== cw.x || camera.y + Math.floor(canvasY / tileSize) !== cw.y)) abilityPopup = null;
+            else p.hover = dy >= 0 && dy < tileSize ? p.keys[Math.floor((canvasX - p.x - p.padding) / tileSize)] : null;
+            update();
+            return;
+        }
 
         if (typeof WindowSystem !== 'undefined' && (activeContextMenu || WindowSystem.isOpen())) {
             WindowSystem.handleMouseMove(canvasX, canvasY);
@@ -1055,6 +1061,7 @@ var input = {
         if (turns._playerTurnEndPending) return;
         if (typeof WindowSystem !== 'undefined' && (activeContextMenu || WindowSystem.isOpen())) return;
         if (uiGridSelect) { closeUIGridSelect(); return; }
+        if (abilityPopup) { abilityPopup = null; update(); return; }
 
         // Inventory right-click → context menu (Examine / Use|Equip / Drop)
         const rect = c.getBoundingClientRect();
@@ -1062,13 +1069,6 @@ var input = {
         const canvasY = event.clientY - rect.top;
         const invSlot = getInventorySlotAt(canvasX, canvasY);
         if (invSlot >= 0) {
-            const rcEnt = getActivePlayerEntity();
-            if (!getInventory(rcEnt)[invSlot] && rcEnt.abilityHotbar && rcEnt.abilityHotbar[invSlot]) {
-                const io = getInventoryOrigin();
-                showAbilityContextMenu(rcEnt.abilityHotbar[invSlot],
-                    io.x + (invSlot % INVENTORY_COLS) * tileSize, io.y);
-                return;
-            }
             if (typeof showInventoryContextMenu === 'function') {
                 showInventoryContextMenu(invSlot, event);
                 return;
@@ -1383,6 +1383,15 @@ var input = {
         const canvasX = event.clientX - rect.left;
         const canvasY = event.clientY - rect.top;
 
+        if (abilityPopup) {
+            const key = abilityPopup.hover;
+            abilityPopup = null;
+            window.suppressNextClick = true;
+            update();
+            if (key) handleAbilityClick(key);
+            return;
+        }
+
         // INVENTORY mousedown — starts a drag (or click candidate). Always suppress the
         // subsequent map click so we don't accidentally move/attack at the cursor world pos.
         const invSlot = getInventorySlotAt(canvasX, canvasY);
@@ -1397,12 +1406,6 @@ var input = {
                 window.inventoryDrag.isDragging = false;
                 window.inventoryDrag.overSlot = invSlot;
                 window.inventoryDrag.item = inv[invSlot];
-            } else if (activeEnt.abilityHotbar && activeEnt.abilityHotbar[invSlot]) {
-                window.abilityDrag.key = activeEnt.abilityHotbar[invSlot];
-                window.abilityDrag.fromHotbar = invSlot;
-                window.abilityDrag.startMouse = { x: canvasX, y: canvasY };
-                window.abilityDrag.mouse = { x: canvasX, y: canvasY };
-                window.abilityDrag.isDragging = false;
             }
             isMouseDown = false; // don't trigger edit-mode drag paint
             return;
@@ -1482,15 +1485,9 @@ var input = {
             const activeEnt = getActivePlayerEntity();
             if (ad.isDragging) {
                 syncAbilityBar(activeEnt);
-                const hb = activeEnt.abilityHotbar;
                 const order = activeEnt.abilityOrder;
-                const t = getInventorySlotAt(ad.mouse.x, ad.mouse.y);
                 const b = getAbilitySlotAt(ad.mouse.x, ad.mouse.y);
-                if (ad.fromHotbar !== null) delete hb[ad.fromHotbar];
-                if (t >= 0 && t < INVENTORY_COLS && !getInventory(activeEnt)[t] && !hb[t]) {
-                    for (const s in hb) if (hb[s] === ad.key) delete hb[s];
-                    hb[t] = ad.key;
-                } else if (ad.fromBar !== null && b >= 0 && b < order.length) {
+                if (b >= 0 && b < order.length) {
                     [order[ad.fromBar], order[b]] = [order[b], order[ad.fromBar]];
                 }
                 resetAbilityDrag();

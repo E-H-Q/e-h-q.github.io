@@ -514,6 +514,7 @@ function update() {
 	canvas.cursor();
 	canvas.inventory();
 	canvas.abilityBar();
+	canvas.abilityPopup();
 	canvas.window();
 	canvas.editModeText(); // always the top layer
 
