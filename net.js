@@ -23,7 +23,7 @@ var net = {
 	get guest() { return !!net.host; },
 
 	owns: e => isPlayerControlled(e) && (!net.peer || (e.peer || 'host') === net.self),
-	myTurn: () => !net.peer || net.owns(entities[currentEntityIndex]),
+	myTurn: () => edit.checked || !net.peer || net.owns(entities[currentEntityIndex]),
 
 	start: hostId => {
 		net.peer = new Peer();

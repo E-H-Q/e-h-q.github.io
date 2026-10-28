@@ -43,6 +43,8 @@ var savedPlayerRange = 0;
 
 // Edit mode tile selection
 var selectedEditTiles = []; // array of {x, y} for shift+click selected tiles in edit mode
+var editSwap = null;
+var editClipboard = null;
 
 // Inventory drag/drop + hover state
 window.inventoryDrag = { startSlot: -1, startMouse: null, isDragging: false, item: null, overSlot: -1, mouse: null };
@@ -465,7 +467,7 @@ function isPlayerControlled(entity) {
 // Returns the active player-controlled entity this turn, or original player as fallback
 function getActivePlayerEntity() {
 	const current = entities[currentEntityIndex];
-	return (current && isPlayerControlled(current)) ? current : player;
+	return (current && (edit.checked || isPlayerControlled(current))) ? current : player;
 }
 
 function updatePlayer() {
@@ -578,7 +580,7 @@ function spawnEnemy() {
 			has_acted: false
 		};
 		allEnemies.push(newEnemy);
-		if (EntitySystem.hasLOS(newEnemy, player.x, player.y)) {
+		if (!edit.checked && EntitySystem.hasLOS(newEnemy, player.x, player.y)) {
 			newEnemy.seenX = player.x;
 			newEnemy.seenY = player.y;
 		}

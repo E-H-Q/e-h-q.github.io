@@ -527,7 +527,7 @@ var WindowSystem = {
 
         const height = menu.options.length * menu.itemHeight + menu.padding * 2;
 
-        ctx.fillStyle = "#000000";
+        ctx.fillStyle = menu === activeContextMenu ? "rgba(0, 0, 0, 0.75)" : "#000000";
         ctx.fillRect(menu.x, menu.y, menu.width, height);
 
         ctx.strokeStyle = "#ffffff";

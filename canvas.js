@@ -74,7 +74,7 @@ function getInventoryOrigin() {
 // Returns the slot index (0..29) under a canvas-pixel position, or -1 if outside
 // (or if the inventory is currently hidden — treat the area as empty space).
 function getInventorySlotAt(canvasX, canvasY) {
-	if ((typeof inventoryHidden !== 'undefined' && inventoryHidden) || !isPlayerControlled(entities[currentEntityIndex])) return -1;
+	if ((typeof inventoryHidden !== 'undefined' && inventoryHidden) || (!edit.checked && !isPlayerControlled(entities[currentEntityIndex]))) return -1;
 	const o = getInventoryOrigin();
 	const w = INVENTORY_COLS * tileSize;
 	const h = INVENTORY_ROWS * tileSize;
@@ -271,7 +271,7 @@ function abilitySlotPos(i) {
 
 // Returns the ability slot under a canvas-pixel position, or -1.
 function getAbilitySlotAt(canvasX, canvasY) {
-	if ((typeof inventoryHidden !== 'undefined' && inventoryHidden) || !isPlayerControlled(entities[currentEntityIndex])) return -1;
+	if ((typeof inventoryHidden !== 'undefined' && inventoryHidden) || (!edit.checked && !isPlayerControlled(entities[currentEntityIndex]))) return -1;
 	const o = getInventoryOrigin();
 	const col = Math.floor((o.x - canvasX) / tileSize);
 	const row = Math.floor((canvasY - o.y) / tileSize);
@@ -498,7 +498,9 @@ var canvas = {
 		if (hasActed) ctx.filter = "grayscale(75%)";
 		ctx.fillRect(screenX, screenY, tileSize, tileSize);
 		if (hasActed) ctx.filter = "brightness(75%)";
+		if (edit.checked && allPlayers.includes(entity)) ctx.globalAlpha = 0.3;
 		drawSprite('entities', ENTITY_SPRITE_MAP[imgId], screenX, screenY);
+		ctx.globalAlpha = 1.0;
 		canvas.drawStatusSprites(entity, screenX, screenY);
 
 		if (!isZoomedOut) {
@@ -510,6 +512,11 @@ var canvas = {
 		ctx.filter = 'none';
 
 		canvas.drawTurnIndicators(entity, screenX, screenY);
+		if (edit.checked && entities[currentEntityIndex] === entity) {
+			ctx.strokeStyle = "rgba(255, 255, 0, 1)";
+			ctx.lineWidth = 1;
+			ctx.strokeRect(screenX + 0.5, screenY + 0.5, tileSize - 1, tileSize - 1);
+		}
 	},
 
 	// duration in ms, draw(t) called each frame with t going 0 -> 1
@@ -750,7 +757,7 @@ var canvas = {
 	// Equipped items get a faint yellow overlay. Hovered slot's item name renders below the grid.
 	// While dragging, the source slot is dimmed and a ghost sprite follows the cursor.
 	inventory: () => {
-		if ((typeof inventoryHidden !== 'undefined' && inventoryHidden) || !isPlayerControlled(entities[currentEntityIndex])) return;
+		if ((typeof inventoryHidden !== 'undefined' && inventoryHidden) || (!edit.checked && !isPlayerControlled(entities[currentEntityIndex]))) return;
 		if (allPlayers.length === 0) return;
 		const entity = getActivePlayerEntity();
 		if (!entity) return;
@@ -907,7 +914,7 @@ var canvas = {
 
 	// Ability tiles: the bar, drop-target highlight and the drag ghost.
 	abilityBar: () => {
-		if ((typeof inventoryHidden !== 'undefined' && inventoryHidden) || !isPlayerControlled(entities[currentEntityIndex])) return;
+		if ((typeof inventoryHidden !== 'undefined' && inventoryHidden) || (!edit.checked && !isPlayerControlled(entities[currentEntityIndex]))) return;
 		const entity = getActivePlayerEntity();
 		if (!entity) return;
 		const myTurn = entities[currentEntityIndex] === entity;

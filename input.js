@@ -329,6 +329,60 @@ function handleZoom(zoomOut) {
     }
 }
 
+function setEditMode(on) {
+	edit.checked = on;
+	selectedEditTiles = [];
+	document.getElementById('size-input-container').style.display = on ? 'inline-block' : 'none';
+	if (on) action.value = "move";
+	else if (editSwap) {
+		const idx = entities.indexOf(editSwap.ent);
+		if (idx >= 0) { currentEntityIndex = idx; currentEntityTurnsRemaining = editSwap.left; }
+		editSwap = null;
+	}
+	update();
+}
+
+function editClipboardOptions(x, y) {
+	const live = allEntities(), key = x + ',' + y;
+	const clone = (v, own, seen = new Map()) => {
+		if (!v || typeof v !== 'object' || (v !== own && live.includes(v))) return v;
+		if (seen.has(v)) return seen.get(v);
+		const out = Array.isArray(v) ? [] : {};
+		seen.set(v, out);
+		for (const k in v) out[k] = clone(v[k], own, seen);
+		if (out.itemType !== undefined && out.id !== undefined) out.id = nextItemId++;
+		return out;
+	};
+	const options = [{
+		text: "(c) Copy" + (editClipboard ? "*" : ""),
+		key: "c",
+		action: function() {
+			const ent = helper.entityAt(x, y);
+			editClipboard = clone({entity: ent, isPlayer: allPlayers.includes(ent), wall: wallAt(x, y), items: helper.itemsAt(x, y), blood: bloodTiles.get(key)}, ent);
+		}
+	}];
+	if (editClipboard) options.push({
+		text: "(v) Paste",
+		key: "v",
+		danger: true,
+		action: function() {
+			const c = clone(editClipboard, editClipboard.entity);
+			const old = helper.entityAt(x, y);
+			if (old) [allPlayers, allEnemies].forEach(a => a.includes(old) && a.splice(a.indexOf(old), 1));
+			removeWall(x, y);
+			for (let i = mapItems.length - 1; i >= 0; i--) if (mapItems[i].x === x && mapItems[i].y === y) mapItems.splice(i, 1);
+			bloodTiles.delete(key);
+			if (c.entity) (c.isPlayer ? allPlayers : allEnemies).push(Object.assign(c.entity, {x, y}));
+			if (c.wall) walls.push(Object.assign(c.wall, {x, y}));
+			c.items.forEach(i => mapItems.push(Object.assign(i, {x, y})));
+			if (c.blood !== undefined) bloodTiles.set(key, c.blood);
+			if (c.isPlayer || allPlayers.includes(old)) updatePlayerSelect();
+			update();
+		}
+	});
+	return options;
+}
+
 // Toggle a tile in/out of the edit selection
 function toggleEditTileSelection(x, y) {
 	const idx = selectedEditTiles.findIndex(t => t.x === x && t.y === y);
@@ -441,11 +495,18 @@ var input = {
             return;
         }
 
-        if (currentEntityIndex >= 0 && entities[currentEntityIndex] && !isPlayerControlled(entities[currentEntityIndex]) && allPlayers.length > 0) return;
+        if (!edit.checked && currentEntityIndex >= 0 && entities[currentEntityIndex] && !isPlayerControlled(entities[currentEntityIndex]) && allPlayers.length > 0) return;
 
         // SPACE KEY - Toggle aim mode
         if (event.keyCode === 32) {
             event.preventDefault();
+            if (edit.checked) {
+                if (event.type === 'keydown' && window.cursorWorldPos) {
+                    canvas.centerOn(window.cursorWorldPos.x, window.cursorWorldPos.y);
+                    update();
+                }
+                return;
+            }
             if (event.type === 'keydown' && !isAiming) {
                 isAiming = true;
                 updateCamera();
@@ -544,19 +605,14 @@ var input = {
             } else if (specialMode) {
                 exitSpecialMode();
             } else if (edit.checked) {
-                selectedEditTiles = [];
-                edit.checked = false;
-                document.getElementById('size-input-container').style.display = 'none';
+                setEditMode(false);
             }
             return;
         }
 
         if (event.shiftKey && event.keyCode === 69) {
             if (net.guest) return;
-            edit.checked = !edit.checked;
-            if (!edit.checked) selectedEditTiles = [];
-            document.getElementById('size-input-container').style.display = edit.checked ? 'inline-block' : 'none';
-            update();
+            setEditMode(!edit.checked);
             return;
         }
 
@@ -1096,6 +1152,20 @@ var input = {
         document.getElementById('item_x').value = window.cursorWorldPos.x;
         document.getElementById('item_y').value = window.cursorWorldPos.y;
 
+        const moveTo = {x: window.cursorWorldPos.x, y: window.cursorWorldPos.y};
+        const moveOption = {
+            text: "(m) Entity to: " + moveTo.x + ", " + moveTo.y,
+            key: "m",
+            action: function() {
+                const ent = entities[currentEntityIndex];
+                if (!ent) return;
+                ent.x = moveTo.x;
+                ent.y = moveTo.y;
+                helper.tileEffects(ent);
+                update();
+            }
+        };
+
         // Edit mode: if there are selected tiles OR right-clicking a wall, show the selection context menu
         if (edit.checked) {
             const clickedWallForMenu = wallAt(window.cursorWorldPos.x, window.cursorWorldPos.y);
@@ -1130,10 +1200,11 @@ var input = {
                         }
                     });
                 }
+                if (!hasMulitSelection) options.push(...editClipboardOptions(window.cursorWorldPos.x, window.cursorWorldPos.y));
 
                 options.push({
-                    text: "(m) Make Permanent",
-                    key: "m",
+                    text: "(p) Make Permanent",
+                    key: "p",
                     action: function() {
                         menuTiles.forEach(t => {
                             const wall = wallAt(t.x, t.y);
@@ -1158,6 +1229,7 @@ var input = {
                         update();
                     }
                 });
+                if (!hasMulitSelection) options.push(moveOption);
 
                 const menuX = Math.ceil((event.clientX - rect.left) / tileSize) * tileSize - tileSize + 8;
                 const menuY = Math.ceil((event.clientY - rect.top) / tileSize) * tileSize - tileSize / 2;
@@ -1177,13 +1249,19 @@ var input = {
         const clickedItem = itemsHere[0];
         const clickedWall = wallAt(window.cursorWorldPos.x, window.cursorWorldPos.y);
 
-        if (!clickedEntity && !clickedItem && !clickedWall) return;
+        if (!edit.checked && !clickedEntity && !clickedItem && !clickedWall) return;
+
+        if (edit.checked && clickedEntity) {
+            if (!editSwap) editSwap = {ent: entities[currentEntityIndex], left: currentEntityTurnsRemaining};
+            currentEntityIndex = entities.indexOf(clickedEntity);
+            currentEntityTurnsRemaining = 0;
+        }
 
         const activeEnt = getActivePlayerEntity();
         const options = [];
 
         const clickedObject = clickedEntity || clickedWall || clickedItem;
-        let displayName = "Unknown";
+        let displayName = "Floor";
 
         if (clickedEntity) displayName = clickedEntity.name || "Entity";
         else if (clickedWall) displayName = clickedWall.graveName || clickedWall.type || "Wall";
@@ -1195,7 +1273,7 @@ var input = {
         options.push({ text: displayName.toUpperCase() });
         if (clickedObject == activeEnt) options[0].text += " (current)";
         
-        options.push({
+        if (clickedObject) options.push({
             text: "(e) Examine",
             key: "e",
             action: function() {
@@ -1227,6 +1305,7 @@ var input = {
                         WindowSystem.openTraitsWindow(clickedEntity || clickedItem);
                     }
                 });
+                options.push(...editClipboardOptions(window.cursorWorldPos.x, window.cursorWorldPos.y));
                 options.push({
                     text: "(r) Remove",
                     key: "r",
@@ -1273,7 +1352,8 @@ var input = {
 						}
 					});
 				}
-            }
+            } else options.push(...editClipboardOptions(window.cursorWorldPos.x, window.cursorWorldPos.y));
+            options.push(moveOption);
         } else { // REGULAR OPTIONS
             // Grab option
             if (clickedItem && !clickedEntity) {

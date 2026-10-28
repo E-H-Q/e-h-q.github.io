@@ -92,7 +92,7 @@ var turns = {
     },
 
     check: function() {
-        if (EntitySystem._explosionPending) return; // explosion animation in progress
+        if (EntitySystem._explosionPending || edit.checked) return; // explosion animation in progress
         if (allPlayers.length === 0 && !allEnemies.some(e => e.hp > 0 && e._precharm?.traits.includes('player'))) {
             if (!hasDied) {
                 const music = new Audio('src/audio/sound.wav');

@@ -266,7 +266,7 @@ function renderScene() {
 	canvas.player();
 	canvas.items();
 	const ce = entities[currentEntityIndex] || player;
-	if (!net.guest && isPlayerControlled(ce) && typeof turns !== 'undefined' && turns.checkEnemyLOS) {
+	if (!edit.checked && !net.guest && isPlayerControlled(ce) && typeof turns !== 'undefined' && turns.checkEnemyLOS) {
 		turns.checkEnemyLOS();
 	}
 	canvas.enemy();
@@ -300,7 +300,7 @@ function update() {
 	const oldCameraX = camera.x;
 	const oldCameraY = camera.y;
 
-	if (!EntitySystem._explosionPending) {
+	if (!EntitySystem._explosionPending && !edit.checked) {
 		if (net.owns(currentEntity) || isAiming) {
 			updateCamera();
 		} else if (isPlayerControlled(currentEntity)) {
@@ -416,7 +416,7 @@ action.selectedIndex = 0;
 
 function handleMouseMove(event) {
 	if (EntitySystem._explosionPending) return;
-	if (currentEntityIndex >= 0 && !net.owns(entities[currentEntityIndex]) && allPlayers.length > 0) return;
+	if (!edit.checked && currentEntityIndex >= 0 && !net.owns(entities[currentEntityIndex]) && allPlayers.length > 0) return;
 	input.mouse(event);
 }
 
@@ -629,7 +629,13 @@ function showInventoryContextMenu(slotIdx, event) {
 				update();
 			}
 		},
-		{
+		edit.checked ? {
+			text: "(t) Traits",
+			key: "t",
+			action: function() {
+				WindowSystem.openTraitsWindow(item);
+			}
+		} : {
 			text: "(t) Throw",
 			key: "t",
 			danger: true,
